@@ -34,21 +34,39 @@ export default function Player({ song, playing, time, playMode, songAdded, onTog
   }, [lineIdx, view])
 
   const playbackModes = (
-    <div className="player-modes mb-2 grid grid-cols-3 gap-1.5">
+    <div className="player-modes mb-2 grid grid-cols-3 gap-2">
       {([
-        { mode: 'repeat-one', label: 'UNA', icon: '↻1', ariaLabel: 'Repetir canción' },
-        { mode: 'repeat-all', label: 'TODO', icon: '↻', ariaLabel: 'Repetir todo el álbum' },
-        { mode: 'shuffle', label: 'AZAR', icon: '↭', ariaLabel: 'Reproducción aleatoria' },
-      ] as const).map(({ mode, label, icon, ariaLabel }) => (
+        { mode: 'shuffle', ariaLabel: 'Reproducir biblioteca en orden aleatorio' },
+        { mode: 'repeat-one', ariaLabel: 'Repetir canción actual' },
+        { mode: 'repeat-all', ariaLabel: 'Repetir toda la playlist' },
+      ] as const).map(({ mode, ariaLabel }) => (
         <button
           key={mode}
           onClick={() => onModeChange(playMode === mode ? 'off' : mode)}
           aria-label={ariaLabel}
           aria-pressed={playMode === mode}
-          className={`px-btn flex min-h-9 flex-row items-center justify-center gap-1 whitespace-nowrap px-1 py-1 text-[6px] ${playMode === mode ? 'bg-crimson text-cream' : 'bg-panel-2 text-cream/60'}`}
+          title={ariaLabel}
+          className={`play-mode-button px-btn grid min-h-11 place-items-center rounded-md ${playMode === mode ? 'bg-crimson text-cream' : 'bg-panel-2 text-cream/70'}`}
         >
-          <span className="text-[9px]">{icon}</span>
-          <span>{label}</span>
+          <svg viewBox="0 0 32 32" className="play-mode-icon h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
+            {mode === 'shuffle' && (
+              <>
+                <path d="M4 8h3c6 0 10 16 16 16h5M24 20l4 4-4 4M4 24h3c2 0 4-2 6-5M19 11c1.5-1.8 2.7-3 4-3h5M24 4l4 4-4 4" />
+              </>
+            )}
+            {mode === 'repeat-one' && (
+              <>
+                <path d="M26 11a11 11 0 0 0-19-3L4 11M4 6v5h5M6 21a11 11 0 0 0 19 3l3-3m0 5v-5h-5" />
+                <path d="M16 12v8m-2-6 2-2 2 2" />
+              </>
+            )}
+            {mode === 'repeat-all' && (
+              <>
+                <path d="M6 12V9a3 3 0 0 1 3-3h15l-3-3m3 3-3 3M26 20v3a3 3 0 0 1-3 3H8l3 3m-3-3 3-3" />
+                <path d="M4 16h24" />
+              </>
+            )}
+          </svg>
         </button>
       ))}
     </div>

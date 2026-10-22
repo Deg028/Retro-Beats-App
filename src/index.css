@@ -112,6 +112,14 @@
     width: 24px;
     height: 24px;
   }
+  .play-mode-button {
+    padding: 3px;
+    line-height: 1;
+  }
+  .play-mode-button[aria-pressed='true'] {
+    color: var(--color-cream);
+    box-shadow: 0 0 0 2px var(--color-secondary), 0 0 10px rgba(242, 193, 78, 0.35);
+  }
   .pixel-heart {
     display: block;
     overflow: visible;
@@ -269,6 +277,11 @@
   }
 }
 
+.play-mode-button {
+  height: 48px;
+  min-height: 48px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .screen-slide-in,
   .save-toast,
@@ -285,11 +298,12 @@
     margin-bottom: 0.25rem;
   }
   .player-modes button {
-    height: 32px;
-    min-height: 32px;
-    padding-block: 0;
-    font-size: 5px;
-    line-height: 1;
+    height: 40px;
+    min-height: 40px;
+  }
+  .play-mode-icon {
+    width: 24px;
+    height: 24px;
   }
   .player-tabs {
     margin-bottom: 0.25rem;

@@ -51,6 +51,11 @@ export default function App() {
     play(choice.id, false)
   }
 
+  const changePlayMode = (mode: PlayMode) => {
+    setPlayMode(mode)
+    if (mode === 'shuffle') playRandom()
+  }
+
   const step = (dir: 1 | -1) => {
     if (!library.length) return
     if (playMode === 'shuffle') {
@@ -139,7 +144,7 @@ export default function App() {
                     songAdded={current?.added ?? false}
                     onToggle={() => setPlaying((p) => !p)}
                     onStop={() => setPlaying(false)}
-                    onModeChange={setPlayMode}
+                    onModeChange={changePlayMode}
                     onSeek={setTime}
                     onNext={() => step(1)}
                     onPrev={() => step(-1)}
