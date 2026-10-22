@@ -9,6 +9,7 @@ type Props = {
   playing: boolean
   time: number
   playMode: PlayMode
+  songAdded: boolean
   onToggle: () => void
   onStop: () => void
   onModeChange: (mode: PlayMode) => void
@@ -16,10 +17,11 @@ type Props = {
   onNext: () => void
   onPrev: () => void
   onFav: (id: number) => void
+  onAddSong: (id: number) => void
   onBrowse: () => void
 }
 
-export default function Player({ song, playing, time, playMode, onToggle, onStop, onModeChange, onSeek, onNext, onPrev, onFav, onBrowse }: Props) {
+export default function Player({ song, playing, time, playMode, songAdded, onToggle, onStop, onModeChange, onSeek, onNext, onPrev, onFav, onAddSong, onBrowse }: Props) {
   const [view, setView] = useState<'DISCO' | 'LETRAS'>('DISCO')
   const lineRefs = useRef<(HTMLLIElement | null)[]>([])
 
@@ -186,7 +188,7 @@ export default function Player({ song, playing, time, playMode, onToggle, onStop
         </div>
       </div>
 
-      <div className="player-controls mt-2 flex items-center justify-center gap-2">
+      <div className="player-controls mt-2 flex w-full items-center justify-center gap-2">
         <button onClick={onPrev} className="player-icon-button player-control-button grid h-11 w-11 place-items-center text-cream transition-colors hover:text-coral" aria-label="Anterior">
           <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current" aria-hidden="true">
             <path d="M5 5h3v14H5zm14 .5v13a1 1 0 0 1-1.5.86l-9-6.5a1 1 0 0 1 0-1.72l9-6.5A1 1 0 0 1 19 5.5Z" />
@@ -207,6 +209,26 @@ export default function Player({ song, playing, time, playMode, onToggle, onStop
           <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current" aria-hidden="true">
             <path d="M16 5h3v14h-3zM5 5.5v13a1 1 0 0 0 1.5.86l9-6.5a1 1 0 0 0 0-1.72l-9-6.5A1 1 0 0 0 5 5.5Z" />
           </svg>
+        </button>
+        <button
+          onClick={() => !songAdded && onAddSong(song.id)}
+          disabled={songAdded}
+          aria-label={songAdded ? 'Canción agregada al álbum' : 'Agregar canción al álbum'}
+          title={songAdded ? 'Agregada al álbum' : 'Agregar al álbum'}
+          className={`player-add-control player-icon-button player-control-button grid h-11 w-11 place-items-center transition-colors ${songAdded ? 'text-coral' : 'text-cream hover:text-coral'}`}
+        >
+          {songAdded ? (
+            <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[2.5]" aria-hidden="true">
+              <path d="m5 12 4 4L19 6" strokeLinecap="square" strokeLinejoin="miter" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 64 64" className="player-add-icon text-[#4f95f7]" aria-hidden="true">
+              <path
+                d="M14 14h36a3 3 0 0 1 0 6H14a3 3 0 0 1 0-6Zm0 11h36a3 3 0 0 1 0 6H14a3 3 0 0 1 0-6Zm0 11h15v6H14a3 3 0 0 1 0-6Zm0 12h15v6H14a3 3 0 0 1 0-6Zm29-12h6v21h-6V41H32v-6h11z"
+                fill="currentColor"
+              />
+            </svg>
+          )}
         </button>
       </div>
 

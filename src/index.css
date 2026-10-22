@@ -108,6 +108,10 @@
     outline: 3px dashed var(--color-coral);
     outline-offset: 3px;
   }
+  .player-add-icon {
+    width: 24px;
+    height: 24px;
+  }
   .pixel-heart {
     display: block;
     overflow: visible;
@@ -250,12 +254,30 @@
     margin-top: 0.125rem;
   }
   .player-control-button {
-    width: 40px;
-    height: 40px;
-    min-height: 40px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
   }
   .player-main-control {
-    width: 40px;
+    width: 44px;
     border-radius: 9999px;
   }
+}
+
+.player-controls {
+  position: relative;
+  gap: 8px;
+}
+.player-control-button {
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+.player-main-control {
+  width: 48px;
+  height: 48px;
+}
+.player-add-control {
+  position: absolute;
+  right: 0;
 }

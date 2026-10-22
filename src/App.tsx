@@ -75,13 +75,12 @@ export default function App() {
 
   const toggleFav = (id: number) => setSongs((ss) => ss.map((s) => (s.id === id ? { ...s, fav: !s.fav } : s)))
 
-  const addSong = () => {
+  const addSong = (id: number) => {
+    const song = songs.find((entry) => entry.id === id)
+    if (!song || song.added) return
     addCounter.current += 1
     const stamp = addCounter.current
-    setSongs((ss) => {
-      const next = ss.find((s) => !s.added)
-      return next ? ss.map((s) => (s.id === next.id ? { ...s, added: true, addedAt: stamp } : s)) : ss
-    })
+    setSongs((ss) => ss.map((song) => (song.id === id && !song.added ? { ...song, added: true, addedAt: stamp } : song)))
   }
 
   useEffect(() => {
@@ -119,84 +118,88 @@ export default function App() {
   const showMini = current && (screen === 'home' || screen === 'album')
 
   return (
-    <div className="scanlines flex min-h-dvh items-center justify-center bg-ink md:p-8">
-      <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-ink md:h-[844px] md:w-[390px] md:border-[10px] md:border-secondary md:shadow-[10px_10px_0_0_var(--color-blood)]">
-        {screen === 'splash' ? (
-          <Splash onStart={() => setScreen('home')} />
-        ) : (
-          <>
-            <div className="grid shrink-0 grid-cols-3 items-center px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] font-pixel text-[8px] text-cream">
-              <button
-                onClick={goBack}
-                disabled={!history.length && screen === 'home'}
-                aria-label="Volver"
-                className="flex h-11 w-11 items-center justify-center text-2xl text-coral transition-colors hover:bg-panel-2/60 focus-visible:outline-2 focus-visible:outline-coral disabled:invisible"
-              >
-                ←
-              </button>
-              <span className="text-center text-coral">RETRO BEATS</span>
-              <span aria-hidden className="justify-self-end" />
-            </div>
-
-            <div key={screen} className="min-h-0 flex-1 overflow-y-auto pt-2">
-              {screen === 'home' && (
-                <Home songs={songs} currentId={currentId} playing={playing} onPlay={play} onFav={toggleFav} />
-              )}
-              {screen === 'player' && (
-                <Player
-                  song={current}
-                  playing={playing}
-                  time={time}
-                  playMode={playMode}
-                  onToggle={() => setPlaying((p) => !p)}
-                  onStop={() => setPlaying(false)}
-                  onModeChange={setPlayMode}
-                  onSeek={setTime}
-                  onNext={() => step(1)}
-                  onPrev={() => step(-1)}
-                  onFav={toggleFav}
-                  onBrowse={() => navigate('home')}
-                />
-              )}
-              {screen === 'album' && <Album songs={songs} currentId={currentId} onPlay={play} onAdd={addSong} />}
-            </div>
-
-            {showMini && current && (
-              <div className="flex shrink-0 items-center gap-3 border-t-4 border-secondary bg-panel-2 px-3 py-2">
-                <button onClick={() => navigate('player')} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label="Abrir reproductor">
-                  <PixelCover seed={current.id} className="h-9 w-9 border-2 border-secondary" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-pixel text-[8px] text-cream">{current.title}</span>
-                    <span className="block truncate text-lg leading-4 text-coral">{current.artist}</span>
-                  </span>
-                  <Equalizer playing={playing} bars={4} h={16} />
+    <div className="scanlines flex min-h-dvh items-center justify-center bg-[#11151d] p-2 sm:p-3 md:p-8">
+      <div className="phone-frame relative flex h-[calc(100dvh-1rem)] w-full max-w-[430px] flex-col overflow-hidden rounded-[2.25rem] border-[5px] border-[#343b48] bg-[#11151d] p-[5px] shadow-[0_18px_50px_rgba(0,0,0,0.55)] md:h-[844px] md:w-[390px] md:max-w-none">
+        <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[1.8rem] bg-ink">
+          {screen === 'splash' ? (
+            <Splash onStart={() => setScreen('home')} />
+          ) : (
+            <>
+              <div className="grid shrink-0 grid-cols-3 items-center px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] font-pixel text-[8px] text-cream">
+                <button
+                  onClick={goBack}
+                  disabled={!history.length && screen === 'home'}
+                  aria-label="Volver"
+                  className="flex h-11 w-11 items-center justify-center text-2xl text-coral transition-colors hover:bg-panel-2/60 focus-visible:outline-2 focus-visible:outline-coral disabled:invisible"
+                >
+                  ←
                 </button>
-                <button onClick={() => setPlaying((p) => !p)} className="px-btn bg-crimson px-3 py-2 text-cream" aria-label="Reproducir o pausar">
-                  {playing ? '❚❚' : '▶'}
-                </button>
+                <span aria-hidden className="mx-auto h-1.5 w-12 rounded-full bg-[#343b48]" />
+                <span aria-hidden className="justify-self-end" />
               </div>
-            )}
 
-            {showTabs && (
-              <nav className="grid shrink-0 grid-cols-3 gap-2 border-t-4 border-secondary bg-panel px-3 pb-2 pt-3" aria-label="Navegación principal">
-                {TABS.map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => navigate(t.key)}
-                    aria-current={screen === t.key ? 'page' : undefined}
-                    className={`px-btn flex flex-col items-center gap-1 py-1.5 ${screen === t.key ? 'bg-crimson text-cream' : 'bg-panel-2 text-cream/60'}`}
-                  >
-                    <span className="text-sm">{t.icon}</span>
-                    <span className="text-[8px]">{t.label}</span>
+              <div key={screen} className="min-h-0 flex-1 overflow-y-auto pt-2">
+                {screen === 'home' && (
+                  <Home songs={songs} currentId={currentId} playing={playing} onPlay={play} onFav={toggleFav} />
+                )}
+                {screen === 'player' && (
+                  <Player
+                    song={current}
+                    playing={playing}
+                    time={time}
+                    playMode={playMode}
+                    songAdded={current?.added ?? false}
+                    onToggle={() => setPlaying((p) => !p)}
+                    onStop={() => setPlaying(false)}
+                    onModeChange={setPlayMode}
+                    onSeek={setTime}
+                    onNext={() => step(1)}
+                    onPrev={() => step(-1)}
+                    onFav={toggleFav}
+                    onAddSong={addSong}
+                    onBrowse={() => navigate('home')}
+                  />
+                )}
+                {screen === 'album' && <Album songs={songs} currentId={currentId} onPlay={play} />}
+              </div>
+
+              {showMini && current && (
+                <div className="flex shrink-0 items-center gap-3 border-t-4 border-secondary bg-panel-2 px-3 py-2">
+                  <button onClick={() => navigate('player')} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label="Abrir reproductor">
+                    <PixelCover seed={current.id} className="h-9 w-9 border-2 border-secondary" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-pixel text-[8px] text-cream">{current.title}</span>
+                      <span className="block truncate text-lg leading-4 text-coral">{current.artist}</span>
+                    </span>
+                    <Equalizer playing={playing} bars={4} h={16} />
                   </button>
-                ))}
-              </nav>
-            )}
-            <footer className="shrink-0 border-t border-secondary/40 bg-panel px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 text-center font-pixel text-[6px] leading-3 text-cream/55">
-              DESARROLLADO POR: <span className="text-crimson">DEG</span>
-            </footer>
-          </>
-        )}
+                  <button onClick={() => setPlaying((p) => !p)} className="px-btn bg-crimson px-3 py-2 text-cream" aria-label="Reproducir o pausar">
+                    {playing ? '❚❚' : '▶'}
+                  </button>
+                </div>
+              )}
+
+              {showTabs && (
+                <nav className="grid shrink-0 grid-cols-3 gap-2 border-t-4 border-secondary bg-panel px-3 pb-2 pt-3" aria-label="Navegación principal">
+                  {TABS.map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => navigate(t.key)}
+                      aria-current={screen === t.key ? 'page' : undefined}
+                      className={`px-btn flex flex-col items-center gap-1 py-1.5 ${screen === t.key ? 'bg-crimson text-cream' : 'bg-panel-2 text-cream/60'}`}
+                    >
+                      <span className="text-sm">{t.icon}</span>
+                      <span className="text-[8px]">{t.label}</span>
+                    </button>
+                  ))}
+                </nav>
+              )}
+              <footer className="shrink-0 border-t border-secondary/40 bg-panel px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 text-center font-pixel text-[6px] leading-3 text-cream/55">
+                DESARROLLADO POR: <span className="text-crimson">DEG</span>
+              </footer>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
