@@ -131,7 +131,7 @@ export default function App() {
                 <span className="h-1.5 w-12 rounded-full bg-[#343b48]" />
               </div>
 
-              <div key={screen} className="screen-slide-in min-h-0 flex-1 overflow-y-auto pt-2">
+              <div key={screen} className={`${screen === 'home' ? 'home-screen-entry' : 'screen-slide-in'} min-h-0 flex-1 overflow-y-auto pt-2`}>
                 {screen === 'home' && (
                   <Home songs={songs} currentId={currentId} playing={playing} onPlay={play} onFav={toggleFav} />
                 )}
