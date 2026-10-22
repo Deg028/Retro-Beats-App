@@ -23,6 +23,7 @@ type Props = {
 
 export default function Player({ song, playing, time, playMode, songAdded, onToggle, onStop, onModeChange, onSeek, onNext, onPrev, onFav, onAddSong, onBrowse }: Props) {
   const [view, setView] = useState<'DISCO' | 'LETRAS'>('DISCO')
+  const [justAdded, setJustAdded] = useState(false)
   const lineRefs = useRef<(HTMLLIElement | null)[]>([])
 
   const lines = song?.lyrics
@@ -211,11 +212,15 @@ export default function Player({ song, playing, time, playMode, songAdded, onTog
           </svg>
         </button>
         <button
-          onClick={() => !songAdded && onAddSong(song.id)}
+          onClick={() => {
+            if (songAdded) return
+            setJustAdded(true)
+            onAddSong(song.id)
+          }}
           disabled={songAdded}
           aria-label={songAdded ? 'Canción agregada al álbum' : 'Agregar canción al álbum'}
           title={songAdded ? 'Agregada al álbum' : 'Agregar al álbum'}
-          className={`player-add-control player-icon-button player-control-button grid h-11 w-11 place-items-center transition-colors ${songAdded ? 'text-coral' : 'text-cream hover:text-coral'}`}
+          className={`player-add-control player-icon-button player-control-button grid h-11 w-11 place-items-center transition-colors ${songAdded ? 'text-coral' : 'text-cream hover:text-coral'} ${justAdded ? 'library-save-success' : ''}`}
         >
           <PixelSaveIcon className="player-add-icon text-[#4f95f7]" />
         </button>

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Song, fmt } from '../data'
 import { PixelCover, PixelSaveIcon } from './Pixel'
 
@@ -9,6 +10,7 @@ type Props = {
 }
 
 export default function Album({ songs, currentId, onPlay, onAddSong }: Props) {
+  const [recentlyAdded, setRecentlyAdded] = useState<number[]>([])
   const added = songs.filter((s) => s.added).sort((a, b) => b.addedAt - a.addedAt)
   const catalog = [...songs].sort((a, b) => Number(b.added) - Number(a.added) || b.addedAt - a.addedAt || a.id - b.id)
   const total = added.reduce((n, s) => n + s.duration, 0)
@@ -44,11 +46,15 @@ export default function Album({ songs, currentId, onPlay, onAddSong }: Props) {
               <span className="block truncate text-lg leading-4 text-coral">{s.artist} · {fmt(s.duration)}</span>
             </button>
             <button
-              onClick={() => !s.added && onAddSong(s.id)}
+              onClick={() => {
+                if (s.added) return
+                setRecentlyAdded((ids) => [...ids, s.id])
+                onAddSong(s.id)
+              }}
               disabled={s.added}
               aria-label={s.added ? `${s.title} ya está en la biblioteca` : `Guardar ${s.title} en la biblioteca`}
               title={s.added ? 'Ya está en la biblioteca' : 'Guardar en la biblioteca'}
-              className={`px-btn mt-2 flex min-h-9 w-full items-center justify-center gap-2 border-2 px-2 py-1 ${s.added ? 'cursor-default bg-panel-2 text-cream/50' : 'bg-panel-2 text-cream hover:text-coral'}`}
+              className={`px-btn mt-2 flex min-h-9 w-full items-center justify-center gap-2 border-2 px-2 py-1 ${s.added ? 'cursor-default bg-panel-2 text-cream/50' : 'bg-panel-2 text-cream hover:text-coral'} ${recentlyAdded.includes(s.id) ? 'library-save-success' : ''}`}
             >
               <PixelSaveIcon className="h-5 w-5 shrink-0 text-[#4f95f7]" />
               <span className="font-pixel text-[6px]">{s.added ? 'EN BIBLIOTECA' : 'GUARDAR EN ÁLBUM'}</span>

@@ -16,7 +16,7 @@ const TABS: { key: Exclude<Screen, 'splash'>; label: string; icon: string }[] = 
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('splash')
-  const [history, setHistory] = useState<Screen[]>([])
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [songs, setSongs] = useState<Song[]>(INITIAL_SONGS)
   const [currentId, setCurrentId] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -24,24 +24,14 @@ export default function App() {
   const [playMode, setPlayMode] = useState<PlayMode>('repeat-all')
   const counter = useRef(100)
   const addCounter = useRef(20)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const current = songs.find((s) => s.id === currentId) ?? null
   const library = songs.filter((s) => s.added)
 
   const navigate = (next: Screen) => {
     if (next === screen) return
-    if (screen !== 'splash') setHistory((previous) => [...previous, screen])
     setScreen(next)
-  }
-
-  const goBack = () => {
-    const previous = history[history.length - 1]
-    if (previous) {
-      setHistory((entries) => entries.slice(0, -1))
-      setScreen(previous)
-    } else if (screen !== 'home') {
-      setScreen('home')
-    }
   }
 
   const play = (id: number, open = true) => {
@@ -81,7 +71,14 @@ export default function App() {
     addCounter.current += 1
     const stamp = addCounter.current
     setSongs((ss) => ss.map((song) => (song.id === id && !song.added ? { ...song, added: true, addedAt: stamp } : song)))
+    setToastMessage(`¡${song.title} ya fue añadido al álbum!`)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToastMessage(null), 2400)
   }
+
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+  }, [])
 
   useEffect(() => {
     if (!playing || !current) return
@@ -125,20 +122,11 @@ export default function App() {
             <Splash onStart={() => setScreen('home')} />
           ) : (
             <>
-              <div className="grid shrink-0 grid-cols-3 items-center px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] font-pixel text-[8px] text-cream">
-                <button
-                  onClick={goBack}
-                  disabled={!history.length && screen === 'home'}
-                  aria-label="Volver"
-                  className="flex h-11 w-11 items-center justify-center text-2xl text-coral transition-colors hover:bg-panel-2/60 focus-visible:outline-2 focus-visible:outline-coral disabled:invisible"
-                >
-                  ←
-                </button>
-                <span aria-hidden className="mx-auto h-1.5 w-12 rounded-full bg-[#343b48]" />
-                <span aria-hidden className="justify-self-end" />
+              <div className="flex shrink-0 justify-center pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]" aria-hidden>
+                <span className="h-1.5 w-12 rounded-full bg-[#343b48]" />
               </div>
 
-              <div key={screen} className="min-h-0 flex-1 overflow-y-auto pt-2">
+              <div key={screen} className="screen-slide-in min-h-0 flex-1 overflow-y-auto pt-2">
                 {screen === 'home' && (
                   <Home songs={songs} currentId={currentId} playing={playing} onPlay={play} onFav={toggleFav} />
                 )}
@@ -195,6 +183,11 @@ export default function App() {
                 </nav>
               )}
             </>
+          )}
+          {toastMessage && (
+            <div className="save-toast" role="status" aria-live="polite">
+              {toastMessage}
+            </div>
           )}
         </div>
       </div>

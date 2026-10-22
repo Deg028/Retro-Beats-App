@@ -120,6 +120,63 @@
   .pixel-heart-pop {
     animation: pixel-heart-pop 320ms steps(4);
   }
+  .library-save-success {
+    animation: library-save-success 540ms steps(5);
+  }
+  .screen-slide-in {
+    animation: screen-slide-in 260ms ease-out both;
+  }
+  .save-toast {
+    position: absolute;
+    top: max(3.5rem, calc(env(safe-area-inset-top) + 3rem));
+    left: 50%;
+    z-index: 40;
+    width: calc(100% - 2rem);
+    padding: 0.75rem 1rem;
+    transform: translateX(-50%);
+    border: 3px solid var(--color-secondary);
+    background: var(--color-panel-2);
+    box-shadow: 4px 4px 0 0 var(--color-blood);
+    color: var(--color-cream);
+    font-family: var(--font-pixel);
+    font-size: 8px;
+    line-height: 1.6;
+    text-align: center;
+    animation: save-toast-in 220ms steps(4) both;
+  }
+  @keyframes screen-slide-in {
+    from {
+      transform: translateX(24px);
+      opacity: 0.6;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  @keyframes save-toast-in {
+    from {
+      transform: translate(-50%, -12px);
+      opacity: 0;
+    }
+    to {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+  }
+  @keyframes library-save-success {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 4px rgba(242, 193, 78, 0.6), 0 0 18px rgba(255, 117, 71, 0.7);
+    }
+    70% {
+      transform: scale(0.96);
+    }
+  }
   @keyframes pixel-heart-pop {
     0% {
       transform: scale(1);
@@ -209,6 +266,14 @@
     to {
       visibility: hidden;
     }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-slide-in,
+  .save-toast,
+  .library-save-success {
+    animation-duration: 1ms;
   }
 }
 
