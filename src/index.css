@@ -264,6 +264,15 @@
   }
 }
 
+@media (min-height: 721px) and (max-width: 600px) {
+  .player-content {
+    min-height: 100%;
+  }
+  .player-disc {
+    margin-block: auto;
+  }
+}
+
 .player-controls {
   position: relative;
   gap: 8px;

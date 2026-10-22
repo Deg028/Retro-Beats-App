@@ -4,6 +4,11 @@
     "figma": {
       "url": "https://mcp.figma.com/mcp",
       "type": "http"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--browser", "chromium"]
     }
   }
 }
