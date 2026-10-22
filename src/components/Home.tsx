@@ -19,6 +19,7 @@ type Props = {
 
 export default function Home({ songs, currentId, playing, onPlay, onFav }: Props) {
   const [section, setSection] = useState<(typeof SECTIONS)[number]['key']>('added')
+  const [sectionMenuOpen, setSectionMenuOpen] = useState(false)
   const added = songs.filter((s) => s.added)
 
   const list = {
@@ -38,8 +39,38 @@ export default function Home({ songs, currentId, playing, onPlay, onFav }: Props
   return (
     <div className="px-4 pb-4">
       <div className="mb-4 flex items-center justify-between">
-        <div>
+        <div className="relative flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Abrir secciones de inicio"
+            aria-expanded={sectionMenuOpen}
+            aria-controls="home-section-menu"
+            onClick={() => setSectionMenuOpen((open) => !open)}
+            className="grid h-9 w-9 place-items-center border-2 border-blood bg-panel-2 text-coral transition-colors hover:bg-crimson hover:text-cream focus-visible:outline-2 focus-visible:outline-coral"
+          >
+            <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
           <h1 className="font-pixel text-[15px] leading-[1.6] text-cream">INICIO</h1>
+          {sectionMenuOpen && (
+            <div id="home-section-menu" className="home-section-menu absolute left-0 top-full z-30 mt-2 grid w-48 gap-1 border-[3px] border-secondary bg-panel p-2 shadow-[4px_4px_0_var(--color-blood)]">
+              {SECTIONS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  aria-pressed={section === item.key}
+                  onClick={() => {
+                    setSection(item.key)
+                    setSectionMenuOpen(false)
+                  }}
+                  className={`px-btn w-full px-3 py-2 text-left text-[7px] ${section === item.key ? 'bg-crimson text-cream' : 'bg-panel-2 text-cream/70'}`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <Equalizer playing={playing} bars={7} h={36} />
       </div>
@@ -62,20 +93,6 @@ export default function Home({ songs, currentId, playing, onPlay, onFav }: Props
         >
           ▶ MIX
         </button>
-      </div>
-
-      <div className="mb-4 grid grid-cols-2 gap-2" role="tablist">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.key}
-            role="tab"
-            aria-selected={section === s.key}
-            onClick={() => setSection(s.key)}
-            className={`px-btn py-2 ${section === s.key ? 'bg-crimson text-cream' : 'bg-panel-2 text-cream/60'}`}
-          >
-            {s.label}
-          </button>
-        ))}
       </div>
 
       <ul className="space-y-2">

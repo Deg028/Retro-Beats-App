@@ -115,10 +115,26 @@
   .play-mode-button {
     padding: 3px;
     line-height: 1;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #4f95f7;
+    cursor: pointer;
+    transition: color 150ms ease, filter 150ms ease;
   }
   .play-mode-button[aria-pressed='true'] {
+    color: var(--color-coral);
+    filter: drop-shadow(0 0 4px rgba(255, 117, 71, 0.65));
+  }
+  .play-mode-button:hover {
     color: var(--color-cream);
-    box-shadow: 0 0 0 2px var(--color-secondary), 0 0 10px rgba(242, 193, 78, 0.35);
+  }
+  .play-mode-button:focus-visible {
+    outline: 2px dashed var(--color-secondary);
+    outline-offset: -2px;
+  }
+  .home-section-menu {
+    animation: home-menu-in 160ms steps(3) both;
   }
   .pixel-heart {
     display: block;
@@ -176,6 +192,16 @@
     0%,
     100% {
       transform: scale(1);
+    }
+    @keyframes home-menu-in {
+      from {
+        transform: translateY(-6px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
     35% {
       transform: scale(1.08);
@@ -337,6 +363,10 @@
     height: 44px;
     min-height: 44px;
   }
+  .player-bottom-actions .player-add-control {
+    height: 40px;
+    min-height: 40px;
+  }
   .player-main-control {
     width: 44px;
     border-radius: 9999px;
@@ -366,6 +396,6 @@
   height: 48px;
 }
 .player-add-control {
-  position: absolute;
-  right: 0;
+  height: 48px;
+  min-height: 48px;
 }

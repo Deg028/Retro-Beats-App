@@ -34,7 +34,7 @@ export default function Player({ song, playing, time, playMode, songAdded, onTog
   }, [lineIdx, view])
 
   const playbackModes = (
-    <div className="player-modes mb-2 grid grid-cols-3 gap-2">
+    <div className="player-modes col-span-3 grid grid-cols-3 gap-1.5">
       {([
         { mode: 'shuffle', ariaLabel: 'Reproducir biblioteca en orden aleatorio' },
         { mode: 'repeat-one', ariaLabel: 'Repetir canción actual' },
@@ -46,7 +46,7 @@ export default function Player({ song, playing, time, playMode, songAdded, onTog
           aria-label={ariaLabel}
           aria-pressed={playMode === mode}
           title={ariaLabel}
-          className={`play-mode-button px-btn grid min-h-11 place-items-center rounded-md ${playMode === mode ? 'bg-crimson text-cream' : 'bg-panel-2 text-cream/70'}`}
+          className={`play-mode-button grid min-h-11 w-full place-items-center ${playMode === mode ? 'is-active' : ''}`}
         >
           <svg viewBox="0 0 32 32" className="play-mode-icon h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
             {mode === 'shuffle' && (
@@ -88,7 +88,6 @@ export default function Player({ song, playing, time, playMode, songAdded, onTog
 
   return (
     <div className="player-content flex flex-col px-3 pb-2">
-      {playbackModes}
       <div className="player-tabs mb-2 grid grid-cols-2 gap-1.5" role="tablist">
         {(['DISCO', 'LETRAS'] as const).map((v) => (
           <button
@@ -229,6 +228,10 @@ export default function Player({ song, playing, time, playMode, songAdded, onTog
             <path d="M16 5h3v14h-3zM5 5.5v13a1 1 0 0 0 1.5.86l9-6.5a1 1 0 0 0 0-1.72l-9-6.5A1 1 0 0 0 5 5.5Z" />
           </svg>
         </button>
+      </div>
+
+      <div className="player-bottom-actions mt-2 grid w-full grid-cols-4 items-center gap-1.5">
+        {playbackModes}
         <button
           onClick={() => {
             if (songAdded) return
@@ -238,7 +241,7 @@ export default function Player({ song, playing, time, playMode, songAdded, onTog
           disabled={songAdded}
           aria-label={songAdded ? 'Canción agregada al álbum' : 'Agregar canción al álbum'}
           title={songAdded ? 'Agregada al álbum' : 'Agregar al álbum'}
-          className={`player-add-control player-icon-button player-control-button grid h-11 w-11 place-items-center transition-colors ${songAdded ? 'text-coral' : 'text-cream hover:text-coral'} ${justAdded ? 'library-save-success' : ''}`}
+          className={`player-add-control player-icon-button grid h-11 w-full place-items-center transition-colors ${songAdded ? 'text-coral' : 'text-cream hover:text-coral'} ${justAdded ? 'library-save-success' : ''}`}
         >
           <PixelSaveIcon className="player-add-icon text-[#4f95f7]" />
         </button>
