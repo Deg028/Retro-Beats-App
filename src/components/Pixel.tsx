@@ -56,6 +56,17 @@ export function PixelHeart({ active, className = '' }: { active: boolean; classN
   )
 }
 
+export function PixelSaveIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
+      <path
+        d="M14 14h36a3 3 0 0 1 0 6H14a3 3 0 0 1 0-6Zm0 11h36a3 3 0 0 1 0 6H14a3 3 0 0 1 0-6Zm0 11h15v6H14a3 3 0 0 1 0-6Zm0 12h15v6H14a3 3 0 0 1 0-6Zm29-12h6v21h-6V41H32v-6h11z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
 export function Equalizer({ playing = true, bars = 5, h = 20 }: { playing?: boolean; bars?: number; h?: number }) {
   return (
     <span className="flex items-end gap-[3px]" style={{ height: h }} aria-hidden>

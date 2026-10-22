@@ -160,7 +160,7 @@ export default function App() {
                     onBrowse={() => navigate('home')}
                   />
                 )}
-                {screen === 'album' && <Album songs={songs} currentId={currentId} onPlay={play} />}
+                {screen === 'album' && <Album songs={songs} currentId={currentId} onPlay={play} onAddSong={addSong} />}
               </div>
 
               {showMini && current && (
@@ -194,9 +194,6 @@ export default function App() {
                   ))}
                 </nav>
               )}
-              <footer className="shrink-0 border-t border-secondary/40 bg-panel px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 text-center font-pixel text-[6px] leading-3 text-cream/55">
-                DESARROLLADO POR: <span className="text-crimson">DEG</span>
-              </footer>
             </>
           )}
         </div>

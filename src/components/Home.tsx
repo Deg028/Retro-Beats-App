@@ -51,7 +51,10 @@ export default function Home({ songs, currentId, playing, onPlay, onFav }: Props
         </div>
         <div className="flex-1">
           <p className="font-pixel text-[8px] text-coral">FAVORITAS</p>
-          <p className="mt-2 font-pixel text-[11px] text-cream">{added.filter((s) => s.fav).length} ♥</p>
+          <p className="mt-2 flex items-center gap-2 font-pixel text-[11px] text-cream">
+            {added.filter((s) => s.fav).length}
+            <PixelHeart active className="h-4 w-4" />
+          </p>
         </div>
         <button
           onClick={() => added.length && onPlay(list[0]?.id ?? added[0].id)}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Song, fmt } from '../data'
-import { PixelCover, PixelHeart } from './Pixel'
+import { PixelCover, PixelHeart, PixelSaveIcon } from './Pixel'
 
 export type PlayMode = 'off' | 'repeat-one' | 'repeat-all' | 'shuffle'
 
@@ -217,18 +217,7 @@ export default function Player({ song, playing, time, playMode, songAdded, onTog
           title={songAdded ? 'Agregada al álbum' : 'Agregar al álbum'}
           className={`player-add-control player-icon-button player-control-button grid h-11 w-11 place-items-center transition-colors ${songAdded ? 'text-coral' : 'text-cream hover:text-coral'}`}
         >
-          {songAdded ? (
-            <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[2.5]" aria-hidden="true">
-              <path d="m5 12 4 4L19 6" strokeLinecap="square" strokeLinejoin="miter" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 64 64" className="player-add-icon text-[#4f95f7]" aria-hidden="true">
-              <path
-                d="M14 14h36a3 3 0 0 1 0 6H14a3 3 0 0 1 0-6Zm0 11h36a3 3 0 0 1 0 6H14a3 3 0 0 1 0-6Zm0 11h15v6H14a3 3 0 0 1 0-6Zm0 12h15v6H14a3 3 0 0 1 0-6Zm29-12h6v21h-6V41H32v-6h11z"
-                fill="currentColor"
-              />
-            </svg>
-          )}
+          <PixelSaveIcon className="player-add-icon text-[#4f95f7]" />
         </button>
       </div>
 
