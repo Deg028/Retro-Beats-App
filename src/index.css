@@ -109,8 +109,8 @@
     outline-offset: 3px;
   }
   .player-add-icon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
   }
   .play-mode-button {
     padding: 3px;
@@ -118,7 +118,7 @@
     border: 0;
     background: transparent;
     box-shadow: none;
-    color: #4f95f7;
+    color: var(--color-secondary);
     cursor: pointer;
     transition: color 150ms ease, filter 150ms ease;
   }
@@ -132,9 +132,6 @@
   .play-mode-button:focus-visible {
     outline: 2px dashed var(--color-secondary);
     outline-offset: -2px;
-  }
-  .home-section-menu {
-    animation: home-menu-in 160ms steps(3) both;
   }
   .pixel-heart {
     display: block;
@@ -192,58 +189,58 @@
       transform: translateX(24px);
       opacity: 0.6;
     }
-    @keyframes splash-enter {
-      from {
-        transform: translateY(14px);
-        opacity: 0;
-      }
-      to {
-        transform: translateY(0);
-        opacity: 1;
-      }
-    }
-    @keyframes splash-title {
-      from {
-        transform: translateY(18px) scale(0.96);
-        opacity: 0;
-        filter: blur(4px);
-      }
-      to {
-        transform: translateY(0) scale(1);
-        opacity: 1;
-        filter: blur(0);
-      }
-    }
-    @keyframes splash-label {
-      0%,
-      100% {
-        opacity: 0.65;
-      }
-      50% {
-        opacity: 1;
-      }
-    }
-    @keyframes splash-exit {
-      to {
-        transform: scale(1.025);
-        opacity: 0;
-      }
-    }
-    @keyframes home-screen-entry {
-      from {
-        transform: translateY(12px);
-        opacity: 0;
-        filter: blur(2px);
-      }
-      to {
-        transform: translateY(0);
-        opacity: 1;
-        filter: blur(0);
-      }
-    }
     to {
       transform: translateX(0);
       opacity: 1;
+    }
+  }
+  @keyframes splash-enter {
+    from {
+      transform: translateY(14px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes splash-title {
+    from {
+      transform: translateY(18px) scale(0.96);
+      opacity: 0;
+      filter: blur(4px);
+    }
+    to {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      filter: blur(0);
+    }
+  }
+  @keyframes splash-label {
+    0%,
+    100% {
+      opacity: 0.65;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes splash-exit {
+    to {
+      transform: scale(1.025);
+      opacity: 0;
+    }
+  }
+  @keyframes home-screen-entry {
+    from {
+      transform: translateY(12px);
+      opacity: 0;
+      filter: blur(2px);
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+      filter: blur(0);
     }
   }
   @keyframes save-toast-in {
@@ -386,11 +383,6 @@
   }
 }
 
-.play-mode-button {
-  height: 48px;
-  min-height: 48px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .screen-slide-in,
   .home-screen-entry,
@@ -401,91 +393,118 @@
   .load-fill,
   .load-fill::after,
   .save-toast,
+  .lyrics-track,
+  .lyrics-line,
+  .lyrics-panel,
   .library-save-success {
     animation-duration: 1ms;
+    transition-duration: 1ms;
   }
 }
 
-@media (max-height: 720px) and (max-width: 600px) {
-  .player-content {
-    padding-bottom: 0;
-  }
-  .player-modes {
-    margin-bottom: 0.25rem;
-  }
-  .player-modes button {
-    height: 40px;
-    min-height: 40px;
-  }
-  .play-mode-icon {
-    width: 24px;
-    height: 24px;
-  }
-  .player-tabs {
-    margin-bottom: 0.25rem;
-  }
-  .player-tabs button {
-    height: 32px;
-    min-height: 32px;
-    padding-block: 0;
-  }
-  .player-disc {
-    width: min(140px, 45vw, 19dvh);
-    margin-top: 0;
-  }
-  .player-song-info {
-    margin-top: 0.25rem;
-  }
-  .player-progress-section {
-    margin-top: 0.375rem;
-  }
-  .player-progress {
-    height: 20px;
-  }
-  .player-time {
-    margin-top: 0;
-  }
-  .player-controls {
-    margin-top: 0.125rem;
-  }
-  .player-control-button {
-    width: 44px;
-    height: 44px;
-    min-height: 44px;
-  }
-  .player-bottom-actions .player-add-control {
-    height: 40px;
-    min-height: 40px;
-  }
-  .player-main-control {
-    width: 44px;
-    border-radius: 9999px;
-  }
-}
-
-@media (min-height: 721px) and (max-width: 600px) {
-  .player-content {
-    min-height: 100%;
-  }
-  .player-disc {
-    margin-block: auto;
-  }
-}
 
 .player-controls {
-  position: relative;
-  gap: 8px;
+  gap: 10px;
 }
 .player-control-button {
   flex: none;
+  width: 38px;
+  height: 38px;
+}
+.player-main-control {
   width: 44px;
   height: 44px;
 }
-.player-main-control {
-  width: 48px;
-  height: 48px;
+.play-mode-button {
+  height: 36px;
+  min-height: 36px;
 }
 .player-add-control {
-  height: 48px;
-  min-height: 48px;
+  height: 36px;
+  min-height: 36px;
+}
+
+/* Lyrics drawer: grid-rows trick animates height without layout thrash */
+.lyrics-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 380ms cubic-bezier(0.22, 1, 0.36, 1), opacity 280ms ease;
+}
+.lyrics-panel.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.lyrics-window {
+  --line-h: 34px;
+  overflow: hidden;
+  height: calc(var(--line-h) * 3);
+  mask-image: linear-gradient(to bottom, transparent, #000 28%, #000 72%, transparent);
+}
+.lyrics-track {
+  will-change: transform;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lyrics-line {
+  height: var(--line-h);
+  line-height: var(--line-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 22px;
+  color: rgba(255, 246, 224, 0.3);
+  transition: color 300ms ease, transform 300ms ease, text-shadow 300ms ease;
+}
+.lyrics-line.is-active {
+  color: var(--color-cream);
+  transform: scale(1.06);
+  text-shadow: 2px 2px 0 var(--color-blood);
+}
+
+/* Home section drawer: slides over the left of the phone screen */
+.home-drawer {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s linear 300ms;
+}
+.home-drawer.is-open {
+  pointer-events: auto;
+  visibility: visible;
+  transition-delay: 0s;
+}
+.home-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 20, 0.7);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+.home-drawer.is-open .home-drawer-backdrop {
+  opacity: 1;
+}
+.home-drawer-panel {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: min(78%, 300px);
+  padding: max(1rem, env(safe-area-inset-top)) 1rem 1rem;
+  border-right: 4px solid var(--color-secondary);
+  background: var(--color-panel);
+  box-shadow: 6px 0 0 0 var(--color-blood);
+  transform: translateX(-105%);
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.home-drawer.is-open .home-drawer-panel {
+  transform: translateX(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-drawer,
+  .home-drawer-backdrop,
+  .home-drawer-panel {
+    transition-duration: 1ms;
+  }
 }
