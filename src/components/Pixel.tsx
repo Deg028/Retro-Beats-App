@@ -109,3 +109,107 @@ export function Equalizer({
     </span>
   )
 }
+
+/** Draws an ASCII sprite as crisp SVG rects. Chars map to fills; "." is empty. */
+function Sprite({
+  rows,
+  colors,
+  className = "",
+}: {
+  rows: string[]
+  colors: Record<string, string>
+  className?: string
+}) {
+  return (
+    <svg
+      viewBox={`0 0 ${rows[0].length} ${rows.length}`}
+      className={className}
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+    >
+      {rows.flatMap((row, y) =>
+        [...row].map((c, x) =>
+          colors[c] ? (
+            <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={colors[c]} />
+          ) : null,
+        ),
+      )}
+    </svg>
+  )
+}
+
+const PAC_OPEN = [
+  "...11111...",
+  "..1111111..",
+  ".1111111...",
+  "111111.....",
+  "11111......",
+  "1111.......",
+  "11111......",
+  "111111.....",
+  ".1111111...",
+  "..1111111..",
+  "...11111...",
+]
+const PAC_CLOSED = [
+  "...11111...",
+  "..1111111..",
+  ".111111111.",
+  "11111111111",
+  "11111111111",
+  "11111111111",
+  "11111111111",
+  "11111111111",
+  ".111111111.",
+  "..1111111..",
+  "...11111...",
+]
+const GHOST_A = [
+  "...11111...",
+  "..1111111..",
+  ".111111111.",
+  "1wwb111wwb1",
+  "1wwb111wwb1",
+  "11111111111",
+  "11111111111",
+  "11111111111",
+  "11111111111",
+  "11.11111.11",
+  "1...111...1",
+]
+const GHOST_B = [
+  "...11111...",
+  "..1111111..",
+  ".111111111.",
+  "1wwb111wwb1",
+  "1wwb111wwb1",
+  "11111111111",
+  "11111111111",
+  "11111111111",
+  "11111111111",
+  "1.11111.111",
+  ".111...111.",
+]
+const PAC_COLORS = { "1": "#f2c14e" }
+const GHOST_COLORS = { "1": "#e62429", w: "#fff6e0", b: "#223a66" }
+
+/** Pac-Man chomping through a line of dots with a ghost on his tail. */
+export function PacChase({ playing = true }: { playing?: boolean }) {
+  return (
+    <div
+      className={`pac-scene ${playing ? "" : "is-paused"}`}
+      role="img"
+      aria-label="Animación 8 bits de Pac-Man"
+    >
+      <div className="pac-ghost">
+        <Sprite rows={GHOST_A} colors={GHOST_COLORS} className="pac-frame pac-frame-a" />
+        <Sprite rows={GHOST_B} colors={GHOST_COLORS} className="pac-frame pac-frame-b" />
+      </div>
+      <div className="pac-man">
+        <Sprite rows={PAC_OPEN} colors={PAC_COLORS} className="pac-frame pac-frame-a" />
+        <Sprite rows={PAC_CLOSED} colors={PAC_COLORS} className="pac-frame pac-frame-b" />
+      </div>
+      <div className="pac-dots" />
+    </div>
+  )
+}

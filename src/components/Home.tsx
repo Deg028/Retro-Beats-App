@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 
 import { Song, fmt } from "../data"
 
-import { Equalizer, PixelCover, PixelHeart } from "./Pixel"
+import { Equalizer, PacChase, PixelCover, PixelHeart } from "./Pixel"
 
 export const SECTIONS = [
   { key: "added", label: "AGREGADAS" },
@@ -104,11 +104,11 @@ export default function Home({
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="font-pixel text-[15px] leading-[1.6] text-cream">
-            INICIO
+          <h1 className="font-pixel text-[15px] leading-[1.6] text-cream whitespace-nowrap">
+            Retro Beats
           </h1>
         </div>
-        <Equalizer playing={playing} bars={7} h={36} />
+        <PacChase />
       </div>
 
       <div
