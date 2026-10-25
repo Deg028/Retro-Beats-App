@@ -1,3 +1,4 @@
+// Brand colors used by the splash screen and the pixel-art defaults; every screen styles itself from src/themes.
 export const colors = {
   primary: "#e62429",
   secondary: "#f2c14e",

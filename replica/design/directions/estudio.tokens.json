@@ -1,0 +1,80 @@
+{
+  "_about": "Estudio (moderno): claro, limpio, rojo de la marca como unico acento.",
+  "color": {
+    "bg": "#f7f5f0",
+    "surface": "#ffffff",
+    "surface-2": "#ece8e0",
+    "border": "#ddd7cc",
+    "border-input": "#8a8478",
+    "text": "#17150f",
+    "text-muted": "#5c574d",
+    "accent": "#c8231c",
+    "on-accent": "#ffffff",
+    "highlight": "#8a5a00",
+    "warm": "#b0441a",
+    "danger": "#b42318",
+    "success": "#1f7a4d"
+  },
+  "pairs": [
+    [
+      "text",
+      "bg"
+    ],
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "surface-2"
+    ],
+    [
+      "text-muted",
+      "bg"
+    ],
+    [
+      "text-muted",
+      "surface"
+    ],
+    [
+      "on-accent",
+      "accent"
+    ],
+    [
+      "accent",
+      "bg",
+      "ui"
+    ],
+    [
+      "accent",
+      "surface",
+      "ui"
+    ],
+    [
+      "highlight",
+      "bg"
+    ],
+    [
+      "warm",
+      "bg"
+    ],
+    [
+      "danger",
+      "bg"
+    ],
+    [
+      "success",
+      "bg"
+    ],
+    [
+      "border-input",
+      "bg",
+      "ui"
+    ],
+    [
+      "border-input",
+      "surface",
+      "ui"
+    ]
+  ]
+}

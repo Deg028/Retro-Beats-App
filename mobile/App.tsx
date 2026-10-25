@@ -1,151 +1,174 @@
-import { useEffect, useRef, useState } from "react"
-import { Animated, Easing, Platform, Pressable, StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native"
+import { useEffect, useEffectEvent, useState } from "react"
+import { Animated, BackHandler, Easing, StyleSheet, useWindowDimensions, View } from "react-native"
 import { StatusBar } from "expo-status-bar"
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"
 import { PressStart2P_400Regular } from "@expo-google-fonts/press-start-2p"
 import { VT323_400Regular } from "@expo-google-fonts/vt323"
+import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk"
+import { PixelifySans_500Medium, PixelifySans_700Bold } from "@expo-google-fonts/pixelify-sans"
+import { Sora_400Regular, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold } from "@expo-google-fonts/sora"
+import { Silkscreen_400Regular } from "@expo-google-fonts/silkscreen"
 import { useFonts } from "expo-font"
-import { Equalizer, PixelCover } from "./src/components/Pixel"
+import { MiniPlayer, Screen, TabBar } from "./src/components/Chrome"
+import Intro from "./src/components/Intro"
+import { motion, T } from "./src/components/ui"
 import Home from "./src/screens/Home"
 import Player from "./src/screens/Player"
 import Catalog from "./src/screens/Catalog"
-import { usePlayer } from "./src/usePlayer"
-import { colors, fonts } from "./src/theme"
+import Themes from "./src/screens/Themes"
+import { PlayerApi, usePlayer } from "./src/usePlayer"
+import { useNowPlaying } from "./src/useNowPlaying"
+import { ThemeProvider, useThemeControl } from "./src/themes/ThemeContext"
+import { colors } from "./src/theme"
 
-type Screen = "home" | "player" | "catalog"
+type Tab = Exclude<Screen, "player">
+const TAB_INDEX: Record<Tab, number> = { home: 0, catalog: 1, themes: 2 }
 
-const TABS: { key: Screen; label: string; icon: string }[] = [
-  { key: "home", label: "INICIO", icon: "⌂" },
-  { key: "player", label: "CANCIÓN", icon: "◉" },
-  { key: "catalog", label: "CATÁLOGO", icon: "▣" },
-]
+function Shell({ player }: { player: PlayerApi }) {
+  const { theme, ready } = useThemeControl()
+  const insets = useSafeAreaInsets()
+  const { height } = useWindowDimensions()
+  const [intro, setIntro] = useState(true)
+  const [tab, setTab] = useState<Tab>("home")
+  const [dir, setDir] = useState(1)
+  const [playerOpen, setPlayerOpen] = useState(false)
+  // Tab screens fade and slide in; the player is a layer that slides up over them
+  const [enter] = useState(() => new Animated.Value(1))
+  const [layerY] = useState(() => new Animated.Value(height))
 
-function Splash({ onDone }: { onDone: () => void }) {
-  const fill = useRef(new Animated.Value(0)).current
-  const done = useRef(onDone)
-  done.current = onDone
+  useNowPlaying(player, theme)
 
+  const showTab = (next: Tab, direction = 1) => {
+    setDir(direction)
+    setTab(next)
+    enter.setValue(0)
+    motion(theme, enter, 1, 260).start()
+  }
+
+  const go = (next: Screen) => {
+    if (next === "player") return setPlayerOpen(true)
+    if (playerOpen) closePlayer()
+    if (next !== tab) showTab(next, TAB_INDEX[next] > TAB_INDEX[tab] ? 1 : -1)
+  }
+
+  const slideIn = useEffectEvent(() => motion(theme, layerY, 0, 330).start())
   useEffect(() => {
-    Animated.timing(fill, { toValue: 1, duration: 2200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(
-      ({ finished }) => finished && done.current(),
-    )
-  }, [fill])
+    if (playerOpen) slideIn()
+  }, [playerOpen])
 
-  return (
-    <View style={styles.splash}>
-      <Text style={styles.oneUp}>★ 1UP ★</Text>
-      <Text style={styles.logo}>RETRO</Text>
-      <Text style={[styles.logo, { color: colors.primary }]}>BEATS</Text>
-      <Equalizer bars={11} height={56} />
-      <View style={styles.loadBox}>
-        <Animated.View
-          style={{ height: "100%", backgroundColor: colors.primary, width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) }}
+  const closePlayer = () => {
+    const out =
+      theme.motion === "stepped"
+        ? motion(theme, layerY, height, 280)
+        : Animated.timing(layerY, { toValue: height, duration: 240, easing: Easing.in(Easing.cubic), useNativeDriver: true })
+    out.start(({ finished }) => finished && setPlayerOpen(false))
+  }
+  const settlePlayer = () => motion(theme, layerY, 0, 200).start()
+
+  // Android back (button or edge swipe): close the player first, then return to Home, then let the OS exit
+  const onBack = useEffectEvent(() => {
+    if (playerOpen) closePlayer()
+    else if (tab !== "home") showTab("home", -1)
+    else return false
+    return true
+  })
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBack)
+    return () => sub.remove()
+  }, [])
+
+  if (!ready) return <View style={{ flex: 1, backgroundColor: colors.ink }} />
+
+  if (intro) {
+    return (
+      <View style={[styles.root, { backgroundColor: theme.c.bg, paddingTop: insets.top }]}>
+        <StatusBar style={theme.dark ? "light" : "dark"} />
+        <Intro
+          onDone={() => {
+            setIntro(false)
+            showTab("home")
+          }}
         />
       </View>
-      <Text style={styles.loading}>CARGANDO...</Text>
+    )
+  }
+
+  return (
+    <View style={[styles.root, { backgroundColor: theme.c.bg }]}>
+      <StatusBar style={theme.dark ? "light" : "dark"} />
+      <View style={{ flex: 1, paddingTop: insets.top }}>
+        <Animated.View style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28 * dir, 0] }) }] }}>
+          {tab === "home" && <Home player={player} onOpenPlayer={() => go("player")} />}
+          {tab === "catalog" && <Catalog player={player} onOpenPlayer={() => go("player")} />}
+          {tab === "themes" && <Themes />}
+        </Animated.View>
+        <MiniPlayer player={player} onOpen={() => go("player")} />
+        <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} />
+      </View>
+
+      {playerOpen && (
+        <>
+          <Animated.View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, { backgroundColor: "#000", opacity: layerY.interpolate({ inputRange: [0, height], outputRange: [0.5, 0], extrapolate: "clamp" }) }]}
+          />
+          <Animated.View style={[styles.layer, { top: insets.top, backgroundColor: theme.c.bg, transform: [{ translateY: layerY }] }]}>
+            <Player player={player} onClose={closePlayer} drag={{ y: layerY, settle: settlePlayer }} />
+          </Animated.View>
+        </>
+      )}
+
+      {player.toast && (
+        <View
+          style={[
+            styles.toast,
+            { top: insets.top + 56, backgroundColor: theme.c.surface2, borderColor: theme.c.border, borderWidth: Math.max(1, theme.border), borderRadius: theme.radius.md },
+          ]}
+          accessibilityLiveRegion="polite"
+        >
+          <T variant="caption" style={{ textAlign: "center" }}>
+            {player.toast}
+          </T>
+        </View>
+      )}
     </View>
   )
 }
 
-export default function App() {
-  const [fontsLoaded] = useFonts({ PressStart2P_400Regular, VT323_400Regular })
-  const [screen, setScreen] = useState<Screen | "splash">("splash")
+function Main() {
   const player = usePlayer()
-  const { current, playing } = player
-
-  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.ink }} />
-
   return (
-    <>
-      <View style={styles.root}>
-        <StatusBar style="light" />
-        {screen === "splash" ? (
-          <Splash onDone={() => setScreen("home")} />
-        ) : (
-          <>
-            <View style={{ flex: 1 }}>
-              {screen === "home" && <Home player={player} onOpenPlayer={() => setScreen("player")} />}
-              {screen === "player" && <Player player={player} onBrowse={() => setScreen("home")} />}
-              {screen === "catalog" && <Catalog player={player} onOpenPlayer={() => setScreen("player")} />}
-            </View>
+    <ThemeProvider songId={player.currentId}>
+      <Shell player={player} />
+    </ThemeProvider>
+  )
+}
 
-            {current && screen !== "player" && (
-              <View style={styles.mini}>
-                <Pressable style={styles.miniMain} onPress={() => setScreen("player")} accessibilityLabel="Abrir reproductor">
-                  <PixelCover seed={current.id} size={36} style={{ borderWidth: 2, borderColor: colors.secondary }} />
-                  <View style={{ flex: 1 }}>
-                    <Text numberOfLines={1} style={styles.miniTitle}>
-                      {current.title}
-                    </Text>
-                    <Text numberOfLines={1} style={styles.miniArtist}>
-                      {current.artist}
-                    </Text>
-                  </View>
-                  <Equalizer playing={playing} bars={4} height={16} />
-                </Pressable>
-                <Pressable onPress={player.togglePlaying} accessibilityLabel="Reproducir o pausar" style={styles.miniBtn}>
-                  <Text style={styles.miniBtnText}>{playing ? "❚❚" : "▶"}</Text>
-                </Pressable>
-              </View>
-            )}
-
-            <View style={styles.tabs} accessibilityRole="tablist">
-              {TABS.map((t) => (
-                <Pressable
-                  key={t.key}
-                  onPress={() => setScreen(t.key)}
-                  accessibilityState={{ selected: screen === t.key }}
-                  style={[styles.tab, screen === t.key && { backgroundColor: colors.primary }]}
-                >
-                  <Text style={[styles.tabIcon, screen !== t.key && { opacity: 0.6 }]}>{t.icon}</Text>
-                  <Text style={[styles.tabLabel, screen !== t.key && { opacity: 0.6 }]}>{t.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {player.toast && (
-              <View style={styles.toast} accessibilityLiveRegion="polite">
-                <Text style={styles.toastText}>{player.toast}</Text>
-              </View>
-            )}
-          </>
-        )}
-      </View>
-    </>
+export default function App() {
+  const [fontsLoaded] = useFonts({
+    PressStart2P_400Regular,
+    VT323_400Regular,
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_700Bold,
+    PixelifySans_500Medium,
+    PixelifySans_700Bold,
+    Sora_400Regular,
+    Sora_600SemiBold,
+    Sora_700Bold,
+    Sora_800ExtraBold,
+    Silkscreen_400Regular,
+  })
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.ink }} />
+  return (
+    <SafeAreaProvider>
+      <Main />
+    </SafeAreaProvider>
   )
 }
 
 const styles = StyleSheet.create({
-  // No safe-area library: Android is edge-to-edge, so pad for status/nav bars by hand
-  root: {
-    flex: 1,
-    backgroundColor: colors.ink,
-    paddingTop: Platform.OS === "android" ? (RNStatusBar.currentHeight ?? 24) : 48,
-    paddingBottom: Platform.OS === "android" ? 20 : 20,
-  },
-  splash: { flex: 1, alignItems: "center", justifyContent: "center", gap: 24 },
-  oneUp: { fontFamily: fonts.pixel, fontSize: 11, color: colors.coral },
-  logo: { fontFamily: fonts.pixel, fontSize: 30, lineHeight: 48, color: colors.cream, marginVertical: -12 },
-  loadBox: { width: 224, height: 20, borderWidth: 4, borderColor: colors.secondary, backgroundColor: colors.ink },
-  loading: { fontFamily: fonts.pixel, fontSize: 8, color: colors.coral },
-  mini: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 4, borderTopColor: colors.secondary, backgroundColor: colors.panel2 },
-  miniMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
-  miniTitle: { fontFamily: fonts.pixel, fontSize: 8, color: colors.cream },
-  miniArtist: { fontFamily: fonts.term, fontSize: 18, color: colors.coral },
-  miniBtn: { backgroundColor: colors.primary, borderWidth: 3, borderColor: colors.ink, paddingHorizontal: 12, paddingVertical: 8 },
-  miniBtnText: { fontFamily: fonts.pixel, fontSize: 10, color: colors.cream },
-  tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, borderTopWidth: 4, borderTopColor: colors.secondary, backgroundColor: colors.panel },
-  tab: { flex: 1, alignItems: "center", gap: 4, paddingVertical: 6, backgroundColor: colors.panel2, borderWidth: 3, borderColor: colors.ink },
-  tabIcon: { fontFamily: fonts.term, fontSize: 18, color: colors.cream },
-  tabLabel: { fontFamily: fonts.pixel, fontSize: 8, color: colors.cream },
-  toast: {
-    position: "absolute",
-    top: 56,
-    left: 16,
-    right: 16,
-    padding: 12,
-    borderWidth: 3,
-    borderColor: colors.secondary,
-    backgroundColor: colors.panel2,
-  },
-  toastText: { fontFamily: fonts.pixel, fontSize: 8, lineHeight: 13, color: colors.cream, textAlign: "center" },
+  root: { flex: 1 },
+  layer: { position: "absolute", left: 0, right: 0, bottom: 0 },
+  toast: { position: "absolute", left: 16, right: 16, padding: 12 },
 })

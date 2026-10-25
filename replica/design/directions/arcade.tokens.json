@@ -1,0 +1,80 @@
+{
+  "_about": "Arcade 8-bit (retro): la estetica original de Retro Beats, pulida.",
+  "color": {
+    "bg": "#0c1628",
+    "surface": "#162644",
+    "surface-2": "#223a66",
+    "border": "#f2c14e",
+    "border-input": "#f2c14e",
+    "text": "#fff6e0",
+    "text-muted": "#ff8f66",
+    "accent": "#ff4a4a",
+    "on-accent": "#0c1628",
+    "highlight": "#f2c14e",
+    "warm": "#ff8f66",
+    "danger": "#ff6b6b",
+    "success": "#7bd389"
+  },
+  "pairs": [
+    [
+      "text",
+      "bg"
+    ],
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "surface-2"
+    ],
+    [
+      "text-muted",
+      "bg"
+    ],
+    [
+      "text-muted",
+      "surface"
+    ],
+    [
+      "on-accent",
+      "accent"
+    ],
+    [
+      "accent",
+      "bg",
+      "ui"
+    ],
+    [
+      "accent",
+      "surface",
+      "ui"
+    ],
+    [
+      "highlight",
+      "bg"
+    ],
+    [
+      "warm",
+      "bg"
+    ],
+    [
+      "danger",
+      "bg"
+    ],
+    [
+      "success",
+      "bg"
+    ],
+    [
+      "border-input",
+      "bg",
+      "ui"
+    ],
+    [
+      "border-input",
+      "surface",
+      "ui"
+    ]
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "_about": "Bolsillo LCD (retro): pantalla de consola portatil de cuatro tonos verdes.",
+  "color": {
+    "bg": "#9bbc0f",
+    "surface": "#a9c62a",
+    "surface-2": "#b6d03f",
+    "border": "#306230",
+    "border-input": "#306230",
+    "text": "#0f380f",
+    "text-muted": "#1f4a1f",
+    "accent": "#0f380f",
+    "on-accent": "#c4d98a",
+    "highlight": "#0f380f",
+    "warm": "#1f4a1f",
+    "danger": "#5a1010",
+    "success": "#0f380f"
+  },
+  "pairs": [
+    [
+      "text",
+      "bg"
+    ],
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "surface-2"
+    ],
+    [
+      "text-muted",
+      "bg"
+    ],
+    [
+      "text-muted",
+      "surface"
+    ],
+    [
+      "on-accent",
+      "accent"
+    ],
+    [
+      "accent",
+      "bg",
+      "ui"
+    ],
+    [
+      "accent",
+      "surface",
+      "ui"
+    ],
+    [
+      "highlight",
+      "bg"
+    ],
+    [
+      "warm",
+      "bg"
+    ],
+    [
+      "danger",
+      "bg"
+    ],
+    [
+      "success",
+      "bg"
+    ],
+    [
+      "border-input",
+      "bg",
+      "ui"
+    ],
+    [
+      "border-input",
+      "surface",
+      "ui"
+    ]
+  ]
+}

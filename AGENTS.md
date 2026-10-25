@@ -1,43 +1,34 @@
-# figma-make-app
+# Retro Beats
 
-React + Vite + Tailwind CSS project running inside Figma Make.
+Native Android music player prototype built with Expo (React Native). The app lives in `mobile/`; read `mobile/AGENTS.md` before changing it (Expo-specific rules and commands).
 
-## Development Server
+The former web prototype (React + Vite, Figma Make) was discarded; a backup is in `_respaldo/prototipo-web.zip`.
 
-A Vite development server is **already running** on `$PORT` (default 8443). You don't need to start it manually.
+## Layout
 
-- Preview URL: The user can access the running app through the preview panel
-- Hot reload: Changes to source files are reflected immediately
+- `mobile/App.tsx` - fonts, themed intro, tab transitions, the player as a slide-up layer (drag the top bar down or press back to close), Android back handling, tab bar and mini player
+- `mobile/src/components/Intro.tsx` - one opening animation per theme (`theme.intro`)
+- `mobile/src/useNowPlaying.ts` - now-playing notification with the song and the chosen theme: a local notification with buttons in Expo Go, the expo-audio media notification in native builds. Never `import` from "expo-notifications" at runtime: its entry point crashes Expo Go (missing push module); go through `src/notifications.ts`, which loads only the local-notification parts
+- `mobile/src/usePlayer.ts` - playback engine on `expo-audio`: queue, shuffle, repeat, sleep timer, lock screen, persistence
+- `mobile/src/themes/themes.ts` - the theme engine: 6 themes (retro, moderno, combinado), each a full set of tokens plus style switches (cover, progress, play button, background, retro signature, icon set, dynamic color). Add a theme here and it appears in the Temas screen
+- `mobile/src/themes/ThemeContext.tsx` - `ThemeProvider`, `useTheme()`; persists the chosen theme
+- `mobile/src/components/ui.tsx` - themed primitives (`T`, `Icon`, `Cover`, `Surface`, `Press`, `PlayButton`, `ProgressTrack`, `Action`, `Chip`, `Button`) and `motion()`; screens never hard-code colors. Use `Press` instead of `Pressable` so every control has press feedback, and keep active states as accent fill + onAccent
+- `mobile/src/screens/Player.tsx` - one player that adapts to the theme; `player/shared.tsx` has the seek/swipe hooks, synced lyrics and the queue and sleep-timer sheets
+- `mobile/src/screens/Themes.tsx` - theme picker (Temas tab), each card drawn with its own theme
+- `mobile/src/components/Chrome.tsx` - tab bar and mini player
+- `mobile/src/theme.ts` - brand colors for the splash and pixel-art defaults only
+- `mobile/src/data.ts` + `mobile/src/tracks.json` - catalog; `tracks.json` drives both the audio generator and song durations/lyric timing
+- `mobile/scripts/` - generators for the demo chiptune tracks (`assets/audio`) and the app icons
 
-## Project Structure
+## Commands (run in `mobile/`)
 
-This is the canonical project structure. Start with task-relevant files below. Only follow imports or inspect other files when required, when a documented path is missing, or when the repository contradicts this guide.
+```bash
+npx expo start          # dev server; scan the QR with Expo Go on the phone
+npx tsc --noEmit        # typecheck
+npm run lint            # lint
+npx expo-doctor         # dependency/config checks
+npm run generate:audio  # rebuild assets/audio from src/tracks.json
+npm run build:apk       # installable APK through EAS
+```
 
-- `src/main.tsx` - React entrypoint; imports `src/index.css` and mounts `src/App.tsx` into the `#root` element
-- `src/App.tsx` - Primary application component and the usual starting point for UI work
-- `src/index.css` - Global CSS entrypoint and Tailwind CSS v4 import
-- `index.html` - Vite HTML shell containing the `#root` element and loading `src/main.tsx`
-- `package.json` - Project dependencies and the Vite build, development, preview, and formatting scripts
-- `vite.config.ts` - Vite configuration with React, Tailwind CSS v4, and Figma Make plugins plus the `@` alias for `src`
-- `.mise.toml` - Toolchain versions for Node.js and pnpm
-
-## Dependencies
-
-- Runtime: React 19 and React DOM 19
-- Styling: Tailwind CSS v4 with the `@tailwindcss/vite` plugin
-- Build tooling: Vite 8, TypeScript 5.7, and `@vitejs/plugin-react`
-- Formatting: oxfmt
-
-## Styling
-
-This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin configured in `vite.config.ts`. `src/index.css` imports Tailwind with `@import 'tailwindcss';`. Use Tailwind utility classes directly in JSX and put global CSS or Tailwind v4 theme customization in `src/index.css`. This scaffold does not need a Tailwind config file or PostCSS config.
-
-`src/main.tsx` imports `src/index.css`, so global font wiring belongs in `src/index.css`. Keep CSS `@import` statements first, then add any `@font-face` rules and font-family defaults there.
-
-Tailwind emits utility classes in `@layer utilities`, and CSS outside any cascade layer overrides every layer regardless of specificity. Put global element styles, such as resets and defaults for `body`, headings, `button`, or `input`, inside `@layer base { ... }` so utility classes on those elements still apply. Tailwind's Preflight already applies `box-sizing: border-box`, removes default margins, and sets `font: inherit` on form controls, so do not repeat those rules.
-
-## Code quality
-
-- Use double quotes for strings containing apostrophes (`"We're here to help"`), or escape them in single-quoted strings. An unescaped apostrophe in a single-quoted string breaks the build.
-- Ensure JSX tags are closed and braces are balanced.
-- Export components as default exports.
+Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattributes`).

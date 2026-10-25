@@ -1,0 +1,146 @@
+{
+  "_about": "Direccion C 'Pixel dinamico': evolucion del diseno B. Material 3 con color tomado de la caratula y detalles pixel (esquinas escalonadas, numeros pixel).",
+  "color": {
+    "bg": "#10131a",
+    "surface": "#1b1f29",
+    "surface-2": "#262b37",
+    "border": "#353b4a",
+    "border-input": "#8e94a6",
+    "text": "#e6e8ef",
+    "text-muted": "#b4bacb",
+    "accent": "#ffb4ab",
+    "on-accent": "#690005",
+    "highlight": "#f2c14e",
+    "warm": "#ffb59b",
+    "danger": "#ffb4ab",
+    "success": "#8fd9a8"
+  },
+  "dynamic": "accent/on-accent se recalculan desde la caratula; estos son los valores por defecto (rojo de la marca, tono 80/20)",
+  "font": {
+    "sans": "Roboto (sistema)",
+    "display": "Roboto 600",
+    "pixel": "Pixelify Sans (tiempos, contadores, etiquetas)"
+  },
+  "type": {
+    "xs": {
+      "size": 12,
+      "line": 16,
+      "weight": 500
+    },
+    "sm": {
+      "size": 14,
+      "line": 20,
+      "weight": 400
+    },
+    "base": {
+      "size": 16,
+      "line": 24,
+      "weight": 400
+    },
+    "lg": {
+      "size": 22,
+      "line": 28,
+      "weight": 500
+    },
+    "xl": {
+      "size": 28,
+      "line": 36,
+      "weight": 500
+    },
+    "display": {
+      "size": 36,
+      "line": 44,
+      "weight": 600
+    }
+  },
+  "radius": {
+    "sm": 8,
+    "md": 16,
+    "lg": 28,
+    "pill": 999,
+    "pixel-step": 4
+  },
+  "shadow": {
+    "card": "elevacion 1 (tono, no sombra)",
+    "pop": "elevacion 3"
+  },
+  "motion": {
+    "fast": "150ms",
+    "base": "300ms",
+    "ease": "spring(damping 18)",
+    "signature": "barra de progreso ondulada; boton play que cambia de forma"
+  },
+  "pairs": [
+    [
+      "text",
+      "bg"
+    ],
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "surface-2"
+    ],
+    [
+      "text-muted",
+      "bg"
+    ],
+    [
+      "text-muted",
+      "surface"
+    ],
+    [
+      "on-accent",
+      "accent"
+    ],
+    [
+      "accent",
+      "bg",
+      "ui"
+    ],
+    [
+      "accent",
+      "surface",
+      "ui"
+    ],
+    [
+      "highlight",
+      "bg"
+    ],
+    [
+      "warm",
+      "bg"
+    ],
+    [
+      "danger",
+      "bg"
+    ],
+    [
+      "success",
+      "bg"
+    ],
+    [
+      "border-input",
+      "bg",
+      "ui"
+    ],
+    [
+      "border-input",
+      "surface",
+      "ui"
+    ]
+  ],
+  "space": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    24,
+    32,
+    48,
+    64
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "_about": "Direccion A 'Cinta': etiqueta de cassette moderna. Negro calido, crema, bloques solidos, contorno fino tipo sticker.",
+  "color": {
+    "bg": "#16130f",
+    "surface": "#221d17",
+    "surface-2": "#2e2720",
+    "border": "#3d342a",
+    "border-input": "#8a7a66",
+    "text": "#f7efe1",
+    "text-muted": "#c2b49f",
+    "accent": "#ff5a43",
+    "on-accent": "#1a0d09",
+    "highlight": "#f2c14e",
+    "warm": "#ff8a5c",
+    "danger": "#ff6b6b",
+    "success": "#7bd389"
+  },
+  "font": {
+    "sans": "Space Grotesk",
+    "display": "Space Grotesk 700",
+    "pixel": "Pixelify Sans (solo etiquetas y numeros)"
+  },
+  "type": {
+    "xs": {
+      "size": 12,
+      "line": 16,
+      "weight": 500
+    },
+    "sm": {
+      "size": 14,
+      "line": 20,
+      "weight": 400
+    },
+    "base": {
+      "size": 16,
+      "line": 24,
+      "weight": 400
+    },
+    "lg": {
+      "size": 20,
+      "line": 26,
+      "weight": 600
+    },
+    "xl": {
+      "size": 28,
+      "line": 32,
+      "weight": 700
+    },
+    "display": {
+      "size": 40,
+      "line": 42,
+      "weight": 700
+    }
+  },
+  "radius": {
+    "sm": 8,
+    "md": 14,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow": {
+    "card": "none (bloques planos + borde 1.5px)",
+    "pop": "0 8px 0 #000 (sombra solida desplazada, sin blur)"
+  },
+  "motion": {
+    "fast": "120ms",
+    "base": "220ms",
+    "ease": "cubic-bezier(.3,.7,.2,1)",
+    "signature": "bobinas de cinta que giran al reproducir; 'tape stop' al pausar"
+  },
+  "pairs": [
+    [
+      "text",
+      "bg"
+    ],
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "surface-2"
+    ],
+    [
+      "text-muted",
+      "bg"
+    ],
+    [
+      "text-muted",
+      "surface"
+    ],
+    [
+      "on-accent",
+      "accent"
+    ],
+    [
+      "accent",
+      "bg",
+      "ui"
+    ],
+    [
+      "accent",
+      "surface",
+      "ui"
+    ],
+    [
+      "highlight",
+      "bg"
+    ],
+    [
+      "warm",
+      "bg"
+    ],
+    [
+      "danger",
+      "bg"
+    ],
+    [
+      "success",
+      "bg"
+    ],
+    [
+      "border-input",
+      "bg",
+      "ui"
+    ],
+    [
+      "border-input",
+      "surface",
+      "ui"
+    ]
+  ],
+  "space": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    24,
+    32,
+    48,
+    64
+  ]
+}
