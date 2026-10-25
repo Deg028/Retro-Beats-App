@@ -1,0 +1,235 @@
+import { useEffect, useEffectEvent, useRef, useState } from "react"
+import AsyncStorage from "@react-native-async-storage/async-storage"
+import { Song } from "../data"
+import { pickFolder } from "../library/scan"
+import { readLyricsFile } from "./local"
+import { lookup, saveCover } from "./lookup"
+import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
+import { Entry, InfoStore } from "./store"
+
+const WEEK = 7 * 24 * 3600 * 1000
+const SNAPTUBE_KEY = "retro-beats:snaptube-folder"
+
+/**
+ * What to look up for a song. Lyrics wait until the song's length is known: timings only fit the recording
+ * they were made for, and the length is how the right one is told from a live or extended version.
+ */
+function wanted(song: Song, entry: Entry | undefined) {
+  const redo = entry?.lyrics === true && !entry.lyricsFor
+  return { lyrics: song.duration > 0 && (needs(entry, "lyrics") || redo), cover: needs(entry, "cover") }
+}
+
+/** A part is looked up if it never was, or if it was and came back empty more than a week ago. Whatever was found stays. */
+function needs(entry: Entry | undefined, part: "lyrics" | "cover") {
+  const at = part === "lyrics" ? entry?.lyricsAt : entry?.coverAt
+  const found = part === "lyrics" ? entry?.lyrics === true : typeof entry?.cover === "string"
+  return !at || (!found && Date.now() - at > WEEK)
+}
+
+export type LyricsState = "off" | "loading" | "found" | "none" | "error"
+
+/** After this many songs in a row fail to reach the server, a bulk run stops and says so. */
+const MAX_FAILS_IN_A_ROW = 3
+
+/**
+ * Looks up lyrics, names and cover for the song that is playing, and for the whole library on request.
+ * Results go to the store, which saves them; the player reads them back as part of each song.
+ */
+export function useSongInfo(store: InfoStore, current: Song | null) {
+  const [busy, setBusy] = useState<number | null>(null)
+  const [errors, setErrors] = useState<Record<number, string>>({})
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const inflight = useRef(new Set<number>())
+  const stopRequested = useRef(false)
+  // Bulk runs last minutes: they must read the entries as they are now, not as they were when the run began
+  const entriesRef = useRef(store.entries)
+  useEffect(() => {
+    entriesRef.current = store.entries
+  })
+
+  /** Looks up what is missing for one song. Returns false if the servers could not be reached. */
+  const run = async (song: Song): Promise<boolean> => {
+    const entry = entriesRef.current[song.id]
+    const want = wanted(song, entry)
+    if ((!want.lyrics && !want.cover) || inflight.current.has(song.id)) return true
+    inflight.current.add(song.id)
+    setBusy(song.id)
+    let error: string | undefined
+    try {
+      const found = await lookup(song, want)
+      error = found.error
+      // A lyrics file beside the song fills in where the internet had nothing, or only untimed words
+      let lyrics = found.lyrics
+      if (want.lyrics && song.lyricsUri && !lyrics?.synced) {
+        const local = await readLyricsFile(song.lyricsUri)
+        if (local && (local.synced || !lyrics)) lyrics = local
+      }
+      const now = Date.now()
+      if (want.lyrics && lyrics !== undefined) {
+        // A second look that finds nothing must not throw away lyrics that were saved before
+        if (lyrics || !entry?.lyrics) {
+          store.saveLyrics(song.id, lyrics)
+          store.patch(song.id, { lyrics: !!lyrics, lyricsAt: now, lyricsFor: song.duration })
+        } else store.patch(song.id, { lyricsFor: song.duration })
+      }
+      if (want.cover && found.release !== undefined) {
+        let cover: string | null = null
+        if (found.release?.coverUrl) {
+          try {
+            cover = await saveCover(song.id, found.release.coverUrl)
+          } catch (e) {
+            error = e instanceof Error ? e.message : String(e)
+          }
+        }
+        // A cover that exists but failed to download is not "no cover": leave it unmarked so it is tried again
+        if (cover || !found.release?.coverUrl) store.patch(song.id, { cover, album: found.release?.album ?? null, coverAt: now })
+      }
+      if (found.fix) store.patch(song.id, found.fix)
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e)
+    } finally {
+      inflight.current.delete(song.id)
+      setBusy((b) => (b === song.id ? null : b))
+      setErrors((prev) => {
+        const { [song.id]: _old, ...rest } = prev
+        return error ? { ...rest, [song.id]: error } : rest
+      })
+    }
+    return !error
+  }
+
+  const id = current?.id
+  const lengthKnown = !!current && current.duration > 0
+  const loadCurrent = useEffectEvent(() => current && store.loadLyrics(current.id))
+  const runCurrent = useEffectEvent(() => current && run(current))
+  useEffect(() => {
+    if (store.hydrated) loadCurrent()
+  }, [id, store.hydrated])
+  // Starts once the song's length is known, so the lyrics found are the ones for this recording
+  useEffect(() => {
+    if (store.hydrated && store.enabled && lengthKnown) runCurrent()
+  }, [id, lengthKnown, store.hydrated, store.enabled])
+
+  const lyricsState = (song: Song | null): LyricsState => {
+    if (!song) return "none"
+    if (song.lyrics || song.plain) return "found"
+    if (!store.enabled) return "off"
+    if (busy === song.id) return "loading"
+    if (errors[song.id]) return "error"
+    return store.entries[song.id]?.lyricsAt ? "none" : "loading"
+  }
+
+  const enrichAll = async (songs: Song[]) => {
+    if (bulk) return
+    stopRequested.current = false
+    setBulkError(null)
+    const todo = songs.filter((s) => {
+      const w = wanted(s, entriesRef.current[s.id])
+      return w.lyrics || w.cover
+    })
+    setBulk({ done: 0, total: todo.length })
+    let fails = 0
+    for (let i = 0; i < todo.length && !stopRequested.current; i++) {
+      fails = (await run(todo[i])) ? 0 : fails + 1
+      setBulk({ done: i + 1, total: todo.length })
+      if (fails >= MAX_FAILS_IN_A_ROW) {
+        setBulkError("Se detuvo porque no hay conexión con los servidores. Vuelve a intentarlo cuando tengas internet.")
+        break
+      }
+    }
+    setBulk(null)
+  }
+
+  /** Lyrics files saved beside songs are read once, so they show without playing the song first. */
+  const importLyricsFiles = async (songs: Song[]) => {
+    const todo = songs.filter((s) => s.lyricsUri && !entriesRef.current[s.id]?.lyrics)
+    for (const song of todo) {
+      const local = await readLyricsFile(song.lyricsUri!)
+      if (!local) continue
+      store.saveLyrics(song.id, local)
+      // lyricsFor stays empty: once the song plays and its length is known, the internet is asked for timed lyrics too
+      store.patch(song.id, { lyrics: true, lyricsAt: Date.now() })
+    }
+  }
+
+  const [thumbs, setThumbs] = useState<{ done: number; total: number } | null>(null)
+  const [thumbsMessage, setThumbsMessage] = useState<string | null>(null)
+  const [snaptube, setSnaptube] = useState<string | null>(null)
+  useEffect(() => {
+    AsyncStorage.getItem(SNAPTUBE_KEY)
+      .then((v) => v && setSnaptube(v))
+      .catch(() => {})
+  }, [])
+
+  /**
+   * Gives each downloaded song the thumbnail of its video, taken from the downloader's own history.
+   * `ask` opens the folder picker; without it the folder chosen before is used.
+   */
+  const importThumbnails = async (songs: Song[], ask: boolean) => {
+    if (thumbs) return
+    setThumbsMessage(null)
+    try {
+      let folder = snaptube
+      if (ask || !folder) {
+        folder = await pickFolder(SNAPTUBE_HINT)
+        if (!folder) return
+        setSnaptube(folder)
+        AsyncStorage.setItem(SNAPTUBE_KEY, folder).catch(() => {})
+      }
+      const list = await readThumbnails(folder)
+      const todo = songs.filter((s) => s.file && list.has(s.file) && !entriesRef.current[s.id]?.thumb)
+      setThumbs({ done: 0, total: todo.length })
+      const found: Record<number, { thumb: string }> = {}
+      let done = 0
+      let next = 0
+      // A few downloads at a time: quick, and kind to the connection
+      await Promise.all(
+        Array.from({ length: 4 }, async () => {
+          while (next < todo.length) {
+            const song = todo[next++]
+            try {
+              found[song.id] = { thumb: await saveThumbnail(song.id, list.get(song.file!)!) }
+            } catch {
+              // that one stays with the pixel art
+            }
+            setThumbs({ done: ++done, total: todo.length })
+          }
+        }),
+      )
+      store.patchMany(found)
+      const n = Object.keys(found).length
+      setThumbsMessage(n ? `Listo: ${n} miniaturas de SnapTube guardadas.` : todo.length ? "No se pudo descargar ninguna miniatura. Revisa la conexión." : "No hay canciones nuevas con miniatura en SnapTube.")
+    } catch (e) {
+      setThumbsMessage(e instanceof Error ? e.message : "No se pudo leer SnapTube")
+    } finally {
+      setThumbs(null)
+    }
+  }
+
+  const entries = Object.values(store.entries)
+  return {
+    enabled: store.enabled,
+    setEnabled: store.setEnabled,
+    lyricsState,
+    error: id !== undefined ? errors[id] : undefined,
+    retry: () => current && run(current),
+    bulk,
+    bulkError,
+    enrichAll,
+    importLyricsFiles,
+    importThumbnails,
+    thumbs,
+    thumbsMessage,
+    snaptubeLinked: !!snaptube,
+    withThumb: entries.filter((e) => typeof e.thumb === "string").length,
+    setLyricsOffset: (id: number, seconds: number) => store.patch(id, { offset: Math.round(seconds * 10) / 10 }),
+    stopBulk: () => {
+      stopRequested.current = true
+    },
+    withCover: entries.filter((e) => typeof e.cover === "string").length,
+    withLyrics: entries.filter((e) => e.lyrics).length,
+  }
+}
+
+export type SongInfo = ReturnType<typeof useSongInfo>

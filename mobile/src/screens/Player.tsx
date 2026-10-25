@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react"
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native"
+import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
-import { Equalizer, PixelCover } from "../components/Pixel"
-import { Action, ActionBar, Button, Cover, IconButton, PlayButton, ProgressTrack, SkipButton, T, textStyle } from "../components/ui"
+import { Art } from "../components/Art"
+import { Equalizer } from "../components/Pixel"
+import { Action, ActionBar, Button, Cover, IconButton, PlayButton, Press, ProgressTrack, SkipButton, T, textStyle } from "../components/ui"
+import { LyricsState, SongInfo } from "../online/useSongInfo"
 import { useTheme } from "../themes/ThemeContext"
-import { PlayerApi } from "../usePlayer"
+import { PlayerApi, usePlaybackTime } from "../usePlayer"
 import { LyricsWindow, QueueSheet, shareSong, SleepSheet, sleepLabel, useDismiss, useSeek, useSwipe, useTimeLabels } from "./player/shared"
 
 const LINE_H = 34
@@ -13,16 +15,19 @@ const LINE_H = 34
 /** One player for every theme: the theme decides cover style, progress, buttons, background and its retro signature. */
 export default function Player({
   player,
+  info,
   onClose,
   drag,
 }: {
   player: PlayerApi
+  info: SongInfo
   onClose: () => void
   /** Offset of the player layer, moved by the drag-to-close bar; `settle` springs it back */
   drag: { y: Animated.Value; settle: () => void }
 }) {
   const theme = useTheme()
-  const { current: song, playing, time, duration, shuffle, repeat } = player
+  const { current: song, playing, duration, shuffle, repeat } = player
+  const time = usePlaybackTime(player)
   const [sheet, setSheet] = useState<"queue" | "sleep" | null>(null)
   const [lyricsOpen, setLyricsOpen] = useState(true)
   const { width, height } = useWindowDimensions()
@@ -62,7 +67,7 @@ export default function Player({
       {theme.background === "artGlow" && (
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <View style={{ position: "absolute", top: -60, left: -80, opacity: 0.4 }}>
-            <PixelCover seed={song.id} size={width + 160} palette={theme.c.cover} bg={theme.c.coverBg} />
+            <Art seed={song.id} size={width + 160} palette={theme.c.cover} bg={theme.c.coverBg} blur={24} />
           </View>
           <Svg style={StyleSheet.absoluteFill} width={width} height={height}>
             <Defs>
@@ -112,7 +117,7 @@ export default function Player({
               <Animated.View style={[styles.disc, { width: coverSize, height: coverSize, borderRadius: coverSize / 2, borderColor: theme.c.border, backgroundColor: theme.c.coverBg, transform: [{ rotate }] }]}>
                 <View style={[styles.groove, { width: coverSize * 0.8, height: coverSize * 0.8, borderRadius: coverSize * 0.4, borderColor: theme.c.surface }]} />
                 <Pressable onPress={player.togglePlaying} accessibilityLabel={playing ? "Pausar" : "Reproducir"} style={[styles.label, { borderColor: theme.c.accent }]}>
-                  <PixelCover seed={song.id} size={84} palette={theme.c.cover} bg={theme.c.coverBg} />
+                  <Art seed={song.id} size={84} palette={theme.c.cover} bg={theme.c.coverBg} />
                 </Pressable>
               </Animated.View>
             ) : (
@@ -214,15 +219,43 @@ export default function Player({
             >
               <View style={styles.lyricsHead}>
                 <T variant="label" color={theme.c.lyricsText}>
-                  {song.lyrics ? "Letra" : "Instrumental"}
+                  Letra
                 </T>
-                <Equalizer playing={playing} bars={4} height={14} color={theme.lyricsLined ? theme.c.lyricsText : theme.c.accent} />
+                {song.lyrics ? (
+                  <View style={styles.offset}>
+                    <Press
+                      onPress={() => info.setLyricsOffset(song.id, (song.lyricsOffset ?? 0) - 0.5)}
+                      accessibilityLabel="Retrasar la letra medio segundo"
+                      radius={theme.radius.sm}
+                      style={[styles.offsetBtn, { borderColor: theme.c.lyricsDim, borderRadius: theme.radius.sm }]}
+                    >
+                      <T variant="label" color={theme.c.lyricsText}>
+                        −
+                      </T>
+                    </Press>
+                    <T variant="caption" color={theme.c.lyricsDim} style={{ minWidth: 64, textAlign: "center", textTransform: "none" }}>
+                      {song.lyricsOffset ? `${song.lyricsOffset > 0 ? "+" : "−"}${Math.abs(song.lyricsOffset).toFixed(1)} s` : "Ajuste"}
+                    </T>
+                    <Press
+                      onPress={() => info.setLyricsOffset(song.id, (song.lyricsOffset ?? 0) + 0.5)}
+                      accessibilityLabel="Adelantar la letra medio segundo"
+                      radius={theme.radius.sm}
+                      style={[styles.offsetBtn, { borderColor: theme.c.lyricsDim, borderRadius: theme.radius.sm }]}
+                    >
+                      <T variant="label" color={theme.c.lyricsText}>
+                        +
+                      </T>
+                    </Press>
+                  </View>
+                ) : (
+                  <Equalizer playing={playing} bars={4} height={14} color={theme.lyricsLined ? theme.c.lyricsText : theme.c.accent} />
+                )}
               </View>
               {song.lyrics ? (
                 <LyricsWindow
                   lines={song.lyrics}
-                  time={time}
-                  onSeek={player.seek}
+                  time={time + (song.lyricsOffset ?? 0)}
+                  onSeek={(t) => player.seek(t - (song.lyricsOffset ?? 0))}
                   lineH={LINE_H}
                   visible={4}
                   slot={1}
@@ -238,10 +271,14 @@ export default function Player({
                   }}
                   dimColor={theme.c.lyricsDim}
                 />
+              ) : song.plain ? (
+                <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                  <T variant="body" color={theme.c.lyricsText} style={{ lineHeight: 26, textTransform: "none" }}>
+                    {song.plain}
+                  </T>
+                </ScrollView>
               ) : (
-                <T variant="caption" color={theme.c.lyricsDim} style={{ marginTop: 6 }}>
-                  Este tema no tiene letra. Disfruta el chiptune.
-                </T>
+                <LyricsStatus state={info.lyricsState(song)} error={info.error} onRetry={info.retry} />
               )}
             </View>
           )}
@@ -250,6 +287,29 @@ export default function Player({
 
       <QueueSheet player={player} visible={sheet === "queue"} onClose={() => setSheet(null)} />
       <SleepSheet player={player} visible={sheet === "sleep"} onClose={() => setSheet(null)} />
+    </View>
+  )
+}
+
+/** What to say where the lyrics would be: still looking, nothing found, no connection, or searching turned off. */
+function LyricsStatus({ state, error, onRetry }: { state: LyricsState; error?: string; onRetry: () => void }) {
+  const theme = useTheme()
+  const message: Record<LyricsState, string> = {
+    loading: "Buscando la letra en internet…",
+    none: "No encontramos la letra de esta canción.",
+    off: "La búsqueda en internet está desactivada. Puedes activarla en la pestaña Música.",
+    error: error ? `No se pudo buscar la letra. ${error}.` : "No se pudo buscar la letra.",
+    found: "",
+  }
+  return (
+    <View style={{ gap: 10, marginTop: 6 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        {state === "loading" && <ActivityIndicator color={theme.c.accent} />}
+        <T variant="caption" color={theme.c.lyricsDim} style={{ flex: 1 }}>
+          {message[state]}
+        </T>
+      </View>
+      {state === "error" && <Button label="Reintentar" variant="secondary" icon="repeat" onPress={onRetry} />}
     </View>
   )
 }
@@ -269,5 +329,7 @@ const styles = StyleSheet.create({
   info: { flexDirection: "row", alignItems: "center", gap: 2 },
   times: { flexDirection: "row", justifyContent: "space-between" },
   controls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  offset: { flexDirection: "row", alignItems: "center", gap: 6 },
+  offsetBtn: { width: 34, height: 30, alignItems: "center", justifyContent: "center", borderWidth: 1 },
   lyricsHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
 })

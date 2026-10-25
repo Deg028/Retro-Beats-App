@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useState } from "react"
 import { Animated, BackHandler, Easing, StyleSheet, useWindowDimensions, View } from "react-native"
 import { StatusBar } from "expo-status-bar"
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"
@@ -10,21 +10,27 @@ import { Sora_400Regular, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold } fr
 import { Silkscreen_400Regular } from "@expo-google-fonts/silkscreen"
 import { useFonts } from "expo-font"
 import { MiniPlayer, Screen, TabBar } from "./src/components/Chrome"
+import { Drawer } from "./src/components/Drawer"
 import Intro from "./src/components/Intro"
 import { motion, T } from "./src/components/ui"
-import Home from "./src/screens/Home"
+import Home, { Section, sectionLists } from "./src/screens/Home"
+import { SleepSheet, sleepLabel } from "./src/screens/player/shared"
 import Player from "./src/screens/Player"
-import Catalog from "./src/screens/Catalog"
+import Scan from "./src/screens/Scan"
 import Themes from "./src/screens/Themes"
+import { DeviceLibrary, useDeviceLibrary } from "./src/library/useDeviceLibrary"
+import { ArtProvider } from "./src/components/Art"
+import { useInfoStore } from "./src/online/store"
+import { SongInfo, useSongInfo } from "./src/online/useSongInfo"
 import { PlayerApi, usePlayer } from "./src/usePlayer"
 import { useNowPlaying } from "./src/useNowPlaying"
 import { ThemeProvider, useThemeControl } from "./src/themes/ThemeContext"
 import { colors } from "./src/theme"
 
 type Tab = Exclude<Screen, "player">
-const TAB_INDEX: Record<Tab, number> = { home: 0, catalog: 1, themes: 2 }
+const TAB_INDEX: Record<Tab, number> = { home: 0, scan: 1, themes: 2 }
 
-function Shell({ player }: { player: PlayerApi }) {
+function Shell({ player, lib, info }: { player: PlayerApi; lib: DeviceLibrary; info: SongInfo }) {
   const { theme, ready } = useThemeControl()
   const insets = useSafeAreaInsets()
   const { height } = useWindowDimensions()
@@ -32,11 +38,18 @@ function Shell({ player }: { player: PlayerApi }) {
   const [tab, setTab] = useState<Tab>("home")
   const [dir, setDir] = useState(1)
   const [playerOpen, setPlayerOpen] = useState(false)
+  const [section, setSection] = useState<Section>("added")
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [sleepOpen, setSleepOpen] = useState(false)
   // Tab screens fade and slide in; the player is a layer that slides up over them
   const [enter] = useState(() => new Animated.Value(1))
   const [layerY] = useState(() => new Animated.Value(height))
 
   useNowPlaying(player, theme)
+  const counts = useMemo(
+    () => Object.fromEntries(Object.entries(sectionLists(player.library)).map(([k, v]) => [k, v.length])) as Record<Section, number>,
+    [player.library],
+  )
 
   const showTab = (next: Tab, direction = 1) => {
     setDir(direction)
@@ -65,9 +78,10 @@ function Shell({ player }: { player: PlayerApi }) {
   }
   const settlePlayer = () => motion(theme, layerY, 0, 200).start()
 
-  // Android back (button or edge swipe): close the player first, then return to Home, then let the OS exit
+  // Android back (button or edge swipe): close the menu or the player first, then return to Home, then let the OS exit
   const onBack = useEffectEvent(() => {
-    if (playerOpen) closePlayer()
+    if (menuOpen) setMenuOpen(false)
+    else if (playerOpen) closePlayer()
     else if (tab !== "home") showTab("home", -1)
     else return false
     return true
@@ -98,9 +112,9 @@ function Shell({ player }: { player: PlayerApi }) {
       <StatusBar style={theme.dark ? "light" : "dark"} />
       <View style={{ flex: 1, paddingTop: insets.top }}>
         <Animated.View style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28 * dir, 0] }) }] }}>
-          {tab === "home" && <Home player={player} onOpenPlayer={() => go("player")} />}
-          {tab === "catalog" && <Catalog player={player} onOpenPlayer={() => go("player")} />}
+          {tab === "home" && <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />}
           {tab === "themes" && <Themes />}
+          {tab === "scan" && <Scan lib={lib} player={player} info={info} onOpenHome={() => go("home")} />}
         </Animated.View>
         <MiniPlayer player={player} onOpen={() => go("player")} />
         <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} />
@@ -113,10 +127,36 @@ function Shell({ player }: { player: PlayerApi }) {
             style={[StyleSheet.absoluteFill, { backgroundColor: "#000", opacity: layerY.interpolate({ inputRange: [0, height], outputRange: [0.5, 0], extrapolate: "clamp" }) }]}
           />
           <Animated.View style={[styles.layer, { top: insets.top, backgroundColor: theme.c.bg, transform: [{ translateY: layerY }] }]}>
-            <Player player={player} onClose={closePlayer} drag={{ y: layerY, settle: settlePlayer }} />
+            <Player player={player} info={info} onClose={closePlayer} drag={{ y: layerY, settle: settlePlayer }} />
           </Animated.View>
         </>
       )}
+
+      <Drawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        section={section}
+        counts={counts}
+        onSection={(s) => {
+          setSection(s)
+          setMenuOpen(false)
+          go("home")
+        }}
+        libraryCount={player.library.length}
+        phoneCount={lib.tracks.length}
+        onMix={() => {
+          setMenuOpen(false)
+          player.playMix()
+          go("player")
+        }}
+        onShortcut={(s) => {
+          setMenuOpen(false)
+          if (s === "sleep") setSleepOpen(true)
+          else go(s)
+        }}
+        sleepLabel={sleepLabel(player.sleep)}
+      />
+      <SleepSheet player={player} visible={sleepOpen} onClose={() => setSleepOpen(false)} />
 
       {player.toast && (
         <View
@@ -136,11 +176,21 @@ function Shell({ player }: { player: PlayerApi }) {
 }
 
 function Main() {
-  const player = usePlayer()
+  const lib = useDeviceLibrary()
+  const store = useInfoStore()
+  const player = usePlayer(lib.tracks, store.meta)
+  const info = useSongInfo(store, player.current)
+  // Lyrics files found beside songs are read as soon as the songs are known
+  const readLyricFiles = useEffectEvent(() => info.importLyricsFiles(player.library))
+  useEffect(() => {
+    if (store.hydrated && player.library.length) readLyricFiles()
+  }, [store.hydrated, player.library.length])
   return (
-    <ThemeProvider songId={player.currentId}>
-      <Shell player={player} />
-    </ThemeProvider>
+    <ArtProvider value={store.meta}>
+      <ThemeProvider songId={player.currentId}>
+        <Shell player={player} lib={lib} info={info} />
+      </ThemeProvider>
+    </ArtProvider>
   )
 }
 

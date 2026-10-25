@@ -39,7 +39,18 @@
         {
           "color": "#e62429"
         }
-      ]
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": false,
+          "granularPermissions": [
+            "audio"
+          ]
+        }
+      ],
+      "expo-sqlite"
     ]
   }
 }

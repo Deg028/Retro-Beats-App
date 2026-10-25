@@ -2,14 +2,14 @@ import { StyleSheet, View } from "react-native"
 import { Equalizer } from "./Pixel"
 import { Cover, Icon, IconName, PlayButton, Press, T } from "./ui"
 import { useTheme } from "../themes/ThemeContext"
-import { PlayerApi } from "../usePlayer"
+import { PlayerApi, usePlaybackTime } from "../usePlayer"
 
-export type Screen = "home" | "player" | "catalog" | "themes"
+export type Screen = "home" | "player" | "scan" | "themes"
 
 const TABS: { key: Screen; label: string; icon: IconName }[] = [
   { key: "home", label: "Inicio", icon: "home" },
   { key: "player", label: "Canción", icon: "player" },
-  { key: "catalog", label: "Catálogo", icon: "catalog" },
+  { key: "scan", label: "Música", icon: "queue" },
   { key: "themes", label: "Temas", icon: "themes" },
 ]
 
@@ -69,7 +69,8 @@ export function TabBar({ screen, onChange, bottom }: { screen: Screen; onChange:
 
 export function MiniPlayer({ player, onOpen }: { player: PlayerApi; onOpen: () => void }) {
   const theme = useTheme()
-  const { current, playing, time, duration } = player
+  const { current, playing, duration } = player
+  const time = usePlaybackTime(player)
   if (!current) return null
   const progress = duration ? Math.min(1, time / duration) : 0
   return (

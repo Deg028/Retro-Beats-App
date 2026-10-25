@@ -46,6 +46,7 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
   const { current, playing } = player
   const title = current?.title
   const artist = current?.artist
+  const artwork = current?.cover
   const subtitle = `Tema ${theme.name} · ${CATEGORY_LABEL[theme.category]}`
   const local = isRunningInExpoGo() && Platform.OS === "android"
 
@@ -66,7 +67,7 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
   useEffect(() => {
     if (!title) return
     if (!isRunningInExpoGo()) {
-      setNowPlaying({ title, artist, albumTitle: `Retro Beats · ${subtitle}` })
+      setNowPlaying({ title, artist, albumTitle: `Retro Beats · ${subtitle}`, artworkUrl: artwork })
       return
     }
     const n = local ? loadNotifications() : null
@@ -94,5 +95,5 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
         })
       })
       .catch(() => {})
-  }, [local, title, artist, playing, subtitle, theme.emoji, theme.c.accent])
+  }, [local, title, artist, artwork, playing, subtitle, theme.emoji, theme.c.accent])
 }

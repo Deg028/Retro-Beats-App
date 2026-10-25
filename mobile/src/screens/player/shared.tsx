@@ -15,7 +15,7 @@ import {
   ViewProps,
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { fmt, LyricLine, Song } from "../../data"
+import { fmt, LyricLine, lengthSuffix, Song } from "../../data"
 import { Equalizer } from "../../components/Pixel"
 import { Cover, Icon, Press, T } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
@@ -242,7 +242,7 @@ export function QueueSheet({ player, visible, onClose }: { player: PlayerApi; vi
           {song.title}
         </T>
         <T variant="caption" numberOfLines={1} color={theme.c.textMuted}>
-          {song.artist} · {fmt(song.duration)}
+          {song.artist}{lengthSuffix(song.duration)}
         </T>
       </View>
       {now ? (

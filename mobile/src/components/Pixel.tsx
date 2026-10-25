@@ -98,6 +98,7 @@ export const ICONS = {
   share: ["M16 4v16M10 10l6-6 6 6", "M6 16v12h20V16"],
   lyrics: ["M12 24V6l14-4v19", "M6 21h6v6H6z", "M20 18h6v6h-6z"],
   close: ["M8 8l16 16M24 8L8 24"],
+  search: ["M8 8h10v10H8z", "M18 18l8 8"],
   chevronDown: ["M8 12l8 8 8-8"],
   more: ["M15 6h2v2h-2zM15 15h2v2h-2zM15 24h2v2h-2z"],
   heart: ["M7 6h6v2h2v2h2V8h2V6h6v2h2v8h-2v2h-2v2h-2v2h-2v2h-2v2h-2v-2h-2v-2h-2v-2H9v-2H7v-2H5V8h2z"],
@@ -108,6 +109,7 @@ export const ICONS = {
   check: ["M7 16l6 6 12-12"],
   menu: ["M5 8h22M5 16h22M5 24h22"],
   bars: ["M6 26V17h5v9zM14 26V7h5v19zM22 26V12h5v14z"],
+  arrow: ["M5 16h21M18 8l8 8-8 8"],
   clock: ["M16 4a12 12 0 1 1 0 24 12 12 0 0 1 0-24z", "M16 9v7h6"],
 }
 

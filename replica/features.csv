@@ -1,16 +1,16 @@
 feature,area,priority,original,clone,notes
-Album art fallback chain (embedded > folder.jpg > gallery > optional online) with clear errors; editing never reorders,library,must,no,no,fixes.md #1 - 9 reviews
-Skip unplayable files with a message; remove deleted files from playlists,playback,must,no,no,fixes.md #2 - 9 reviews
-Transparent scan: MediaStore + chosen folders + SD card + skipped-files report,library,must,no,no,fixes.md #3 - 4 reviews
+Album art fallback chain (embedded > folder.jpg > gallery > optional online) with clear errors; editing never reorders,library,must,no,partial,"Portada original en linea (MusicBrainz y Cover Art Archive) guardada en el telefono; placeholder pixel si no hay. Faltan portada incrustada y carpeta (requieren Kotlin o leer cover.jpg) y elegir de la galeria"
+Skip unplayable files with a message; remove deleted files from playlists,playback,must,no,partial,"Salta archivos que no abren con aviso, marca rotos y evita bucles; las listas de reproduccion aun no existen; los borrados salen al reescanear"
+Transparent scan: MediaStore + chosen folders + SD card + skipped-files report,library,must,no,partial,Indice del sistema (incluye SD si esta indexada) + pantalla S09 con motivos y nombres; falta elegir carpetas extra (SAF)
 Settings auto-saved; exportable backup file; no restore prompt on launch,settings,should,no,no,fixes.md #4 - 3 reviews
 Layout choice: 1/2/3-column grid or list; marquee long titles; alphabet fast-scroll,ui,should,no,no,fixes.md #5 - 8 reviews
 Purchase tied to Google Play account with Restore purchase button,billing,should,no,no,fixes.md #6 - 2 reviews (severe); goes to /replica-launch
 Resume queue and exact position on reopen (including shuffle),playback,could,no,no,fixes.md #7 - 1 review
 Volume normalization (ReplayGain),audio,could,no,no,fixes.md #8 - 1 review
-Audio permission and MediaStore scan of the phone's music,library,must,yes,no,core loop; needs Kotlin module + dev build
-Play real local files with embedded tags and art,playback,must,yes,no,core loop
+Audio permission and MediaStore scan of the phone's music,library,must,yes,partial,"Con expo-media-library cuando el permiso de audio existe (APK); en Expo Go Android 13+ no se puede declarar y se usa carpeta elegida (expo-file-system, SAF). Sin modulo Kotlin; falta probar en telefono"
+Play real local files with embedded tags and art,playback,must,yes,partial,Reproduce content:// reales con expo-audio; titulo y artista salen del nombre del archivo; sin etiquetas ID3 ni caratula incrustada (requiere modulo Kotlin)
 Browse by songs albums artists folders,library,must,yes,no,S07 S08
 Playlists create edit reorder,library,should,yes,no,S12
-Lyrics from embedded tags and .lrc files,playback,could,yes,no,
-Online cover and lyrics lookup on request (MusicBrainz/Cover Art Archive/LRCLIB),library,could,yes,no,public APIs only
+Lyrics from embedded tags and .lrc files,playback,could,yes,partial,"Letra sincronizada o simple desde LRCLIB y se muestra sola; faltan etiquetas incrustadas y archivos .lrc junto a la cancion"
+Online cover and lyrics lookup on request (MusicBrainz/Cover Art Archive/LRCLIB),library,could,yes,partial,"Hecho: automatico al reproducir (se puede desactivar) y por lotes desde la pestaña Música; solo envia titulo y artista"
 Lock screen next/previous and Android Auto via Media3,playback,skip,yes,no,after Kotlin migration

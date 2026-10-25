@@ -15,7 +15,8 @@ import {
 } from "react-native"
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons"
 import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg"
-import { Icon as PixelIcon, ICONS, PixelCover } from "./Pixel"
+import { Art } from "./Art"
+import { Icon as PixelIcon, ICONS } from "./Pixel"
 import { useTheme } from "../themes/ThemeContext"
 import { TextRole, Theme } from "../themes/themes"
 
@@ -68,10 +69,12 @@ export type IconName =
   | "catalog"
   | "themes"
   | "close"
+  | "search"
   | "check"
   | "menu"
   | "top"
   | "recent"
+  | "arrow"
 
 const MI: Record<IconName, keyof typeof MaterialIcons.glyphMap> = {
   back: "keyboard-arrow-down",
@@ -96,10 +99,12 @@ const MI: Record<IconName, keyof typeof MaterialIcons.glyphMap> = {
   catalog: "grid-view",
   themes: "palette",
   close: "close",
+  search: "search",
   check: "check",
   menu: "menu",
   top: "leaderboard",
   recent: "history",
+  arrow: "arrow-forward",
 }
 
 const MCI: Record<IconName, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -125,10 +130,12 @@ const MCI: Record<IconName, keyof typeof MaterialCommunityIcons.glyphMap> = {
   catalog: "view-grid",
   themes: "palette",
   close: "close",
+  search: "magnify",
   check: "check",
   menu: "menu",
   top: "chart-bar",
   recent: "history",
+  arrow: "arrow-right",
 }
 
 const PX: Record<IconName, { d: string[]; filled?: boolean }> = {
@@ -154,10 +161,12 @@ const PX: Record<IconName, { d: string[]; filled?: boolean }> = {
   catalog: { d: ICONS.grid },
   themes: { d: ICONS.palette },
   close: { d: ICONS.close },
+  search: { d: ICONS.search },
   check: { d: ICONS.check },
   menu: { d: ICONS.menu },
   top: { d: ICONS.bars },
   recent: { d: ICONS.clock },
+  arrow: { d: ICONS.arrow },
 }
 
 export function Icon({ name, size = 24, color }: { name: IconName; size?: number; color?: string }) {
@@ -219,7 +228,7 @@ export function Cover({ seed, size, behind, style }: { seed: number; size: numbe
         style,
       ]}
     >
-      <PixelCover seed={seed} size={size - border * 2} palette={theme.c.cover} bg={theme.c.coverBg} />
+      <Art seed={seed} size={size - border * 2} palette={theme.c.cover} bg={theme.c.coverBg} />
       {theme.signature === "scanlines" && size > 80 && (
         <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width={size} height={size}>
           <Defs>
