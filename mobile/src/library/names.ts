@@ -21,6 +21,30 @@ const COPY_SUFFIX = /(?:\s*\(\d\)|_\d)$/
 
 const looksLikeVideoId = (id: string) => /\d|[a-z][A-Z]|_|-/.test(id)
 
+const BRACKET_CHARS = /[()[\]【】「」『』]/g
+/** Whether every bracket that opens is closed again, so a name that was cut in the middle of one can be told. */
+function balanced(text: string) {
+  let depth = 0
+  for (const c of text) {
+    if ("(（[【「『".includes(c)) depth++
+    else if (")）]】」』".includes(c) && --depth < 0) return false
+  }
+  return depth === 0
+}
+
+/** When a name can't be split safely, the file's own name with no separators or brackets is the title. */
+function plainName(bare: string): { title: string; artist: string } {
+  const title = bare
+    .replace(DOWNLOADER_TAG, "")
+    .replace(COPY_SUFFIX, "")
+    .replace(BRACKET_CHARS, " ")
+    .replace(/[_|｜]+/g, " ")
+    .replace(/\s[-‐‑‒–—―]\s/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+  return { artist: UNKNOWN_ARTIST, title: title || bare }
+}
+
 /**
  * Title and artist from a file name. Works on names typed by hand ("03 - Artista - Título.mp3") and on
  * names left by video downloaders ("Artista - Título (Official Video) [dQw4w9WgXcQ].mp3").
@@ -40,6 +64,7 @@ export function parseName(filename: string): { title: string; artist: string } {
 
   // What follows a bar is a channel, an album or a tag when the name before it already reads "Artista - Título"
   const bars = s.split(/\s*[|｜]\s*/).filter(Boolean)
+  if (bars.length > 1 && bars.some((p) => !balanced(p))) return plainName(bare)
   if (bars.length > 1) s = DASH.test(bars[0]) || bars.every((p, i) => i === 0 || NOISE.test(p)) ? bars[0] : bars.join(" - ")
 
   // Some downloaders glue the video id on with a dash: "Título-tAGnKpE4NCI"
@@ -56,6 +81,7 @@ export function parseName(filename: string): { title: string; artist: string } {
     .split(DASH)
     .map(unquote)
     .filter((p) => p && !/^topic$/i.test(p))
+  if (parts.some((p) => !balanced(p))) return plainName(bare)
   if (parts.length >= 2) return { artist: parts[0], title: parts.slice(1).join(" - ") }
   return { artist: UNKNOWN_ARTIST, title: unquote(s) || bare || filename }
 }

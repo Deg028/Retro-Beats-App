@@ -23,7 +23,8 @@ function wanted(song: Song, entry: Entry | undefined, force = false) {
   // Only plain words were found: a timed version may have been added since, so it is looked for again now and then
   const upgrade = entry?.lyrics === true && entry.lyricsSynced === false && (!entry.syncTriedAt || Date.now() - entry.syncTriedAt > WEEK)
   const stale = entry?.lyrics === true && (entry.lyricsV ?? 1) < LYRICS_V
-  return { lyrics: song.duration > 0 && (force || needs(entry, "lyrics") || redo || upgrade || stale), cover: !force && needs(entry, "cover") }
+  return { lyrics: song.duration > 0 && (force || needs(entry, "lyrics") || redo || upgrade || stale), // A downloader's thumbnail is already the cover: no search for another one
+    cover: !force && typeof entry?.thumb !== "string" && needs(entry, "cover") }
 }
 
 /** A part is looked up if it never was, or if it was and came back empty more than a week ago. Whatever was found stays. */
@@ -204,7 +205,7 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
 
   const [thumbs, setThumbs] = useState<{ done: number; total: number } | null>(null)
   // Set at once, unlike `thumbs`, so the folder being picked and the automatic run never overlap
-  const thumbsBusy = useRef(false)
+  const thumbsRun = useRef<Promise<void> | null>(null)
   const [thumbsMessage, setThumbsMessage] = useState<string | null>(null)
   const [snaptube, setSnaptube] = useState<string | null>(null)
   // Whether the saved folder has been read yet, so the "connect" notice does not flash before it is known
@@ -220,9 +221,14 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
    * Gives each downloaded song the thumbnail of its video, taken from the downloader's own history.
    * `ask` opens the folder picker; without it the folder chosen before is used.
    */
-  const importThumbnails = async (songs: Song[], ask: boolean) => {
-    if (thumbs || thumbsBusy.current) return
-    thumbsBusy.current = true
+  const importThumbnails = (songs: Song[], ask: boolean): Promise<void> => {
+    // A second call while one is running waits for that one instead of starting another
+    thumbsRun.current ??= importNow(songs, ask).finally(() => {
+      thumbsRun.current = null
+    })
+    return thumbsRun.current
+  }
+  const importNow = async (songs: Song[], ask: boolean) => {
     setThumbsMessage(null)
     try {
       let folder = snaptube
@@ -258,7 +264,6 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     } catch (e) {
       setThumbsMessage(e instanceof Error ? e.message : "No se pudo leer SnapTube")
     } finally {
-      thumbsBusy.current = false
       setThumbs(null)
     }
   }

@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { Animated, BackHandler, Easing, Pressable, StyleSheet, useWindowDimensions, View } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { StatusBar } from "expo-status-bar"
@@ -154,7 +154,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
         {tab === "home" && !listening.ready && info.snaptubeKnown && !info.snaptubeLinked && snapDismissed === false && player.library.length > 0 && (
           <View style={[styles.notice, { backgroundColor: theme.c.surface2, borderColor: theme.c.border, borderWidth: Math.max(1, theme.border), borderRadius: theme.radius.md, gap: 10 }]}>
             <Pressable
-              onPress={() => info.importThumbnails(player.library, true)}
+              onPress={() => info.importThumbnails(player.library, true).then(() => info.enrichAll(player.library))}
               accessibilityRole="button"
               accessibilityLabel="Conectar SnapTube para traer las carátulas de tus descargas"
               style={{ flex: 1 }}
@@ -260,11 +260,17 @@ function Main() {
   useEffect(() => {
     if (store.hydrated && player.library.length) readLyricFiles()
   }, [store.hydrated, player.library.length])
-  // Once SnapTube is connected, the covers of new downloads come on their own each time the songs are known
-  const readThumbnails = useEffectEvent(() => info.importThumbnails(player.library, false))
+  // Covers fill in on their own: first the downloader's thumbnails, then the online search for what is still bare
+  const fillCovers = useEffectEvent(async () => {
+    if (info.snaptubeLinked) await info.importThumbnails(player.library, false)
+    await info.enrichAll(player.library)
+  })
+  const coversStarted = useRef(false)
   useEffect(() => {
-    if (store.hydrated && info.snaptubeLinked && player.library.length) readThumbnails()
-  }, [store.hydrated, info.snaptubeLinked, player.library.length])
+    if (coversStarted.current || !store.hydrated || !store.enabled || !info.snaptubeKnown || !player.library.length) return
+    coversStarted.current = true
+    fillCovers()
+  }, [store.hydrated, store.enabled, info.snaptubeKnown, player.library.length])
   return (
     <ArtProvider value={store.meta}>
       <ThemeProvider songId={player.currentId}>

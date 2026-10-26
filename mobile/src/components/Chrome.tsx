@@ -108,9 +108,50 @@ function MiniProgress({ player }: { player: PlayerApi }) {
   const theme = useTheme()
   const time = usePlaybackTime(player)
   const progress = player.duration ? Math.min(1, time / player.duration) : 0
+  const pct = `${progress * 100}%` as const
+  const corner = theme.pixelCorners ? 0 : 99
+
+  // Each theme draws the mini player's bar the way its full player draws the timeline
+  if (theme.progress === "segments") {
+    const n = 20
+    const filled = Math.round(progress * n)
+    return (
+      <View style={{ flexDirection: "row", gap: 2, paddingHorizontal: 10, paddingBottom: 8 }}>
+        {Array.from({ length: n }, (_, i) => (
+          <View key={i} style={{ flex: 1, height: 6, borderRadius: theme.pixelCorners ? 0 : 2, backgroundColor: i < filled ? theme.c.accent : theme.c.surface }} />
+        ))}
+      </View>
+    )
+  }
+  if (theme.progress === "blocks") {
+    return (
+      <View style={{ height: 8, backgroundColor: theme.c.surface, borderTopWidth: theme.border, borderColor: theme.c.border }}>
+        <View style={{ width: pct, flex: 1, backgroundColor: theme.c.accent }} />
+      </View>
+    )
+  }
+  if (theme.progress === "glow") {
+    return (
+      <View style={{ paddingHorizontal: 12, paddingBottom: 9, justifyContent: "center" }}>
+        <View style={{ height: 3, borderRadius: corner, backgroundColor: theme.c.surface }}>
+          <View style={{ width: pct, height: 3, borderRadius: corner, backgroundColor: theme.c.accent, shadowColor: theme.c.accent, shadowOpacity: 1, shadowRadius: 6, elevation: 6 }} />
+        </View>
+      </View>
+    )
+  }
+  if (theme.progress === "wave") {
+    return (
+      <View style={{ paddingHorizontal: 12, paddingBottom: 9, justifyContent: "center" }}>
+        <View style={{ height: 6, borderRadius: corner, backgroundColor: theme.c.surface }}>
+          <View style={{ width: pct, height: 6, borderRadius: corner, backgroundColor: theme.c.accent }} />
+          <View style={{ position: "absolute", left: pct, marginLeft: -2, top: -3, width: 4, height: 12, borderRadius: 2, backgroundColor: theme.c.accent }} />
+        </View>
+      </View>
+    )
+  }
   return (
     <View style={{ height: 3, backgroundColor: theme.c.surface }}>
-      <View style={{ width: `${progress * 100}%`, height: 3, backgroundColor: theme.c.accent }} />
+      <View style={{ width: pct, height: 3, backgroundColor: theme.c.accent }} />
     </View>
   )
 }
