@@ -1,3 +1,5 @@
+import { File, Paths } from "expo-file-system"
+import * as Sharing from "expo-sharing"
 import { ReactNode, useEffect, useRef, useState } from "react"
 import {
   Animated,
@@ -16,6 +18,7 @@ import {
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { fmt, LyricLine, lengthSuffix, Song } from "../../data"
+import { extensionOf } from "../../library/files"
 import { Equalizer } from "../../components/Pixel"
 import { Cover, Icon, Press, T } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
@@ -134,48 +137,78 @@ export const activeLine = (lines: LyricLine[], time: number) => {
   return i
 }
 
-/** Lyrics synced to timestamps; the active line stays in a fixed slot of the window. Tap a line to jump there. */
+/** A line lights up this long before its time stamp: sung words are heard as the line already being there. */
+const LYRICS_LEAD = 0.25
+
+/**
+ * The playback time, moved on between the player's updates (it reports four times a second), so the lyrics
+ * change on the beat instead of up to a quarter of a second late. Follows the real time again at every update.
+ */
+function useSmoothTime(time: number, playing: boolean) {
+  const base = useRef({ time, at: 0 })
+  const [now, setNow] = useState(time)
+  useEffect(() => {
+    base.current = { time, at: Date.now() }
+  }, [time])
+  useEffect(() => {
+    if (!playing) return
+    const id = setInterval(() => setNow(base.current.time + (Date.now() - base.current.at) / 1000), 100)
+    return () => clearInterval(id)
+  }, [playing])
+  // Only trust the estimate while it is just ahead of the real time: after a seek it must not hold the old place
+  return playing && now >= time && now - time < 0.5 ? now : time
+}
+
+/**
+ * Lyrics synced to timestamps; the active line stays in the middle of the window. Long lines wrap onto as many
+ * rows as they need instead of being cut off. Tap a line to jump there.
+ */
 export function LyricsWindow({
   lines,
   time,
+  playing,
   onSeek,
-  lineH,
-  visible = 3,
-  slot = 1,
+  height,
   lineStyle,
   activeStyle,
   dimColor,
 }: {
   lines: LyricLine[]
   time: number
+  playing: boolean
   onSeek: (s: number) => void
-  lineH: number
-  visible?: number
-  slot?: number
+  height: number
   lineStyle: TextStyle
   activeStyle: TextStyle
   dimColor: string
 }) {
-  const idx = activeLine(lines, time)
-  const [shift] = useState(() => new Animated.Value(slot * lineH))
+  const idx = activeLine(lines, useSmoothTime(time, playing) + LYRICS_LEAD)
+  // Where each line starts and how tall it is, measured once drawn: wrapped lines are taller than the rest
+  const [boxes, setBoxes] = useState<Record<number, { y: number; h: number }>>({})
+  const [shift] = useState(() => new Animated.Value(0))
+  const box = boxes[Math.max(idx, 0)]
   useEffect(() => {
+    if (!box) return
     Animated.timing(shift, {
-      toValue: (slot - Math.max(idx, 0)) * lineH,
-      duration: 420,
+      toValue: height / 2 - (box.y + box.h / 2),
+      duration: 300,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start()
-  }, [idx, lineH, slot, shift])
+  }, [box, height, shift])
 
   return (
-    <View style={{ height: lineH * visible, overflow: "hidden" }}>
+    <View style={{ height, overflow: "hidden" }}>
       <Animated.View style={{ transform: [{ translateY: shift }] }}>
         {lines.map((l, i) => (
           <Text
             key={i}
-            numberOfLines={1}
             onPress={() => onSeek(l.t)}
-            style={[lineStyle, { height: lineH, lineHeight: lineH }, i === idx ? activeStyle : { color: dimColor }]}
+            onLayout={(e) => {
+              const { y, height: h } = e.nativeEvent.layout
+              setBoxes((prev) => (prev[i]?.y === y && prev[i]?.h === h ? prev : { ...prev, [i]: { y, h } }))
+            }}
+            style={[lineStyle, { paddingVertical: 5 }, i === idx ? activeStyle : { color: dimColor, opacity: 0.65 }]}
           >
             {l.text}
           </Text>
@@ -185,8 +218,90 @@ export function LyricsWindow({
   )
 }
 
-export const shareSong = (song: Song) =>
-  Share.share({ message: `Estoy escuchando "${song.title}" de ${song.artist} en Retro Beats` }).catch(() => {})
+const MIME: Record<string, string> = {
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  m4b: "audio/mp4",
+  aac: "audio/aac",
+  flac: "audio/flac",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
+  wav: "audio/wav",
+  mka: "audio/x-matroska",
+  "3gp": "audio/3gpp",
+  amr: "audio/amr",
+}
+
+/**
+ * Sends the song's audio file to another app. The file is copied into the app's cache first: the address Android gives
+ * for a song belongs to the media index or a picked folder, and share sheets can't open it from there.
+ * If the file can't be handed over, a message naming the song goes instead.
+ */
+export async function shareSong(song: Song) {
+  try {
+    if (await Sharing.isAvailableAsync()) {
+      const ext = extensionOf(song.file ?? song.uri) || "mp3"
+      const name = `${song.title.replace(/[\/:*?"<>|]+/g, " ").trim() || "cancion"}.${ext}`
+      const copy = new File(Paths.cache, name)
+      if (copy.exists) copy.delete()
+      new File(song.uri).copy(copy)
+      await Sharing.shareAsync(copy.uri, { mimeType: MIME[ext] ?? "audio/*", dialogTitle: `Compartir "${song.title}"` })
+      return
+    }
+  } catch {
+    // falls through to the text
+  }
+  await Share.share({ message: `Estoy escuchando "${song.title}" de ${song.artist} en Retro Beats` }).catch(() => {})
+}
+
+const HOLD_FIRST_STEP = 10
+const HOLD_DELAY_MS = 450
+const HOLD_TICK_MS = 250
+
+/**
+ * A button that skips ±10 s when pressed and keeps going while it is held, faster the longer it is held
+ * (10 s, then 20, 30… up to a minute per step). Each step seeks right away, so the sound follows the finger.
+ */
+export function HoldSeek({ dir, time, duration, onSeek }: { dir: 1 | -1; time: number; duration: number; onSeek: (s: number) => void }) {
+  const theme = useTheme()
+  const latest = useRef({ time, duration, onSeek })
+  useEffect(() => {
+    latest.current = { time, duration, onSeek }
+  })
+  const run = useRef<{ target: number; ticks: number; timer?: ReturnType<typeof setTimeout> }>({ target: 0, ticks: 0 })
+  const step = (size: number) => {
+    const { duration: d, onSeek: seek } = latest.current
+    run.current.target = Math.max(0, Math.min(run.current.target + dir * size, Math.max(0, d - 1)))
+    seek(run.current.target)
+  }
+  const tick = () => {
+    run.current.ticks++
+    step(HOLD_FIRST_STEP * Math.min(6, 1 + Math.floor(run.current.ticks / 6)))
+    run.current.timer = setTimeout(tick, HOLD_TICK_MS)
+  }
+  const stop = () => clearTimeout(run.current.timer)
+  useEffect(() => stop, [])
+  return (
+    <Press
+      onPressIn={() => {
+        run.current = { target: latest.current.time, ticks: 0 }
+        step(HOLD_FIRST_STEP)
+        run.current.timer = setTimeout(tick, HOLD_DELAY_MS)
+      }}
+      onPressOut={stop}
+      accessibilityRole="button"
+      accessibilityLabel={dir > 0 ? "Adelantar 10 segundos; mantén pulsado para avanzar más rápido" : "Retroceder 10 segundos; mantén pulsado para retroceder más rápido"}
+      radius={theme.radius.sm}
+      scaleTo={0.9}
+      style={{ height: 36, minWidth: 64, paddingHorizontal: 12, borderRadius: theme.radius.sm, borderWidth: theme.border, borderColor: theme.c.border, backgroundColor: theme.c.surface, alignItems: "center", justifyContent: "center" }}
+    >
+      <T variant="label" color={theme.c.text} style={{ textTransform: "none" }}>
+        {dir > 0 ? "+10 s" : "−10 s"}
+      </T>
+    </Press>
+  )
+}
 
 export const sleepLabel = (sleep: PlayerApi["sleep"]) => {
   if (!sleep) return null

@@ -9,6 +9,14 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@playwright/mcp@latest", "--browser", "chromium"]
+    },
+    "android-adb": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@landicefu/android-adb-mcp-server"],
+      "env": {
+        "PATH": "C:\\platform-tools;${env:PATH}"
+      }
     }
   }
 }

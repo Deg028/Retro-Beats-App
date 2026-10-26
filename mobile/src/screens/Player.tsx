@@ -8,9 +8,10 @@ import { Action, ActionBar, Button, Cover, IconButton, PlayButton, Press, Progre
 import { LyricsState, SongInfo } from "../online/useSongInfo"
 import { useTheme } from "../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../usePlayer"
-import { LyricsWindow, QueueSheet, shareSong, SleepSheet, sleepLabel, useDismiss, useSeek, useSwipe, useTimeLabels } from "./player/shared"
+import { HoldSeek, LyricsWindow, QueueSheet, shareSong, useDismiss, useSeek, useSwipe, useTimeLabels } from "./player/shared"
 
-const LINE_H = 34
+/** Height of the lyrics window: room for four short lines, or two that wrap */
+const LYRICS_H = 168
 
 /** One player for every theme: the theme decides cover style, progress, buttons, background and its retro signature. */
 export default function Player({
@@ -28,7 +29,7 @@ export default function Player({
   const theme = useTheme()
   const { current: song, playing, duration, shuffle, repeat } = player
   const time = usePlaybackTime(player)
-  const [sheet, setSheet] = useState<"queue" | "sleep" | null>(null)
+  const [sheet, setSheet] = useState<"queue" | null>(null)
   const [lyricsOpen, setLyricsOpen] = useState(true)
   const { width, height } = useWindowDimensions()
   const insets = useSafeAreaInsets()
@@ -59,7 +60,6 @@ export default function Player({
   }
 
   const coverSize = theme.cover === "disc" ? 210 : Math.min(width - 72, theme.signature === "reels" ? 250 : 290)
-  const timer = sleepLabel(player.sleep)
   const coverBehind = theme.background === "tonal" ? theme.c.tonal : theme.c.bg
 
   return (
@@ -178,6 +178,10 @@ export default function Player({
               <T variant="number" color={theme.c.textMuted}>
                 {labels.elapsed}
               </T>
+              <View style={styles.hold}>
+                <HoldSeek dir={-1} time={time} duration={duration} onSeek={player.seek} />
+                <HoldSeek dir={1} time={time} duration={duration} onSeek={player.seek} />
+              </View>
               <T variant="number" color={theme.c.textMuted} onPress={labels.toggle} accessibilityHint="Alterna entre duración y tiempo restante">
                 {labels.total}
               </T>
@@ -202,7 +206,6 @@ export default function Player({
           <ActionBar>
             <Action icon="lyrics" label="Letra" active={lyricsOpen} onPress={() => setLyricsOpen((o) => !o)} />
             <Action icon="queue" label="Cola" onPress={() => setSheet("queue")} />
-            <Action icon="moon" label={timer ?? "Dormir"} active={!!timer} onPress={() => setSheet("sleep")} />
             <Action icon="share" label="Compartir" onPress={() => shareSong(song)} />
           </ActionBar>
 
@@ -256,9 +259,8 @@ export default function Player({
                   lines={song.lyrics}
                   time={time + (song.lyricsOffset ?? 0)}
                   onSeek={(t) => player.seek(t - (song.lyricsOffset ?? 0))}
-                  lineH={LINE_H}
-                  visible={4}
-                  slot={1}
+                  playing={playing}
+                  height={LYRICS_H}
                   lineStyle={{
                     ...textStyle(theme, theme.icons === "pixel" ? "body" : "title"),
                     textTransform: "none",
@@ -286,7 +288,6 @@ export default function Player({
       </ScrollView>
 
       <QueueSheet player={player} visible={sheet === "queue"} onClose={() => setSheet(null)} />
-      <SleepSheet player={player} visible={sheet === "sleep"} onClose={() => setSheet(null)} />
     </View>
   )
 }
@@ -327,7 +328,8 @@ const styles = StyleSheet.create({
   spoke: { width: 4, height: 11, borderRadius: 2 },
   tape: { flex: 1, height: 2 },
   info: { flexDirection: "row", alignItems: "center", gap: 2 },
-  times: { flexDirection: "row", justifyContent: "space-between" },
+  times: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  hold: { flexDirection: "row", gap: 10 },
   controls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   offset: { flexDirection: "row", alignItems: "center", gap: 6 },
   offsetBtn: { width: 34, height: 30, alignItems: "center", justifyContent: "center", borderWidth: 1 },
