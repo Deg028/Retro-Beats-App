@@ -34,8 +34,8 @@ export async function request(url: string, method: "GET" | "HEAD" = "GET"): Prom
     }
     if (res.ok) return res
     if (res.status === 404) return null
-    // Busy or rate limited: wait a little longer each time
-    if ((res.status === 429 || res.status === 503) && attempt < TRIES - 1) {
+    // Busy, rate limited or briefly failing: wait a little longer each time
+    if ([429, 500, 502, 503, 504].includes(res.status) && attempt < TRIES - 1) {
       await sleep(1500 * (attempt + 1))
       continue
     }

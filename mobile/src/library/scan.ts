@@ -41,7 +41,7 @@ export async function scanFiles(onProgress: (n: number) => void): Promise<RawFil
     for (const a of page) {
       // On Android the id is already the content address; otherwise ask the library for it
       const uri = a.id.includes("://") ? a.id : await new Asset(a.id).getUri()
-      files.push({ uri, name: a.filename ?? uri.split("/").pop() ?? "Sin nombre", duration: a.duration, added: a.creationTime })
+      files.push({ uri, name: a.filename ?? uri.split("/").pop() ?? "Sin nombre", duration: a.duration == null ? null : a.duration / 1000, added: a.creationTime })
     }
     onProgress(files.length)
     if (page.length < PAGE) break

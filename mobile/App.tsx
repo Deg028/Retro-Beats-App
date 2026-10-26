@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react"
 import { Animated, BackHandler, Easing, Pressable, StyleSheet, useWindowDimensions, View } from "react-native"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 import { StatusBar } from "expo-status-bar"
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"
 import { PressStart2P_400Regular } from "@expo-google-fonts/press-start-2p"
@@ -32,6 +33,8 @@ import { useNowPlaying } from "./src/useNowPlaying"
 import { ThemeProvider, useThemeControl } from "./src/themes/ThemeContext"
 import { colors } from "./src/theme"
 
+const SNAP_DISMISSED_KEY = "retro-beats:snaptube-notice-dismissed"
+
 type Tab = Exclude<Screen, "player">
 const TAB_INDEX: Record<Tab, number> = { home: 0, scan: 1, themes: 2, playlists: 3, recap: 4 }
 
@@ -48,6 +51,13 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   const [sleepOpen, setSleepOpen] = useState(false)
   // The month or year to open the recap on, when it was opened from the "ready" notice
   const [recapStart, setRecapStart] = useState<Period | null>(null)
+  // The notice that offers to bring the covers of SnapTube downloads can be dismissed for good
+  const [snapDismissed, setSnapDismissed] = useState<boolean | null>(null)
+  useEffect(() => {
+    AsyncStorage.getItem(SNAP_DISMISSED_KEY)
+      .then((v) => setSnapDismissed(v === "1"))
+      .catch(() => setSnapDismissed(false))
+  }, [])
   // Tab screens fade and slide in; the player is a layer that slides up over them
   const [enter] = useState(() => new Animated.Value(1))
   const [layerY] = useState(() => new Animated.Value(height))
@@ -141,6 +151,43 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
             </T>
           </Pressable>
         )}
+        {tab === "home" && !listening.ready && info.snaptubeKnown && !info.snaptubeLinked && snapDismissed === false && player.library.length > 0 && (
+          <View style={[styles.notice, { backgroundColor: theme.c.surface2, borderColor: theme.c.border, borderWidth: Math.max(1, theme.border), borderRadius: theme.radius.md, gap: 10 }]}>
+            <Pressable
+              onPress={() => info.importThumbnails(player.library, true)}
+              accessibilityRole="button"
+              accessibilityLabel="Conectar SnapTube para traer las carátulas de tus descargas"
+              style={{ flex: 1 }}
+            >
+              <T variant="caption" color={theme.c.text} style={{ fontWeight: "700" }}>
+                ¿Descargas con SnapTube? Toca para traer sus carátulas.
+              </T>
+              <T variant="caption" color={theme.c.textMuted}>
+                Elige la carpeta «db» dentro de snaptube.
+              </T>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setSnapDismissed(true)
+                AsyncStorage.setItem(SNAP_DISMISSED_KEY, "1").catch(() => {})
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="No volver a mostrar este aviso"
+              hitSlop={10}
+            >
+              <T variant="caption" color={theme.c.textMuted}>
+                Ahora no
+              </T>
+            </Pressable>
+          </View>
+        )}
+        {tab === "home" && info.thumbs && (
+          <View style={[styles.notice, { backgroundColor: theme.c.surface2, borderRadius: theme.radius.md }]}>
+            <T variant="caption" color={theme.c.text}>
+              Trayendo carátulas de SnapTube… {info.thumbs.done}/{info.thumbs.total}
+            </T>
+          </View>
+        )}
         <MiniPlayer player={player} onOpen={() => go("player")} />
         <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} />
       </View>
@@ -213,6 +260,11 @@ function Main() {
   useEffect(() => {
     if (store.hydrated && player.library.length) readLyricFiles()
   }, [store.hydrated, player.library.length])
+  // Once SnapTube is connected, the covers of new downloads come on their own each time the songs are known
+  const readThumbnails = useEffectEvent(() => info.importThumbnails(player.library, false))
+  useEffect(() => {
+    if (store.hydrated && info.snaptubeLinked && player.library.length) readThumbnails()
+  }, [store.hydrated, info.snaptubeLinked, player.library.length])
   return (
     <ArtProvider value={store.meta}>
       <ThemeProvider songId={player.currentId}>

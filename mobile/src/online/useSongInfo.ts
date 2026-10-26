@@ -203,12 +203,17 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
   }, [wantsRomaji, id, current?.lyrics])
 
   const [thumbs, setThumbs] = useState<{ done: number; total: number } | null>(null)
+  // Set at once, unlike `thumbs`, so the folder being picked and the automatic run never overlap
+  const thumbsBusy = useRef(false)
   const [thumbsMessage, setThumbsMessage] = useState<string | null>(null)
   const [snaptube, setSnaptube] = useState<string | null>(null)
+  // Whether the saved folder has been read yet, so the "connect" notice does not flash before it is known
+  const [snaptubeKnown, setSnaptubeKnown] = useState(false)
   useEffect(() => {
     AsyncStorage.getItem(SNAPTUBE_KEY)
       .then((v) => v && setSnaptube(v))
       .catch(() => {})
+      .finally(() => setSnaptubeKnown(true))
   }, [])
 
   /**
@@ -216,7 +221,8 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
    * `ask` opens the folder picker; without it the folder chosen before is used.
    */
   const importThumbnails = async (songs: Song[], ask: boolean) => {
-    if (thumbs) return
+    if (thumbs || thumbsBusy.current) return
+    thumbsBusy.current = true
     setThumbsMessage(null)
     try {
       let folder = snaptube
@@ -252,6 +258,7 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     } catch (e) {
       setThumbsMessage(e instanceof Error ? e.message : "No se pudo leer SnapTube")
     } finally {
+      thumbsBusy.current = false
       setThumbs(null)
     }
   }
@@ -283,6 +290,7 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     thumbs,
     thumbsMessage,
     snaptubeLinked: !!snaptube,
+    snaptubeKnown,
     withThumb: entries.filter((e) => typeof e.thumb === "string").length,
     setLyricsOffset: (id: number, seconds: number) => store.patch(id, { offset: Math.round(seconds * 10) / 10 }),
     stopBulk: () => {

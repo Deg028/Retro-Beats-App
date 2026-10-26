@@ -79,7 +79,7 @@ export function Drawer({
       style={[styles.row, { borderRadius: theme.radius.md }, opts.active && { backgroundColor: theme.c.accent }]}
     >
       <Icon name={icon} size={24} color={opts.active ? theme.c.onAccent : theme.c.text} />
-      <T variant="body" color={opts.active ? theme.c.onAccent : theme.c.text} style={{ flex: 1 }} numberOfLines={1}>
+      <T variant="body" color={opts.active ? theme.c.onAccent : theme.c.text} style={{ flex: 1 }} numberOfLines={2}>
         {label}
       </T>
       {opts.trailing !== undefined && (
@@ -175,6 +175,6 @@ const styles = StyleSheet.create({
   card: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 18, paddingHorizontal: 18, marginBottom: 12 },
   cardArrow: { width: 44, height: 34, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   heading: { paddingHorizontal: 12, marginTop: 4, marginBottom: 4 },
-  row: { flexDirection: "row", alignItems: "center", gap: 16, minHeight: 52, paddingHorizontal: 12 },
+  row: { flexDirection: "row", alignItems: "center", gap: 16, minHeight: 52, paddingVertical: 6, paddingHorizontal: 12 },
   divider: { height: 1, marginVertical: 10, marginHorizontal: 8 },
 })
