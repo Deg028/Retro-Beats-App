@@ -3,20 +3,27 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Song } from "../data"
 import { pickFolder } from "../library/scan"
 import { readLyricsFile } from "./local"
+import { lyricsHaveJapanese, romanise } from "./romaji"
 import { lookup, saveCover } from "./lookup"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
 import { Entry, InfoStore } from "./store"
 
 const WEEK = 7 * 24 * 3600 * 1000
+// Bumped when lyrics are prepared differently (2: files with the original, romanisation and translation keep the original)
+const LYRICS_V = 2
 const SNAPTUBE_KEY = "retro-beats:snaptube-folder"
+const ROMAJI_KEY = "retro-beats:romaji"
 
 /**
  * What to look up for a song. Lyrics wait until the song's length is known: timings only fit the recording
  * they were made for, and the length is how the right one is told from a live or extended version.
  */
-function wanted(song: Song, entry: Entry | undefined) {
+function wanted(song: Song, entry: Entry | undefined, force = false) {
   const redo = entry?.lyrics === true && !entry.lyricsFor
-  return { lyrics: song.duration > 0 && (needs(entry, "lyrics") || redo), cover: needs(entry, "cover") }
+  // Only plain words were found: a timed version may have been added since, so it is looked for again now and then
+  const upgrade = entry?.lyrics === true && entry.lyricsSynced === false && (!entry.syncTriedAt || Date.now() - entry.syncTriedAt > WEEK)
+  const stale = entry?.lyrics === true && (entry.lyricsV ?? 1) < LYRICS_V
+  return { lyrics: song.duration > 0 && (force || needs(entry, "lyrics") || redo || upgrade || stale), cover: !force && needs(entry, "cover") }
 }
 
 /** A part is looked up if it never was, or if it was and came back empty more than a week ago. Whatever was found stays. */
@@ -49,9 +56,9 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
   })
 
   /** Looks up what is missing for one song. Returns false if the servers could not be reached. */
-  const run = async (song: Song): Promise<boolean> => {
+  const run = async (song: Song, force = false): Promise<boolean> => {
     const entry = entriesRef.current[song.id]
-    const want = wanted(song, entry)
+    const want = wanted(song, entry, force)
     if ((!want.lyrics && !want.cover) || inflight.current.has(song.id)) return true
     inflight.current.add(song.id)
     setBusy(song.id)
@@ -69,9 +76,12 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
       if (want.lyrics && lyrics !== undefined) {
         // A second look that finds nothing must not throw away lyrics that were saved before
         if (lyrics || !entry?.lyrics) {
-          store.saveLyrics(song.id, lyrics)
-          store.patch(song.id, { lyrics: !!lyrics, lyricsAt: now, lyricsFor: song.duration })
-        } else store.patch(song.id, { lyricsFor: song.duration })
+          // Words without timing never replace timed lyrics that were saved before
+          if (lyrics?.synced || !entry?.lyricsSynced) {
+            store.saveLyrics(song.id, lyrics)
+            store.patch(song.id, { lyrics: !!lyrics, lyricsAt: now, lyricsFor: song.duration, lyricsSynced: !!lyrics?.synced, syncTriedAt: now, lyricsV: LYRICS_V })
+          } else store.patch(song.id, { syncTriedAt: now, lyricsV: LYRICS_V })
+        } else store.patch(song.id, { lyricsFor: song.duration, syncTriedAt: now, lyricsV: LYRICS_V })
       }
       if (want.cover && found.release !== undefined) {
         let cover: string | null = null
@@ -153,6 +163,45 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     }
   }
 
+  // Romanised reading of Japanese lyrics, shown under each line when the person turns it on
+  const [romajiOn, setRomajiOnState] = useState(false)
+  const [romajiBusy, setRomajiBusy] = useState<number | null>(null)
+  const [romajiError, setRomajiError] = useState<string | null>(null)
+  // Songs whose reading could not be fetched; they are not tried again until the person asks
+  const [romajiFailed, setRomajiFailed] = useState<number[]>([])
+  useEffect(() => {
+    AsyncStorage.getItem(ROMAJI_KEY)
+      .then((v) => v === "1" && setRomajiOnState(true))
+      .catch(() => {})
+  }, [])
+  const setRomajiOn = (on: boolean) => {
+    setRomajiOnState(on)
+    setRomajiError(null)
+    if (on) setRomajiFailed([])
+    AsyncStorage.setItem(ROMAJI_KEY, on ? "1" : "0").catch(() => {})
+  }
+  const fillRomaji = async (song: Song) => {
+    if (!song.lyrics) return
+    setRomajiBusy(song.id)
+    setRomajiError(null)
+    try {
+      store.patchLyrics(song.id, { romaji: await romanise(song.lyrics) })
+    } catch (e) {
+      setRomajiFailed((f) => [...f, song.id])
+      setRomajiError(e instanceof Error ? e.message : "No se pudo convertir la letra")
+    } finally {
+      setRomajiBusy((b) => (b === song.id ? null : b))
+    }
+  }
+  const startRomaji = useEffectEvent(() => current && fillRomaji(current))
+  const wantsRomaji = romajiOn && store.enabled && !!current?.lyrics && !current.romaji && !romajiFailed.includes(current.id) && lyricsHaveJapanese(current.lyrics)
+  // A moment's wait, so skipping through songs does not send a request for each one
+  useEffect(() => {
+    if (!wantsRomaji) return
+    const timer = setTimeout(startRomaji, 400)
+    return () => clearTimeout(timer)
+  }, [wantsRomaji, id, current?.lyrics])
+
   const [thumbs, setThumbs] = useState<{ done: number; total: number } | null>(null)
   const [thumbsMessage, setThumbsMessage] = useState<string | null>(null)
   const [snaptube, setSnaptube] = useState<string | null>(null)
@@ -214,6 +263,18 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     lyricsState,
     error: id !== undefined ? errors[id] : undefined,
     retry: () => current && run(current),
+    /** Looks for timed lyrics again right now, for a song that only has plain words */
+    retrySynced: () => current && run(current, true),
+    searching: id !== undefined && busy === id,
+    romajiOn,
+    setRomajiOn,
+    romajiBusy,
+    romajiError,
+    retryRomaji: () => {
+      setRomajiFailed([])
+      setRomajiError(null)
+      if (current) fillRomaji(current)
+    },
     bulk,
     bulkError,
     enrichAll,

@@ -6,7 +6,7 @@ import { useTheme } from "../themes/ThemeContext"
 import { CATEGORY_LABEL } from "../themes/themes"
 import { Section, SECTIONS } from "../screens/Home"
 
-type Shortcut = "themes" | "scan" | "sleep"
+type Shortcut = "themes" | "scan" | "sleep" | "playlists" | "recap"
 
 /**
  * Side menu that slides in from the left over the whole app: brand header, a featured mix card,
@@ -20,6 +20,7 @@ export function Drawer({
   onSection,
   libraryCount,
   phoneCount,
+  playlistCount,
   onMix,
   onShortcut,
   sleepLabel,
@@ -31,6 +32,7 @@ export function Drawer({
   onSection: (s: Section) => void
   libraryCount: number
   phoneCount: number
+  playlistCount: number
   onMix: () => void
   onShortcut: (s: Shortcut) => void
   sleepLabel: string | null
@@ -152,6 +154,8 @@ export function Drawer({
           {SECTIONS.map((s) => row(s.key, s.icon, s.label, () => onSection(s.key), { active: s.key === section, trailing: String(counts[s.key]) }))}
 
           {divider}
+          {row("playlists", "playlist", "Listas de reproducción", () => onShortcut("playlists"), { trailing: String(playlistCount) })}
+          {row("recap", "stats", "Resumen de escucha", () => onShortcut("recap"))}
           {row("scan", "player", "Música del teléfono", () => onShortcut("scan"), { trailing: String(phoneCount) })}
           {row("sleep", "moon", "Temporizador de apagado", () => onShortcut("sleep"), { trailing: sleepLabel ?? undefined })}
           {row("themes", "themes", `Temas · ${theme.name}`, () => onShortcut("themes"))}

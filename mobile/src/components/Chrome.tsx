@@ -4,7 +4,7 @@ import { Cover, Icon, IconName, PlayButton, Press, T } from "./ui"
 import { useTheme } from "../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../usePlayer"
 
-export type Screen = "home" | "player" | "scan" | "themes"
+export type Screen = "home" | "player" | "scan" | "themes" | "playlists" | "recap"
 
 const TABS: { key: Screen; label: string; icon: IconName }[] = [
   { key: "home", label: "Inicio", icon: "home" },
@@ -69,10 +69,8 @@ export function TabBar({ screen, onChange, bottom }: { screen: Screen; onChange:
 
 export function MiniPlayer({ player, onOpen }: { player: PlayerApi; onOpen: () => void }) {
   const theme = useTheme()
-  const { current, playing, duration } = player
-  const time = usePlaybackTime(player)
+  const { current, playing } = player
   if (!current) return null
-  const progress = duration ? Math.min(1, time / duration) : 0
   return (
     <View
       style={[
@@ -100,9 +98,19 @@ export function MiniPlayer({ player, onOpen }: { player: PlayerApi; onOpen: () =
         </Press>
         <PlayButton playing={playing} onPress={player.togglePlaying} size={44} behind={theme.c.surface2} />
       </View>
-      <View style={{ height: 3, backgroundColor: theme.c.surface }}>
-        <View style={{ width: `${progress * 100}%`, height: 3, backgroundColor: theme.c.accent }} />
-      </View>
+      <MiniProgress player={player} />
+    </View>
+  )
+}
+
+/** The thin bar under the mini player. It alone follows the running time, so the rest is not redrawn four times a second. */
+function MiniProgress({ player }: { player: PlayerApi }) {
+  const theme = useTheme()
+  const time = usePlaybackTime(player)
+  const progress = player.duration ? Math.min(1, time / player.duration) : 0
+  return (
+    <View style={{ height: 3, backgroundColor: theme.c.surface }}>
+      <View style={{ width: `${progress * 100}%`, height: 3, backgroundColor: theme.c.accent }} />
     </View>
   )
 }

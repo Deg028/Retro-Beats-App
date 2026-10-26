@@ -192,7 +192,7 @@ export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLib
               <Chip label={info.enabled ? "Activada" : "Desactivada"} active={info.enabled} onPress={() => info.setEnabled(!info.enabled)} />
             </View>
             <T variant="caption" color={theme.c.textMuted}>
-              Al sonar una canción se busca su carátula original (catálogo de Apple Music, MusicBrainz y Cover Art Archive) y su letra (LRCLIB). Solo se envía el título y el artista, sin tu cuenta ni tus archivos. Lo que se encuentra se guarda en el teléfono y no se vuelve a pedir.
+              Al sonar una canción se busca su carátula original (catálogo de Apple Music, MusicBrainz y Cover Art Archive) y su letra (LRCLIB). Solo se envía el título y el artista, sin tu cuenta ni tus archivos. Lo que se encuentra se guarda en el teléfono y no se vuelve a pedir. Si activas «Romaji» en el reproductor, las líneas con kanji de la letra se envían una a una a Google Traductor para leerlas.
             </T>
             <T variant="caption" color={theme.c.highlight}>
               {info.withCover} con carátula · {info.withLyrics} con letra

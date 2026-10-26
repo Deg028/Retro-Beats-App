@@ -3,7 +3,13 @@ import { normalize, SearchTerms } from "../library/names"
 import { getJson } from "./http"
 
 /** duration: length in seconds of the recording these lyrics were timed against */
-export type Lyrics = { synced: LyricLine[] | null; plain: string | null; duration?: number }
+export type Lyrics = {
+  synced: LyricLine[] | null
+  plain: string | null
+  duration?: number
+  /** Romanised reading of each synced line, in the same order ("" where a line has no Japanese) */
+  romaji?: string[]
+}
 
 type Hit = {
   trackName: string
@@ -25,7 +31,7 @@ const TAG = /^[↓→↑←]\s*|\s*[↓→↑←]$/g
 const tagOf = (text: string) => text.trim().match(/^[↓→↑←]|[↓→↑←]$/)?.[0]
 const untag = (text: string) => text.trim().replace(TAG, "").trim()
 
-/** One version of each line: the romanisation when the file has several, so the words can be sung along. */
+/** One version of each line: the original, with the romanisation (when the file has one) kept alongside; translations are left out. */
 export function singleLanguage(synced: LyricLine[]): LyricLine[] {
   if (!synced.some((l) => tagOf(l.text))) return synced
   const out: LyricLine[] = []
@@ -33,8 +39,10 @@ export function singleLanguage(synced: LyricLine[]): LyricLine[] {
     let j = i
     while (j < synced.length && synced[j].t - synced[i].t < 0.3) j++
     const group = synced.slice(i, j)
-    const pick = group.find((l) => /[→←]/.test(tagOf(l.text) ?? "")) ?? group.find((l) => tagOf(l.text) === "↓") ?? group[0]
-    out.push({ t: pick.t, text: untag(pick.text) })
+    const original = group.find((l) => tagOf(l.text) === "↓")
+    const reading = group.find((l) => /[→←]/.test(tagOf(l.text) ?? ""))
+    const pick = original ?? reading ?? group.find((l) => tagOf(l.text) !== "↑") ?? group[0]
+    out.push({ t: pick.t, text: untag(pick.text), ...(original && reading ? { r: untag(reading.text) } : null) })
     i = j
   }
   return out
@@ -73,7 +81,7 @@ export function expandChorus(synced: LyricLine[], plain: string | null): LyricLi
     for (const b of block) {
       const t = l.t + (b.t - synced[source].t)
       if (next && t >= next.t - 0.3) break
-      out.push({ t, text: b.text })
+      out.push({ ...b, t })
     }
   })
   return out.sort((a, b) => a.t - b.t)
@@ -106,6 +114,9 @@ export function parseLrc(text: string): LyricLine[] {
   return lines.sort((a, b) => a.t - b.t)
 }
 
+// Seconds of difference in length up to which timed lyrics are still taken over untimed ones
+const SYNC_TOLERANCE = 12
+
 const same = (a: string, b: string) => !!a && !!b && (a === b || (Math.min(a.length, b.length) >= 4 && (a.includes(b) || b.includes(a))))
 
 /** Rates a search result for this song; -1 means it is a different song. */
@@ -114,17 +125,21 @@ function score(hit: Hit, terms: SearchTerms, duration: number) {
   const wanted = normalize(terms.title)
   if (!(terms.artist ? same(title, wanted) : title === wanted)) return -1
   if (terms.artist && !same(normalize(hit.artistName), normalize(terms.artist))) return -1
-  let s = hit.syncedLyrics ? 3 : 0
+  let s = 0
   if (duration > 0 && hit.duration > 0) {
     const gap = Math.abs(hit.duration - duration)
     // A very different length is a different version (live, extended), whose timings would not fit
     if (gap > 15) return -1
+    // Timed lyrics from a version a few seconds off still follow the song (the person can nudge them), which
+    // plain words never do: they win over untimed ones even when those match the length exactly
+    s += hit.syncedLyrics ? (gap <= SYNC_TOLERANCE ? 10 : 3) : 0
     // The closer the length, the likelier the timings fit this very recording
     s += Math.max(0, 8 - gap)
   } else if (!terms.artist) {
     // Without an artist or a length there is nothing to tell two songs with the same title apart
     return -1
   }
+  if (!(duration > 0 && hit.duration > 0)) s += hit.syncedLyrics ? 3 : 0
   return s
 }
 
@@ -154,9 +169,12 @@ export async function findLyrics(attempts: SearchTerms[], duration: number): Pro
     }
     if (!best) continue
     const plain = best.hit.plainLyrics?.trim() || null
-    const synced = best.hit.syncedLyrics ? expandChorus(singleLanguage(parseLrc(best.hit.syncedLyrics)), plain) : []
+    const lines = best.hit.syncedLyrics ? expandChorus(singleLanguage(parseLrc(best.hit.syncedLyrics)), plain) : []
+    const synced = lines.map(({ t, text }) => ({ t, text }))
+    // The reading some files carry for each line, in the same order as the lines
+    const romaji = lines.some((l) => l.r) ? lines.map((l) => l.r ?? "") : undefined
     return {
-      lyrics: { synced: synced.length ? synced : null, plain: plain ? expandPlainChorus(singleLanguagePlain(plain)) : null, duration: best.hit.duration || undefined },
+      lyrics: { synced: synced.length ? synced : null, plain: plain ? expandPlainChorus(singleLanguagePlain(plain)) : null, duration: best.hit.duration || undefined, romaji },
       artist: best.hit.artistName,
       title: best.hit.trackName,
       terms,

@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react"
-import { Animated, StyleProp, View, ViewStyle } from "react-native"
+import { StyleProp, View, ViewStyle } from "react-native"
 import Svg, { Path } from "react-native-svg"
 import { colors } from "../theme"
-
-const stepped = (t: number) => Math.floor(t * 6) / 6
 
 const PALETTE = ["#e62429", "#ff7547", "#f2c14e"]
 
@@ -113,6 +111,19 @@ export const ICONS = {
   clock: ["M16 4a12 12 0 1 1 0 24 12 12 0 0 1 0-24z", "M16 9v7h6"],
 }
 
+const STEPS = 6
+const EQ_TICK_MS = 130
+
+/** Height of one bar (0.2 to 1) at a moment: uneven, repeating, and in whole steps like the rest of the retro look. */
+const level = (tick: number, bar: number) => {
+  const wave = Math.sin(tick * (0.55 + (bar % 3) * 0.17) + bar * 1.9) * 0.5 + 0.5
+  return 0.2 + (Math.round(wave * (STEPS - 1)) / (STEPS - 1)) * 0.8
+}
+
+/**
+ * Bars that dance while the music plays. They change a few times a second from a timer instead of being animated
+ * every frame: a bar moving at 60 frames a second kept the whole screen redrawing for as long as a song was playing.
+ */
 export function Equalizer({
   playing = true,
   bars = 5,
@@ -124,30 +135,17 @@ export function Equalizer({
   height?: number
   color?: string
 }) {
-  const [values] = useState(() => Array.from({ length: bars }, () => new Animated.Value(0.2)))
-
+  const [tick, setTick] = useState(0)
   useEffect(() => {
     if (!playing) return
-    const loops = values.map((v, i) => {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(v, { toValue: 1, duration: 450 + (i % 3) * 180, easing: stepped, useNativeDriver: true }),
-          Animated.timing(v, { toValue: 0.2, duration: 450 + (i % 3) * 180, easing: stepped, useNativeDriver: true }),
-        ]),
-      )
-      loop.start()
-      return loop
-    })
-    return () => loops.forEach((l) => l.stop())
-  }, [playing, values])
+    const timer = setInterval(() => setTick((t) => t + 1), EQ_TICK_MS)
+    return () => clearInterval(timer)
+  }, [playing])
 
   return (
     <View style={{ height, flexDirection: "row", alignItems: "flex-end", gap: 3 }}>
-      {values.map((v, i) => (
-        <Animated.View
-          key={i}
-          style={{ width: 5, height, backgroundColor: color, transform: [{ scaleY: v }] }}
-        />
+      {Array.from({ length: bars }, (_, i) => (
+        <View key={i} style={{ width: 5, height: Math.max(2, Math.round(height * (playing ? level(tick, i) : 0.2))), backgroundColor: color }} />
       ))}
     </View>
   )

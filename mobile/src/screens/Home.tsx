@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from "react"
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { FlatList, Keyboard, StyleSheet, TextInput, View } from "react-native"
 import { lengthSuffix, Song } from "../data"
 import { Equalizer } from "../components/Pixel"
@@ -33,6 +33,42 @@ export function sectionLists(library: Song[]): Record<Section, Song[]> {
     recent: library.filter((s) => s.lastPlayed > 0).sort((a, b) => b.lastPlayed - a.lastPlayed),
   }
 }
+
+type RowProps = { item: Song; index: number; ranked: boolean; active: boolean; playing: boolean; onPlay: (id: number) => void; onFav: (id: number) => void }
+
+/** One song of the list. Only the rows whose song or state changed are drawn again, so a long library stays smooth. */
+const SongRow = memo(function SongRow({ item, index, ranked, active, playing, onPlay, onFav }: RowProps) {
+  const theme = useTheme()
+  return (
+    <Surface tone={active ? "surface2" : "surface"} style={styles.item}>
+      <Press style={styles.itemMain} radius={theme.radius.sm} scaleTo={0.97} accessibilityLabel={`Reproducir ${item.title}`} onPress={() => onPlay(item.id)}>
+        {ranked && (
+          <T variant="number" color={theme.c.highlight} style={{ width: 18 }}>
+            {index + 1}
+          </T>
+        )}
+        <Cover seed={item.id} size={44} behind={active ? theme.c.surface2 : theme.c.surface} />
+        <View style={{ flex: 1 }}>
+          <T variant="title" numberOfLines={1} style={{ fontSize: Math.min(theme.type.title.size, 16) }}>
+            {item.title}
+          </T>
+          <T variant="caption" numberOfLines={1} color={theme.c.warm}>
+            {item.artist}
+            {ranked ? ` · ${item.plays} reproducciones` : lengthSuffix(item.duration)}
+          </T>
+        </View>
+        {active && <Equalizer playing={playing} bars={3} height={16} color={theme.c.accent} />}
+      </Press>
+      <IconButton
+        icon={item.fav ? "heartOn" : "heart"}
+        onPress={() => onFav(item.id)}
+        label={`Favorita ${item.title}`}
+        color={item.fav ? theme.c.accent : theme.c.textMuted}
+        boxed={false}
+      />
+    </Surface>
+  )
+})
 
 export default function Home({
   player,
@@ -73,6 +109,18 @@ export default function Home({
     Keyboard.dismiss()
   }
   const current = SECTIONS.find((s) => s.key === section)!
+
+  // The rows get the same two functions every time, so changing the song only redraws the rows that changed
+  const latest = useRef({ player, onOpenPlayer })
+  useEffect(() => {
+    latest.current = { player, onOpenPlayer }
+  })
+  const onPlay = useCallback((id: number) => {
+    Keyboard.dismiss()
+    latest.current.player.playLibrary(id)
+    latest.current.onOpenPlayer()
+  }, [])
+  const onFav = useCallback((id: number) => latest.current.player.toggleFav(id), [])
 
   return (
     <View style={{ flex: 1 }}>
@@ -180,47 +228,13 @@ export default function Home({
           </T>
         }
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        renderItem={({ item, index }) => {
-          const active = item.id === currentId
-          return (
-            <Surface tone={active ? "surface2" : "surface"} style={styles.item}>
-              <Press
-                style={styles.itemMain}
-                radius={theme.radius.sm}
-                scaleTo={0.97}
-                accessibilityLabel={`Reproducir ${item.title}`}
-                onPress={() => {
-                  Keyboard.dismiss()
-                  player.play(item.id)
-                  onOpenPlayer()
-                }}
-              >
-                {section === "top" && (
-                  <T variant="number" color={theme.c.highlight} style={{ width: 18 }}>
-                    {index + 1}
-                  </T>
-                )}
-                <Cover seed={item.id} size={44} behind={active ? theme.c.surface2 : theme.c.surface} />
-                <View style={{ flex: 1 }}>
-                  <T variant="title" numberOfLines={1} style={{ fontSize: Math.min(theme.type.title.size, 16) }}>
-                    {item.title}
-                  </T>
-                  <T variant="caption" numberOfLines={1} color={theme.c.warm}>
-                    {item.artist}{section === "top" ? ` · ${item.plays} reproducciones` : lengthSuffix(item.duration)}
-                  </T>
-                </View>
-                {active && <Equalizer playing={playing} bars={3} height={16} color={theme.c.accent} />}
-              </Press>
-              <IconButton
-                icon={item.fav ? "heartOn" : "heart"}
-                onPress={() => player.toggleFav(item.id)}
-                label={`Favorita ${item.title}`}
-                color={item.fav ? theme.c.accent : theme.c.textMuted}
-                boxed={false}
-              />
-            </Surface>
-          )
-        }}
+        renderItem={({ item, index }) => (
+          <SongRow item={item} index={index} ranked={section === "top"} active={item.id === currentId} playing={item.id === currentId && playing} onPlay={onPlay} onFav={onFav} />
+        )}
+        initialNumToRender={12}
+        windowSize={9}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews
       />
 
     </View>

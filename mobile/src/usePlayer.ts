@@ -41,6 +41,8 @@ function withDevice(prev: Song[], device: DeviceTrack[], saved: SavedSong[]): So
   })
 }
 
+const derived = new WeakMap<Song, { meta: SongMeta; song: Song }>()
+
 type Saved = { songs: SavedSong[]; shuffle?: boolean; repeat?: Repeat; playMode?: "off" | "repeat-one" | "repeat-all" | "shuffle" }
 
 const shuffled = <T>(xs: T[]) => {
@@ -67,6 +69,8 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   const [shuffleOrder, setShuffleOrder] = useState<number[]>([])
   const [removed, setRemoved] = useState<number[]>([])
   const [sleep, setSleep] = useState<Sleep>(null)
+  // A playlist being played: its songs are the queue, and the name shows where the music comes from
+  const [context, setContext] = useState<{ ids: number[]; label: string } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(false)
   const counter = useRef(100)
@@ -93,7 +97,12 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
       stored.map((s): Song => {
         const m = meta[s.id]
         if (!m) return s
-        return { ...s, title: m.title ?? s.title, artist: m.artist ?? s.artist, cover: m.cover, lyrics: m.lyrics, plain: m.plain, lyricsOffset: m.offset }
+        // The same song with the same information stays the same object, so lists do not redraw its row
+        const known = derived.get(s)
+        if (known && known.meta === m) return known.song
+        const song: Song = { ...s, title: m.title ?? s.title, artist: m.artist ?? s.artist, album: m.album, cover: m.cover, lyrics: m.lyrics, romaji: m.romaji, plain: m.plain, lyricsOffset: m.offset }
+        derived.set(s, { meta: m, song })
+        return song
       }),
     [stored, meta],
   )
@@ -103,8 +112,9 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   // Any song can be played; once the user saves songs, next/prev/shuffle only use those.
   const base = useMemo(() => {
     const skip = new Set(broken)
+    if (context) return context.ids.filter((id) => byId.has(id) && !skip.has(id))
     return (library.length ? library : songs).map((s) => s.id).filter((id) => !skip.has(id))
-  }, [library, songs, broken])
+  }, [library, songs, broken, context, byId])
   const order = useMemo(() => {
     const gone = new Set(removed)
     if (!shuffle) return base.filter((id) => !gone.has(id))
@@ -311,7 +321,31 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
 
   const cycleRepeat = () => setRepeat((r) => (r === "off" ? "all" : r === "all" ? "one" : "off"))
 
+  /** Plays one of the library's songs with the whole library as the queue. */
+  const playLibrary = (id: number) => {
+    setContext(null)
+    play(id)
+  }
+
+  /** Plays a playlist: its songs become the queue, from `startId` (or the first) and in order, or shuffled. */
+  const playList = (ids: number[], label: string, options: { startId?: number; shuffle?: boolean } = {}) => {
+    const playable = ids.filter((id) => byId.has(id))
+    if (!playable.length) return showToast("Esta lista no tiene canciones para reproducir")
+    setContext({ ids: playable, label })
+    setRemoved([])
+    let first = options.startId ?? playable[0]
+    if (options.shuffle) {
+      const order = shuffled(playable.filter((id) => id !== options.startId))
+      const sequence = options.startId !== undefined ? [options.startId, ...order] : order
+      setShuffleOrder(sequence)
+      setShuffle(true)
+      first = sequence[0]
+    } else setShuffle(false)
+    play(first)
+  }
+
   const playMix = () => {
+    setContext(null)
     const mix = shuffled(base)
     setRemoved([])
     setShuffleOrder(mix)
@@ -371,8 +405,10 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
     sleep,
     toast,
     broken: songs.filter((s) => broken.includes(s.id)),
-    sourceLabel: "Música del teléfono",
+    sourceLabel: context?.label ?? "Música del teléfono",
     play,
+    playLibrary,
+    playList,
     playMix,
     step,
     seek,

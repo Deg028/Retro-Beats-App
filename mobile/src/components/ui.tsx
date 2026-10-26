@@ -75,6 +75,8 @@ export type IconName =
   | "top"
   | "recent"
   | "arrow"
+  | "playlist"
+  | "stats"
 
 const MI: Record<IconName, keyof typeof MaterialIcons.glyphMap> = {
   back: "keyboard-arrow-down",
@@ -105,6 +107,8 @@ const MI: Record<IconName, keyof typeof MaterialIcons.glyphMap> = {
   top: "leaderboard",
   recent: "history",
   arrow: "arrow-forward",
+  playlist: "playlist-add",
+  stats: "insights",
 }
 
 const MCI: Record<IconName, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -136,6 +140,8 @@ const MCI: Record<IconName, keyof typeof MaterialCommunityIcons.glyphMap> = {
   top: "chart-bar",
   recent: "history",
   arrow: "arrow-right",
+  playlist: "playlist-plus",
+  stats: "chart-timeline-variant",
 }
 
 const PX: Record<IconName, { d: string[]; filled?: boolean }> = {
@@ -167,6 +173,8 @@ const PX: Record<IconName, { d: string[]; filled?: boolean }> = {
   top: { d: ICONS.bars },
   recent: { d: ICONS.clock },
   arrow: { d: ICONS.arrow },
+  playlist: { d: ["M4 8h14M4 15h14M4 22h8", "M23 15v10M18 20h10"] },
+  stats: { d: ICONS.bars },
 }
 
 export function Icon({ name, size = 24, color }: { name: IconName; size?: number; color?: string }) {
@@ -716,7 +724,8 @@ function WaveTrack({ x, width, wavy, color, track }: { x: number; width: number;
       <View style={{ position: "absolute", left: Math.min(width, x + gap), right: 0, height: 4, borderRadius: 2, backgroundColor: track }} />
       <View style={{ position: "absolute", left: 0, width: Math.max(0, x - gap), height: 12, overflow: "hidden", justifyContent: "center" }}>
         {wavy ? (
-          <Animated.View style={{ transform: [{ translateX: phase.interpolate({ inputRange: [0, 1], outputRange: [0, -WAVE] }) }] }}>
+          // Drawn once as a texture and then only moved, instead of the wave being painted again on every frame
+          <Animated.View renderToHardwareTextureAndroid style={{ transform: [{ translateX: phase.interpolate({ inputRange: [0, 1], outputRange: [0, -WAVE] }) }] }}>
             <Svg width={width + WAVE} height={12}>
               <Path d={d} stroke={color} strokeWidth={4} strokeLinecap="round" fill="none" />
             </Svg>

@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react"
-import { Animated, BackHandler, Easing, StyleSheet, useWindowDimensions, View } from "react-native"
+import { Animated, BackHandler, Easing, Pressable, StyleSheet, useWindowDimensions, View } from "react-native"
 import { StatusBar } from "expo-status-bar"
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"
 import { PressStart2P_400Regular } from "@expo-google-fonts/press-start-2p"
@@ -16,21 +16,26 @@ import { motion, T } from "./src/components/ui"
 import Home, { Section, sectionLists } from "./src/screens/Home"
 import { SleepSheet, sleepLabel } from "./src/screens/player/shared"
 import Player from "./src/screens/Player"
+import Playlists from "./src/screens/Playlists"
+import Recap from "./src/screens/Recap"
 import Scan from "./src/screens/Scan"
 import Themes from "./src/screens/Themes"
 import { DeviceLibrary, useDeviceLibrary } from "./src/library/useDeviceLibrary"
 import { ArtProvider } from "./src/components/Art"
 import { useInfoStore } from "./src/online/store"
 import { SongInfo, useSongInfo } from "./src/online/useSongInfo"
+import { PlaylistsApi, usePlaylists } from "./src/playlists"
+import { Period, periodLabel } from "./src/recap"
+import { Listening, useListening } from "./src/useListening"
 import { PlayerApi, usePlayer } from "./src/usePlayer"
 import { useNowPlaying } from "./src/useNowPlaying"
 import { ThemeProvider, useThemeControl } from "./src/themes/ThemeContext"
 import { colors } from "./src/theme"
 
 type Tab = Exclude<Screen, "player">
-const TAB_INDEX: Record<Tab, number> = { home: 0, scan: 1, themes: 2 }
+const TAB_INDEX: Record<Tab, number> = { home: 0, scan: 1, themes: 2, playlists: 3, recap: 4 }
 
-function Shell({ player, lib, info }: { player: PlayerApi; lib: DeviceLibrary; info: SongInfo }) {
+function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi; lib: DeviceLibrary; info: SongInfo; playlists: PlaylistsApi; listening: Listening }) {
   const { theme, ready } = useThemeControl()
   const insets = useSafeAreaInsets()
   const { height } = useWindowDimensions()
@@ -41,6 +46,8 @@ function Shell({ player, lib, info }: { player: PlayerApi; lib: DeviceLibrary; i
   const [section, setSection] = useState<Section>("added")
   const [menuOpen, setMenuOpen] = useState(false)
   const [sleepOpen, setSleepOpen] = useState(false)
+  // The month or year to open the recap on, when it was opened from the "ready" notice
+  const [recapStart, setRecapStart] = useState<Period | null>(null)
   // Tab screens fade and slide in; the player is a layer that slides up over them
   const [enter] = useState(() => new Animated.Value(1))
   const [layerY] = useState(() => new Animated.Value(height))
@@ -114,8 +121,26 @@ function Shell({ player, lib, info }: { player: PlayerApi; lib: DeviceLibrary; i
         <Animated.View style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28 * dir, 0] }) }] }}>
           {tab === "home" && <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />}
           {tab === "themes" && <Themes />}
+          {tab === "recap" && <Recap listening={listening} initial={recapStart} />}
+          {tab === "playlists" && <Playlists playlists={playlists} player={player} onOpenPlayer={() => go("player")} />}
           {tab === "scan" && <Scan lib={lib} player={player} info={info} onOpenHome={() => go("home")} />}
         </Animated.View>
+        {tab === "home" && listening.ready && (
+          <Pressable
+            onPress={() => {
+              setRecapStart(listening.ready)
+              listening.markSeen(listening.ready!)
+              go("recap")
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver tu resumen de ${periodLabel(listening.ready)}`}
+            style={[styles.notice, { backgroundColor: theme.c.accent, borderRadius: theme.radius.md }]}
+          >
+            <T variant="caption" color={theme.c.onAccent} style={{ flex: 1, fontWeight: "700" }}>
+              ¡Tu resumen de {periodLabel(listening.ready)} está listo! Tócalo para verlo.
+            </T>
+          </Pressable>
+        )}
         <MiniPlayer player={player} onOpen={() => go("player")} />
         <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} />
       </View>
@@ -127,7 +152,7 @@ function Shell({ player, lib, info }: { player: PlayerApi; lib: DeviceLibrary; i
             style={[StyleSheet.absoluteFill, { backgroundColor: "#000", opacity: layerY.interpolate({ inputRange: [0, height], outputRange: [0.5, 0], extrapolate: "clamp" }) }]}
           />
           <Animated.View style={[styles.layer, { top: insets.top, backgroundColor: theme.c.bg, transform: [{ translateY: layerY }] }]}>
-            <Player player={player} info={info} onClose={closePlayer} drag={{ y: layerY, settle: settlePlayer }} />
+            <Player player={player} info={info} playlists={playlists} onClose={closePlayer} drag={{ y: layerY, settle: settlePlayer }} />
           </Animated.View>
         </>
       )}
@@ -144,6 +169,7 @@ function Shell({ player, lib, info }: { player: PlayerApi; lib: DeviceLibrary; i
         }}
         libraryCount={player.library.length}
         phoneCount={lib.tracks.length}
+        playlistCount={playlists.lists.length}
         onMix={() => {
           setMenuOpen(false)
           player.playMix()
@@ -180,6 +206,8 @@ function Main() {
   const store = useInfoStore()
   const player = usePlayer(lib.tracks, store.meta)
   const info = useSongInfo(store, player.current)
+  const playlists = usePlaylists()
+  const listening = useListening(player)
   // Lyrics files found beside songs are read as soon as the songs are known
   const readLyricFiles = useEffectEvent(() => info.importLyricsFiles(player.library))
   useEffect(() => {
@@ -188,7 +216,7 @@ function Main() {
   return (
     <ArtProvider value={store.meta}>
       <ThemeProvider songId={player.currentId}>
-        <Shell player={player} lib={lib} info={info} />
+        <Shell player={player} lib={lib} info={info} playlists={playlists} listening={listening} />
       </ThemeProvider>
     </ArtProvider>
   )
@@ -221,4 +249,5 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   layer: { position: "absolute", left: 0, right: 0, bottom: 0 },
   toast: { position: "absolute", left: 16, right: 16, padding: 12 },
+  notice: { marginHorizontal: 16, marginBottom: 8, paddingVertical: 10, paddingHorizontal: 14, flexDirection: "row", alignItems: "center" },
 })

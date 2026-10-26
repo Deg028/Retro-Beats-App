@@ -71,15 +71,32 @@ function plainTitle(title: string) {
 }
 
 /**
+ * The ways a title may be written in a database: as it is, without tags ("Título [Anime OP]" becomes "Título"),
+ * and the name inside brackets when that is another spelling ("オトノケ(Otonoke)" is also "Otonoke").
+ */
+function titleVariants(title: string): string[] {
+  const t = plainTitle(title)
+  const out = [t]
+  const bare = t.replace(GROUP, "").trim()
+  if (bare && !out.includes(bare)) out.push(bare)
+  for (const m of t.matchAll(/[(（]([^)）]+)[)）]/g)) {
+    const alias = m[1].trim()
+    if (alias.length >= 2 && /\p{L}/u.test(alias) && !out.includes(alias)) out.push(alias)
+  }
+  return out.slice(0, 3)
+}
+
+/**
  * What to search for, best guess first. Names from video sites sometimes come as "Título - Artista", so the
  * swapped order is the last try; a song with two artists is also tried with just the first one.
  */
 export function searchAttempts(artist: string, title: string): SearchTerms[] {
-  const t = plainTitle(title)
-  if (artist === UNKNOWN_ARTIST) return [{ artist: null, title: t }]
+  const names = titleVariants(title)
+  if (artist === UNKNOWN_ARTIST) return names.map((title) => ({ artist: null, title }))
   const first = artist.split(/\s+(?:feat\.?|ft\.?|featuring|x|&|y|and)\s+|\s*,\s*|\s*\/\s*/i)[0].trim()
-  const out: SearchTerms[] = [{ artist: artist.replace(/\s+(?:feat\.?|ft\.?|featuring)\s+.*$/i, "").trim(), title: t }]
-  if (first && first !== out[0].artist) out.push({ artist: first, title: t })
+  const main = artist.replace(/\s+(?:feat\.?|ft\.?|featuring)\s+.*$/i, "").trim()
+  const out: SearchTerms[] = names.map((title) => ({ artist: main, title }))
+  if (first && first !== main) out.push({ artist: first, title: names[0] })
   out.push({ artist: plainTitle(title), title: artist })
   return out
 }

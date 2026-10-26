@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react"
-import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native"
+import { useEffect, useMemo, useState } from "react"
+import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, TextStyle, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 import { Art } from "../components/Art"
+import { GameBoy } from "../components/GameBoy"
+import { LyricLine } from "../data"
 import { Equalizer } from "../components/Pixel"
 import { Action, ActionBar, Button, Cover, IconButton, PlayButton, Press, ProgressTrack, SkipButton, T, textStyle } from "../components/ui"
+import { lyricsHaveJapanese } from "../online/romaji"
+import { PlaylistsApi } from "../playlists"
 import { LyricsState, SongInfo } from "../online/useSongInfo"
 import { useTheme } from "../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../usePlayer"
+import { AddToPlaylistSheet } from "./Playlists"
 import { HoldSeek, LyricsWindow, QueueSheet, shareSong, useDismiss, useSeek, useSwipe, useTimeLabels } from "./player/shared"
 
 /** Height of the lyrics window: room for four short lines, or two that wrap */
@@ -17,24 +22,23 @@ const LYRICS_H = 168
 export default function Player({
   player,
   info,
+  playlists,
   onClose,
   drag,
 }: {
   player: PlayerApi
   info: SongInfo
+  playlists: PlaylistsApi
   onClose: () => void
   /** Offset of the player layer, moved by the drag-to-close bar; `settle` springs it back */
   drag: { y: Animated.Value; settle: () => void }
 }) {
   const theme = useTheme()
-  const { current: song, playing, duration, shuffle, repeat } = player
-  const time = usePlaybackTime(player)
-  const [sheet, setSheet] = useState<"queue" | null>(null)
+  const { current: song, playing, shuffle, repeat } = player
+  const [sheet, setSheet] = useState<"queue" | "playlists" | null>(null)
   const [lyricsOpen, setLyricsOpen] = useState(true)
   const { width, height } = useWindowDimensions()
   const insets = useSafeAreaInsets()
-  const seek = useSeek(time, duration, player.seek)
-  const labels = useTimeLabels(seek.shown, duration)
   const swipe = useSwipe(() => player.step(1), () => player.step(-1))
   const dragToClose = useDismiss(drag.y, onClose, drag.settle)
 
@@ -113,7 +117,18 @@ export default function Player({
           ]}
         >
           <Animated.View {...swipe.panHandlers} style={[{ alignSelf: "center", alignItems: "center", gap: 12 }, swipe.style]}>
-            {theme.cover === "disc" ? (
+            {theme.signature === "lcd" ? (
+              <GameBoy
+                seed={song.id}
+                width={Math.min(width - 120, 236)}
+                playing={playing}
+                fav={song.fav}
+                onToggle={player.togglePlaying}
+                onPrev={() => player.step(-1)}
+                onNext={() => player.step(1)}
+                onFav={() => player.toggleFav(song.id)}
+              />
+            ) : theme.cover === "disc" ? (
               <Animated.View style={[styles.disc, { width: coverSize, height: coverSize, borderRadius: coverSize / 2, borderColor: theme.c.border, backgroundColor: theme.c.coverBg, transform: [{ rotate }] }]}>
                 <View style={[styles.groove, { width: coverSize * 0.8, height: coverSize * 0.8, borderRadius: coverSize * 0.4, borderColor: theme.c.surface }]} />
                 <Pressable onPress={player.togglePlaying} accessibilityLabel={playing ? "Pausar" : "Reproducir"} style={[styles.label, { borderColor: theme.c.accent }]}>
@@ -162,31 +177,7 @@ export default function Player({
             <IconButton icon={song.fav ? "heartOn" : "heart"} onPress={() => player.toggleFav(song.id)} label="Favorita" color={song.fav ? theme.c.accent : theme.c.textMuted} />
           </View>
 
-          <View>
-            <View
-              onLayout={seek.onLayout}
-              {...seek.panHandlers}
-              accessibilityRole="adjustable"
-              accessibilityLabel="Posición de reproducción"
-              accessibilityValue={{ text: `${labels.elapsed} de ${labels.total}` }}
-            >
-              <View pointerEvents="none">
-                <ProgressTrack progress={seek.progress} width={seek.width} playing={playing} dragging={seek.dragging} />
-              </View>
-            </View>
-            <View style={styles.times}>
-              <T variant="number" color={theme.c.textMuted}>
-                {labels.elapsed}
-              </T>
-              <View style={styles.hold}>
-                <HoldSeek dir={-1} time={time} duration={duration} onSeek={player.seek} />
-                <HoldSeek dir={1} time={time} duration={duration} onSeek={player.seek} />
-              </View>
-              <T variant="number" color={theme.c.textMuted} onPress={labels.toggle} accessibilityHint="Alterna entre duración y tiempo restante">
-                {labels.total}
-              </T>
-            </View>
-          </View>
+          <Timeline player={player} />
 
           <View style={styles.controls}>
             <IconButton icon="shuffle" onPress={player.toggleShuffle} label="Aleatorio" active={shuffle} boxed={false} />
@@ -206,6 +197,7 @@ export default function Player({
           <ActionBar>
             <Action icon="lyrics" label="Letra" active={lyricsOpen} onPress={() => setLyricsOpen((o) => !o)} />
             <Action icon="queue" label="Cola" onPress={() => setSheet("queue")} />
+            <Action icon="playlist" label="Listas" onPress={() => setSheet("playlists")} />
             <Action icon="share" label="Compartir" onPress={() => shareSong(song)} />
           </ActionBar>
 
@@ -221,9 +213,25 @@ export default function Player({
               }}
             >
               <View style={styles.lyricsHead}>
-                <T variant="label" color={theme.c.lyricsText}>
-                  Letra
-                </T>
+                <View style={styles.offset}>
+                  <T variant="label" color={theme.c.lyricsText}>
+                    Letra
+                  </T>
+                  {!!song.lyrics && lyricsHaveJapanese(song.lyrics) && (
+                    <Press
+                      onPress={() => info.setRomajiOn(!info.romajiOn)}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: info.romajiOn }}
+                      accessibilityLabel="Mostrar la letra en romaji"
+                      radius={theme.radius.sm}
+                      style={[styles.chip, { borderRadius: theme.radius.sm, borderColor: theme.c.lyricsText, backgroundColor: info.romajiOn ? theme.c.lyricsText : "transparent" }]}
+                    >
+                      <T variant="caption" color={info.romajiOn ? theme.c.lyricsBg : theme.c.lyricsText} style={{ textTransform: "none" }}>
+                        Romaji
+                      </T>
+                    </Press>
+                  )}
+                </View>
                 {song.lyrics ? (
                   <View style={styles.offset}>
                     <Press
@@ -255,32 +263,35 @@ export default function Player({
                 )}
               </View>
               {song.lyrics ? (
-                <LyricsWindow
-                  lines={song.lyrics}
-                  time={time + (song.lyricsOffset ?? 0)}
-                  onSeek={(t) => player.seek(t - (song.lyricsOffset ?? 0))}
-                  playing={playing}
-                  height={LYRICS_H}
-                  lineStyle={{
-                    ...textStyle(theme, theme.icons === "pixel" ? "body" : "title"),
-                    textTransform: "none",
-                    ...(theme.lyricsLined ? { borderBottomWidth: 1, borderColor: theme.c.lyricsDim + "40" } : null),
-                  }}
-                  activeStyle={{
-                    color: theme.c.lyricsText,
-                    ...(theme.shadow === "glow" ? { textShadowColor: theme.c.accent, textShadowRadius: 12 } : null),
-                    ...(theme.shadow === "solid" && theme.icons === "pixel" ? { textShadowColor: theme.shadowColor, textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 0 } : null),
-                  }}
-                  dimColor={theme.c.lyricsDim}
-                />
+                <SyncedLyrics player={player} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
               ) : song.plain ? (
-                <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
-                  <T variant="body" color={theme.c.lyricsText} style={{ lineHeight: 26, textTransform: "none" }}>
-                    {song.plain}
-                  </T>
-                </ScrollView>
+                <View style={{ gap: 10 }}>
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                    <T variant="body" color={theme.c.lyricsText} style={{ lineHeight: 26, textTransform: "none" }}>
+                      {song.plain}
+                    </T>
+                  </ScrollView>
+                  {info.enabled && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      {info.searching && <ActivityIndicator color={theme.c.accent} />}
+                      <T variant="caption" color={theme.c.lyricsDim} style={{ flex: 1, textTransform: "none" }}>
+                        {info.searching ? "Buscando la letra con tiempos…" : "Esta letra no tiene tiempos, por eso no avanza con la canción."}
+                      </T>
+                      {!info.searching && <Button label="Sincronizar" variant="secondary" icon="repeat" onPress={info.retrySynced} />}
+                    </View>
+                  )}
+                </View>
               ) : (
                 <LyricsStatus state={info.lyricsState(song)} error={info.error} onRetry={info.retry} />
+              )}
+              {info.romajiOn && !!song.lyrics && lyricsHaveJapanese(song.lyrics) && !song.romaji && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 }}>
+                  {info.romajiBusy === song.id && <ActivityIndicator color={theme.c.accent} />}
+                  <T variant="caption" color={theme.c.lyricsDim} style={{ flex: 1, textTransform: "none" }}>
+                    {info.romajiBusy === song.id ? "Convirtiendo la letra a romaji…" : info.romajiError ? `${info.romajiError}.` : "Preparando el romaji…"}
+                  </T>
+                  {!!info.romajiError && info.romajiBusy !== song.id && <Button label="Reintentar" variant="secondary" icon="repeat" onPress={info.retryRomaji} />}
+                </View>
               )}
             </View>
           )}
@@ -288,7 +299,82 @@ export default function Player({
       </ScrollView>
 
       <QueueSheet player={player} visible={sheet === "queue"} onClose={() => setSheet(null)} />
+      <AddToPlaylistSheet visible={sheet === "playlists"} onClose={() => setSheet(null)} song={song} playlists={playlists} />
     </View>
+  )
+}
+
+/**
+ * The progress bar, the times and the skip buttons: the only part of the player that follows the running time,
+ * so the cover, the buttons and the rest are not drawn again four times a second.
+ */
+function Timeline({ player }: { player: PlayerApi }) {
+  const theme = useTheme()
+  const { playing, duration } = player
+  const time = usePlaybackTime(player)
+  const seek = useSeek(time, duration, player.seek)
+  const labels = useTimeLabels(seek.shown, duration)
+  return (
+    <View>
+      <View
+        onLayout={seek.onLayout}
+        {...seek.panHandlers}
+        accessibilityRole="adjustable"
+        accessibilityLabel="Posición de reproducción"
+        accessibilityValue={{ text: `${labels.elapsed} de ${labels.total}` }}
+      >
+        <View pointerEvents="none">
+          <ProgressTrack progress={seek.progress} width={seek.width} playing={playing} dragging={seek.dragging} />
+        </View>
+      </View>
+      <View style={styles.times}>
+        <T variant="number" color={theme.c.textMuted}>
+          {labels.elapsed}
+        </T>
+        <View style={styles.hold}>
+          <HoldSeek dir={-1} time={time} duration={duration} onSeek={player.seek} />
+          <HoldSeek dir={1} time={time} duration={duration} onSeek={player.seek} />
+        </View>
+        <T variant="number" color={theme.c.textMuted} onPress={labels.toggle} accessibilityHint="Alterna entre duración y tiempo restante">
+          {labels.total}
+        </T>
+      </View>
+    </View>
+  )
+}
+
+/** The timed lyrics, which follow the running time on their own for the same reason as the timeline. */
+function SyncedLyrics({ player, lines, offset, romaji }: { player: PlayerApi; lines: LyricLine[]; offset: number; romaji?: string[] }) {
+  const theme = useTheme()
+  const time = usePlaybackTime(player)
+  const lineStyle = useMemo<TextStyle>(
+    () => ({
+      ...textStyle(theme, theme.icons === "pixel" ? "body" : "title"),
+      textTransform: "none",
+      ...(theme.lyricsLined ? { borderBottomWidth: 1, borderColor: theme.c.lyricsDim + "40" } : null),
+    }),
+    [theme],
+  )
+  const activeStyle = useMemo<TextStyle>(
+    () => ({
+      color: theme.c.lyricsText,
+      ...(theme.shadow === "glow" ? { textShadowColor: theme.c.accent, textShadowRadius: 12 } : null),
+      ...(theme.shadow === "solid" && theme.icons === "pixel" ? { textShadowColor: theme.shadowColor, textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 0 } : null),
+    }),
+    [theme],
+  )
+  return (
+    <LyricsWindow
+      lines={lines}
+      time={time + offset}
+      onSeek={(t) => player.seek(t - offset)}
+      playing={player.playing}
+      height={LYRICS_H}
+      romaji={romaji}
+      lineStyle={lineStyle}
+      activeStyle={activeStyle}
+      dimColor={theme.c.lyricsDim}
+    />
   )
 }
 
@@ -332,6 +418,7 @@ const styles = StyleSheet.create({
   hold: { flexDirection: "row", gap: 10 },
   controls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   offset: { flexDirection: "row", alignItems: "center", gap: 6 },
+  chip: { height: 26, paddingHorizontal: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   offsetBtn: { width: 34, height: 30, alignItems: "center", justifyContent: "center", borderWidth: 1 },
   lyricsHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
 })

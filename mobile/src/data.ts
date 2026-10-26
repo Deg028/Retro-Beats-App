@@ -1,4 +1,5 @@
-export type LyricLine = { t: number; text: string }
+/** `r`: the romanised reading, carried along while the lyrics are cleaned up and kept apart from the line afterwards */
+export type LyricLine = { t: number; text: string; r?: string }
 
 export type Song = {
   id: number
@@ -14,6 +15,10 @@ export type Song = {
   lyricsUri?: string
   /** Lyrics with time stamps, found online */
   lyrics?: LyricLine[]
+  /** Romanised reading of each timed line, same order as `lyrics` */
+  romaji?: string[]
+  /** Album the song belongs to, when it was found online */
+  album?: string
   /** Lyrics with no timing, when that is all there is */
   plain?: string
   /** Seconds the lyrics are moved by, set by the person when they don't line up */

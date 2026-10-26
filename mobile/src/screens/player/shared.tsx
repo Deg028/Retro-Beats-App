@@ -1,6 +1,6 @@
 import { File, Paths } from "expo-file-system"
 import * as Sharing from "expo-sharing"
-import { ReactNode, useEffect, useRef, useState } from "react"
+import { memo, ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import {
   Animated,
   Easing,
@@ -141,23 +141,49 @@ export const activeLine = (lines: LyricLine[], time: number) => {
 const LYRICS_LEAD = 0.25
 
 /**
- * The playback time, moved on between the player's updates (it reports four times a second), so the lyrics
- * change on the beat instead of up to a quarter of a second late. Follows the real time again at every update.
+ * The line being sung. The player reports the time four times a second, so between reports the time is moved on by
+ * the clock and the line is looked at ten times a second: the lyrics change on the beat instead of up to a quarter
+ * of a second late. Only a change of line redraws anything.
  */
-function useSmoothTime(time: number, playing: boolean) {
+function useActiveLine(lines: LyricLine[], time: number, playing: boolean) {
   const base = useRef({ time, at: 0 })
-  const [now, setNow] = useState(time)
   useEffect(() => {
     base.current = { time, at: Date.now() }
   }, [time])
+  const [idx, setIdx] = useState(() => activeLine(lines, time + LYRICS_LEAD))
   useEffect(() => {
-    if (!playing) return
-    const id = setInterval(() => setNow(base.current.time + (Date.now() - base.current.at) / 1000), 100)
+    const look = () => {
+      const { time: t, at } = base.current
+      const ahead = playing ? (Date.now() - at) / 1000 : 0
+      // Only trust the estimate while it is just ahead of the real time: after a seek it must not hold the old place
+      setIdx(activeLine(lines, t + (ahead < 0.5 ? ahead : 0) + LYRICS_LEAD))
+    }
+    look()
+    const id = setInterval(look, 100)
     return () => clearInterval(id)
-  }, [playing])
-  // Only trust the estimate while it is just ahead of the real time: after a seek it must not hold the old place
-  return playing && now >= time && now - time < 0.5 ? now : time
+  }, [lines, playing])
+  return idx
 }
+
+type LyricRowProps = { index: number; line: LyricLine; reading?: string; active: boolean; lineStyle: TextStyle; activeStyle: TextStyle; dimColor: string; onSeek: (s: number) => void; onBox: (i: number, y: number, h: number) => void }
+
+const LyricRow = memo(function LyricRow({ index, line, reading, active, lineStyle, activeStyle, dimColor, onSeek, onBox }: LyricRowProps) {
+  return (
+    <View onLayout={(e) => onBox(index, e.nativeEvent.layout.y, e.nativeEvent.layout.height)} style={{ paddingVertical: 5 }}>
+      <Text onPress={() => onSeek(line.t)} style={[lineStyle, active ? activeStyle : { color: dimColor, opacity: 0.65 }]}>
+        {line.text}
+      </Text>
+      {!!reading && (
+        <Text
+          onPress={() => onSeek(line.t)}
+          style={[lineStyle, { fontSize: Math.max(11, (lineStyle.fontSize ?? 16) * 0.68), lineHeight: undefined, marginTop: 1, borderBottomWidth: 0 }, active ? { color: activeStyle.color } : { color: dimColor, opacity: 0.55 }]}
+        >
+          {reading}
+        </Text>
+      )}
+    </View>
+  )
+})
 
 /**
  * Lyrics synced to timestamps; the active line stays in the middle of the window. Long lines wrap onto as many
@@ -172,6 +198,7 @@ export function LyricsWindow({
   lineStyle,
   activeStyle,
   dimColor,
+  romaji,
 }: {
   lines: LyricLine[]
   time: number
@@ -181,8 +208,10 @@ export function LyricsWindow({
   lineStyle: TextStyle
   activeStyle: TextStyle
   dimColor: string
+  /** Romanised reading of each line, shown small under it */
+  romaji?: string[]
 }) {
-  const idx = activeLine(lines, useSmoothTime(time, playing) + LYRICS_LEAD)
+  const idx = useActiveLine(lines, time, playing)
   // Where each line starts and how tall it is, measured once drawn: wrapped lines are taller than the rest
   const [boxes, setBoxes] = useState<Record<number, { y: number; h: number }>>({})
   const [shift] = useState(() => new Animated.Value(0))
@@ -195,23 +224,32 @@ export function LyricsWindow({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start()
-  }, [box, height, shift])
+  }, [box, height, shift, romaji])
+
+  // A tap on a line seeks through the latest callback, so the rows do not have to be redrawn when it changes
+  const seek = useRef(onSeek)
+  useEffect(() => {
+    seek.current = onSeek
+  })
+  const jump = useCallback((s: number) => seek.current(s), [])
+  const measured = useCallback((i: number, y: number, h: number) => setBoxes((prev) => (prev[i]?.y === y && prev[i]?.h === h ? prev : { ...prev, [i]: { y, h } })), [])
 
   return (
     <View style={{ height, overflow: "hidden" }}>
       <Animated.View style={{ transform: [{ translateY: shift }] }}>
         {lines.map((l, i) => (
-          <Text
+          <LyricRow
             key={i}
-            onPress={() => onSeek(l.t)}
-            onLayout={(e) => {
-              const { y, height: h } = e.nativeEvent.layout
-              setBoxes((prev) => (prev[i]?.y === y && prev[i]?.h === h ? prev : { ...prev, [i]: { y, h } }))
-            }}
-            style={[lineStyle, { paddingVertical: 5 }, i === idx ? activeStyle : { color: dimColor, opacity: 0.65 }]}
-          >
-            {l.text}
-          </Text>
+            index={i}
+            line={l}
+            reading={romaji?.[i]}
+            active={i === idx}
+            lineStyle={lineStyle}
+            activeStyle={activeStyle}
+            dimColor={dimColor}
+            onSeek={jump}
+            onBox={measured}
+          />
         ))}
       </Animated.View>
     </View>
