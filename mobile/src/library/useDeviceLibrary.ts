@@ -3,10 +3,12 @@ import { AppState, Platform } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { addListener } from "expo-media-library"
 import { classify, RawFile } from "./files"
+import { isOpaqueName, readTags, Tags } from "./tags"
 import { Access, checkAccess, FolderIssue, pickFolder, scanFiles, scanFolders } from "./scan"
 
 const MIN_KEY = "retro-beats:min-seconds"
 const FOLDERS_KEY = "retro-beats:folders"
+const TAGS_KEY = "retro-beats:tag-names"
 /** Files shorter than this are treated as tones and system sounds unless the person includes them. */
 export const DEFAULT_MIN_SECONDS = 15
 /** Coming back to the app rescans, but not more often than this. */
@@ -40,7 +42,36 @@ export function useDeviceLibrary() {
   const running = useRef(false)
   const lastScan = useRef(0)
 
-  const { tracks, skipped } = useMemo(() => classify(files, minSeconds), [files, minSeconds])
+  const { tracks: byName, skipped } = useMemo(() => classify(files, minSeconds), [files, minSeconds])
+
+  // Files named only with numbers ("1_4945510745191220486.mp3") get their title and artist from the tag inside the file
+  const [tagged, setTagged] = useState<Record<string, Tags>>({})
+  const tagsLoaded = useRef(false)
+  useEffect(() => {
+    AsyncStorage.getItem(TAGS_KEY)
+      .then((saved) => saved && setTagged((prev) => ({ ...JSON.parse(saved), ...prev })))
+      .catch(() => {})
+      .finally(() => (tagsLoaded.current = true))
+  }, [])
+  const readOpaque = useEffectEvent(async () => {
+    const pending = byName.filter((t) => isOpaqueName(t.title) && !(t.uri in tagged))
+    if (!pending.length || !tagsLoaded.current) return
+    const found: Record<string, Tags> = {}
+    for (const t of pending) {
+      const tags = await readTags(t.uri)
+      // A file with no tag is remembered too, so it is not opened again on every scan
+      found[t.uri] = tags ?? { title: "", artist: "" }
+    }
+    setTagged((prev) => {
+      const next = { ...prev, ...found }
+      AsyncStorage.setItem(TAGS_KEY, JSON.stringify(next)).catch(() => {})
+      return next
+    })
+  })
+  useEffect(() => {
+    readOpaque()
+  }, [byName])
+  const tracks = useMemo(() => byName.map((t) => (tagged[t.uri]?.title ? { ...t, ...tagged[t.uri] } : t)), [byName, tagged])
 
   const run = async (ask: boolean, chosen: string[]) => {
     if (running.current) return

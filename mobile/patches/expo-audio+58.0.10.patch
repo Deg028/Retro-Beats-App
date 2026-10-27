@@ -1,0 +1,43 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+index fb2d0b5..727fca5 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+@@ -62,6 +62,12 @@ class AudioPlayer(
+   var preservesPitch = true
+   var keepAudioSessionActive = false
+ 
++  // Skip buttons of the media notification: the app owns the queue, so it is told what was pressed
++  override val supportsNextTrack = true
++  override val supportsPreviousTrack = true
++  override fun nextTrack() = sendStatusUpdate(mapOf("remoteCommand" to "next"))
++  override fun previousTrack() = sendStatusUpdate(mapOf("remoteCommand" to "previous"))
++
+   // Lock screen controls
+   override var isActiveForLockScreen = false
+   override var metadata: Metadata? = null
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioRecords.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioRecords.kt
+index b6b3b73..9fbb491 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioRecords.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioRecords.kt
+@@ -116,7 +116,8 @@ class AudioLockScreenOptions(
+   @Field val showPreviousTrack: Boolean = false,
+   @Field val isLiveStream: Boolean? = null,
+   @Field val seekForwardIntervalSeconds: Double = 10.0,
+-  @Field val seekBackwardIntervalSeconds: Double = 10.0
++  @Field val seekBackwardIntervalSeconds: Double = 10.0,
++  @Field val accentColor: String? = null
+ ) : Record
+ 
+ enum class InterruptionMode(val value: String) : Enumerable {
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+index 53c36f7..3966005 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+@@ -188,6 +188,7 @@ class AudioControlsService : MediaSessionService() {
+       .setContentIntent(buildContentIntent())
+       .setAutoCancel(false)
+       .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
++      .apply { currentOptions?.accentColor?.let { runCatching { setColor(android.graphics.Color.parseColor(it)) } } }
+ 
+     val style = MediaStyleNotificationHelper.MediaStyle(session)
+ 

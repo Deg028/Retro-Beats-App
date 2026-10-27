@@ -196,11 +196,14 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   )
 
   /** Media notification and lock screen controls; they need a native build, so Expo Go is skipped (see useNowPlaying). */
-  const setNowPlaying = (meta: { title: string; artist?: string; albumTitle?: string; artworkUrl?: string }) => {
+  const lockScreenColor = useRef<string | undefined>(undefined)
+  const setNowPlaying = (meta: { title: string; artist?: string; albumTitle?: string; artworkUrl?: string }, accentColor?: string) => {
     if (isRunningInExpoGo()) return
     try {
-      if (lockScreenActive.current) audio.updateLockScreenMetadata(meta)
-      else audio.setActiveForLockScreen(true, meta, { showSeekBackward: true, showSeekForward: true })
+      // Skip arrows replace the ±10 s buttons; the theme's accent colours the notification (set again when the theme changes)
+      if (lockScreenActive.current && lockScreenColor.current === accentColor) audio.updateLockScreenMetadata(meta)
+      else audio.setActiveForLockScreen(true, meta, { showNextTrack: true, showPreviousTrack: true, accentColor } as Parameters<typeof audio.setActiveForLockScreen>[2])
+      lockScreenColor.current = accentColor
       lockScreenActive.current = true
     } catch {
       // The playback service may be unavailable on this device
@@ -283,7 +286,9 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
     step(1, true)
   })
   // A file that fails to open must not leave the player stalled on it: skip ahead, unless several in a row fail
-  const onAudioStatus = useEffectEvent((s: { didJustFinish: boolean; error: string | null; playing: boolean; isBuffering: boolean; duration: number }) => {
+  const onAudioStatus = useEffectEvent((s: { didJustFinish: boolean; error: string | null; playing: boolean; isBuffering: boolean; duration: number; remoteCommand?: "next" | "previous" }) => {
+    // Skip arrows in the media notification (sent by the expo-audio patch in patches/)
+    if (s.remoteCommand) return step(s.remoteCommand === "next" ? 1 : -1)
     setPlaying(s.playing)
     setBuffering(s.isBuffering)
     if (s.duration > 0) setLoadedDuration(s.duration)

@@ -67,7 +67,7 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
   useEffect(() => {
     if (!title) return
     if (!isRunningInExpoGo()) {
-      setNowPlaying({ title, artist, albumTitle: `Retro Beats · ${subtitle}`, artworkUrl: artwork })
+      setNowPlaying({ title: `${theme.emoji} ${title}`, artist, albumTitle: `Retro Beats · ${subtitle}`, artworkUrl: artwork }, theme.c.accent)
       return
     }
     const n = local ? loadNotifications() : null
