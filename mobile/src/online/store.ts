@@ -41,10 +41,12 @@ export type Entry = {
   edited?: boolean
   /** The person imported the lyrics: searches never replace them */
   manualLyrics?: boolean
+  /** Times in a row that no timed version of the lyrics was found for a song that only has plain words */
+  syncFails?: number
 }
 
 /** What the player shows in place of the file's own information. */
-export type SongMeta = { artist?: string; title?: string; album?: string; cover?: string; lyrics?: LyricLine[]; romaji?: string[]; plain?: string; offset?: number }
+export type SongMeta = { artist?: string; title?: string; album?: string; cover?: string; lyrics?: LyricLine[]; romaji?: string[]; plain?: string; offset?: number; estimated?: boolean }
 
 export type InfoStore = ReturnType<typeof useInfoStore>
 
@@ -165,6 +167,7 @@ export function useInfoStore() {
         romaji: lyrics[id]?.romaji,
         plain: lyrics[id]?.plain ?? undefined,
         offset: e.offset,
+        estimated: lyrics[id]?.estimated,
       }
       metaCache.set(e, { lyrics: lyrics[id], meta: out[id] })
     }

@@ -99,7 +99,7 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
         // The same song with the same information stays the same object, so lists do not redraw its row
         const known = derived.get(s)
         if (known && known.meta === m) return known.song
-        const song: Song = { ...s, title: m.title ?? s.title, artist: m.artist ?? s.artist, album: m.album, cover: m.cover, lyrics: m.lyrics, romaji: m.romaji, plain: m.plain, lyricsOffset: m.offset }
+        const song: Song = { ...s, title: m.title ?? s.title, artist: m.artist ?? s.artist, album: m.album, cover: m.cover, lyrics: m.lyrics, romaji: m.romaji, plain: m.plain, lyricsOffset: m.offset, lyricsEstimated: m.estimated }
         derived.set(s, { meta: m, song })
         return song
       }),

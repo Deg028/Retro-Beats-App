@@ -14,6 +14,8 @@ const SPEC: Record<Theme["intro"], { duration: number; frames?: number }> = {
   morph: { duration: 2100 },
   flicker: { duration: 2200 },
   fade: { duration: 1700 },
+  vinyl: { duration: 2500 },
+  terminal: { duration: 2600, frames: 52 },
 }
 
 type V = Animated.Value
@@ -49,7 +51,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
     return () => anim.stop()
   }, [t, duration, frames])
 
-  const Body = { coin: Coin, boot: Boot, tape: Tape, morph: Morph, flicker: Flicker, fade: Fade }[theme.intro]
+  const Body = { coin: Coin, boot: Boot, tape: Tape, morph: Morph, flicker: Flicker, fade: Fade, vinyl: Vinyl, terminal: Terminal }[theme.intro]
   return (
     <Pressable style={[styles.root, { backgroundColor: theme.c.bg }]} onPress={onDone} accessibilityLabel="Saltar introducción">
       <Body t={t} theme={theme} />
@@ -198,6 +200,75 @@ function Fade({ t, theme }: BodyProps) {
       </Animated.Text>
       <Animated.View style={{ width: 140, height: 3, borderRadius: 2, backgroundColor: theme.c.accent, transform: [{ scaleX: t.interpolate({ inputRange: [0, 0.18, 0.5], outputRange: [0, 0.03, 1], extrapolate: "clamp" }) }] }} />
       <Animated.Text style={{ fontFamily: theme.type.label.family, fontSize: 11, letterSpacing: 2, color: theme.c.textMuted, opacity: seg(t, 0.55, 0.8) }}>ESTUDIO</Animated.Text>
+    </View>
+  )
+}
+
+/** Vinilo: a record rises and spins while the title letters appear and the label names the side. */
+function Vinyl({ t, theme }: BodyProps) {
+  const spin = t.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "900deg"] })
+  return (
+    <View style={styles.center}>
+      <Animated.View
+        style={{
+          width: 240,
+          height: 240,
+          borderRadius: 120,
+          backgroundColor: theme.c.text,
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: seg(t, 0, 0.12),
+          transform: [{ translateY: seg(t, 0, 0.3, 160, 0) }, { scale: seg(t, 0, 0.3, 0.7, 1) }, { rotate: spin }],
+        }}
+      >
+        {[104, 84, 64].map((size) => (
+          <View key={size} style={{ position: "absolute", width: size * 2.2, height: size * 2.2, borderRadius: size * 1.1, borderWidth: 1, borderColor: theme.c.textMuted, opacity: 0.35 }} />
+        ))}
+        <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: theme.c.accent, alignItems: "center", justifyContent: "center" }}>
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: theme.c.bg }} />
+        </View>
+      </Animated.View>
+      <Animated.View style={{ alignItems: "center", gap: 4, opacity: seg(t, 0.4, 0.6), transform: [{ translateY: seg(t, 0.4, 0.65, 18, 0) }] }}>
+        <Text style={{ fontFamily: theme.type.display.family, fontSize: 38, lineHeight: 44, color: theme.c.text }}>Retro</Text>
+        <Text style={{ fontFamily: theme.type.display.family, fontSize: 38, lineHeight: 44, color: theme.c.accent }}>Beats</Text>
+      </Animated.View>
+      <Animated.Text style={{ fontFamily: theme.type.label.family, fontSize: 12, letterSpacing: 4, color: theme.c.textMuted, opacity: seg(t, 0.65, 0.85) }}>
+        TU MÚSICA · LADO A
+      </Animated.Text>
+    </View>
+  )
+}
+
+/** Terminal Pro: boot lines print one by one, then the logo with its cursor and a block loading bar. */
+function Terminal({ t, theme }: BodyProps) {
+  const mono = { fontFamily: theme.type.body.family, fontSize: 18, lineHeight: 24 }
+  const lines: [string, string][] = [
+    ["retro-beats@telefono:~$ iniciar", theme.c.textMuted],
+    ["[ ok ] cargando temas", theme.c.accent],
+    ["[ ok ] leyendo carpetas de música", theme.c.accent],
+    ["[ ok ] letras y carátulas listas", theme.c.accent],
+    ["[ .. ] preparando el reproductor", theme.c.warm],
+  ]
+  return (
+    <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 28, gap: 28 }}>
+      <View>
+        {lines.map(([text, color], i) => (
+          <Animated.Text key={text} style={[mono, { color, opacity: seg(t, 0.04 + i * 0.1, 0.041 + i * 0.1) }]}>
+            {text}
+          </Animated.Text>
+        ))}
+      </View>
+      <Animated.View style={{ opacity: seg(t, 0.58, 0.59) }}>
+        <Text style={{ fontFamily: theme.type.display.family, fontSize: 56, lineHeight: 56, color: theme.c.accent, textShadowColor: theme.c.accent, textShadowRadius: 12, textShadowOffset: { width: 0, height: 0 } }}>
+          {"RETRO\nBEATS"}
+          <Animated.Text style={{ color: theme.c.warm, opacity: blink(t, 0.6, 1, 10) }}>_</Animated.Text>
+        </Text>
+      </Animated.View>
+      <View style={[styles.loadBox, { borderColor: theme.c.accent, width: "100%", height: 20 }]}>
+        {Array.from({ length: 16 }, (_, i) => (
+          <Animated.View key={i} style={{ flex: 1, backgroundColor: theme.c.accent, opacity: seg(t, 0.62 + i * 0.022, 0.621 + i * 0.022) }} />
+        ))}
+      </View>
     </View>
   )
 }

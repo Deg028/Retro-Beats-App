@@ -265,7 +265,17 @@ export default function Player({
                 )}
               </View>
               {song.lyrics ? (
-                <SyncedLyrics player={player} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
+                <>
+                  <SyncedLyrics player={player} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
+                  {song.lyricsEstimated && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 }}>
+                      <T variant="caption" color={theme.c.lyricsDim} style={{ flex: 1, textTransform: "none" }}>
+                        No hay una versión con tiempos de esta canción: los tiempos son aproximados. Ajústalos con − y +.
+                      </T>
+                      {info.enabled && !info.searching && <Button label="Buscar" variant="secondary" icon="repeat" onPress={info.retrySynced} />}
+                    </View>
+                  )}
+                </>
               ) : song.plain ? (
                 <View style={{ gap: 10 }}>
                   <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>

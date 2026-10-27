@@ -23,6 +23,8 @@ export type Song = {
   plain?: string
   /** Seconds the lyrics are moved by, set by the person when they don't line up */
   lyricsOffset?: number
+  /** The lyrics' times are an estimate spread over the song, not real ones: the person nudges them with the adjustment */
+  lyricsEstimated?: boolean
   /** Where the album cover was saved on the phone */
   cover?: string
   plays: number

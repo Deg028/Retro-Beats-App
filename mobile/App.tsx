@@ -49,6 +49,8 @@ function useSwipe(on: { left?: () => void; right?: () => void; up?: () => void }
   useEffect(() => {
     latest.current = on
   })
+  // `latest` is only read inside the gesture callbacks, never while drawing
+  /* eslint-disable react-hooks/refs */
   return useMemo(
     () =>
       PanResponder.create({
@@ -64,6 +66,7 @@ function useSwipe(on: { left?: () => void; right?: () => void; up?: () => void }
       }).panHandlers,
     [],
   )
+  /* eslint-enable react-hooks/refs */
 }
 
 function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi; lib: DeviceLibrary; info: SongInfo; playlists: PlaylistsApi; listening: Listening }) {

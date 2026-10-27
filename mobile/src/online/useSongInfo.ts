@@ -8,7 +8,7 @@ import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
 import { sleep } from "./http"
 import { lookup, saveCover } from "./lookup"
-import { parseLrc } from "./lrclib"
+import { estimateTimes, parseLrc } from "./lrclib"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
 import { Entry, InfoStore } from "./store"
 
@@ -94,6 +94,21 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
             store.patch(song.id, { lyrics: !!lyrics, lyricsAt: now, lyricsFor: song.duration, lyricsSynced: !!lyrics?.synced, syncTriedAt: now, lyricsV: LYRICS_V, srcV: SOURCES_V })
           } else store.patch(song.id, { syncTriedAt: now, lyricsV: LYRICS_V })
         } else store.patch(song.id, { lyricsAt: now, lyricsFor: song.duration, syncTriedAt: now, lyricsV: LYRICS_V, srcV: SOURCES_V })
+      }
+      // No timed lyrics again (the second time in a row): the plain lines are spread over the song so the lyrics still
+      // follow it roughly, and the person corrects them with the adjustment
+      if (want.lyrics && lyrics !== undefined && !found.error) {
+        if (lyrics?.synced) store.patch(song.id, { syncFails: 0 })
+        else {
+          const plain = lyrics?.plain ?? song.plain
+          const alreadyTimed = !lyrics && entry?.lyricsSynced
+          if (plain && !alreadyTimed) {
+            const fails = (entry?.syncFails ?? 0) + 1
+            store.patch(song.id, { syncFails: fails })
+            const estimate = fails >= 2 && song.duration > 0 ? estimateTimes(plain, song.duration) : []
+            if (estimate.length) store.saveLyrics(song.id, { synced: estimate, plain, duration: song.duration, estimated: true })
+          }
+        }
       }
       if (want.cover && found.release !== undefined) {
         let cover: string | null = null

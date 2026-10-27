@@ -9,6 +9,27 @@ export type Lyrics = {
   duration?: number
   /** Romanised reading of each synced line, in the same order ("" where a line has no Japanese) */
   romaji?: string[]
+  /** `synced` was made up by spreading the plain lines over the song (no timed version exists), not read from a timed file */
+  estimated?: boolean
+}
+
+/**
+ * Times for lyrics that only exist as plain words: the lines are spread over the song, each in proportion to its length,
+ * leaving out the intro and the ending. They are only a starting point; the person corrects them with the adjustment.
+ */
+export function estimateTimes(plain: string, duration: number): LyricLine[] {
+  const rows = plain.split(/\r?\n/).map((r) => r.trim()).filter(Boolean)
+  if (!rows.length || !(duration > 0)) return []
+  const start = Math.min(20, duration * 0.06)
+  const end = duration * 0.94
+  const weights = rows.map((r) => Math.max(8, r.length))
+  const total = weights.reduce((a, b) => a + b, 0)
+  let used = 0
+  return rows.map((text, i) => {
+    const t = start + ((end - start) * used) / total
+    used += weights[i]
+    return { t: Math.round(t * 10) / 10, text }
+  })
 }
 
 type Hit = {
