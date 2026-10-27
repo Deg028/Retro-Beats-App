@@ -43,8 +43,8 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
 
 ## Status (2026-10-27)
 
-- Current version: **0.2.2-alpha** (`mobile/app.json`: `version` 0.2.2, `android.versionCode` 4). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
-- APKs live in `apk/` as `RetroBeats-<version>-alpha.apk` (Git LFS). `RetroBeats-0.1.0-alpha.apk` is only an LFS pointer to an older 24 MB build; 0.2.0, 0.2.1 and 0.2.2 are real EAS builds (~88 MB).
+- Current version: **0.2.3-alpha** (`mobile/app.json`: `version` 0.2.3, `android.versionCode` 5). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
+- APKs live in `apk/` as `RetroBeats-<version>-alpha.apk` (Git LFS). `RetroBeats-0.1.0-alpha.apk` is only an LFS pointer to an older 24 MB build; 0.2.0 to 0.2.3 are real EAS builds (~88 MB).
 - Done and checked on the phone (TECNO LH7n, Android 14, 186 songs, mostly SnapTube and Telegram downloads):
   - Telegram files named only with digits show their real title, read from the ID3 tag.
   - Artists are read from the tag, including when they come after a large cover picture.
@@ -52,13 +52,14 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
   - The media notification has previous/next arrows and the theme's accent colour, emoji and name. Next/previous from the notification change songs and playback keeps going.
   - Synced lyrics with romaji work.
 - Version history:
+  - 0.2.3: music search through all folders, with the «Carpetas con música» list in the Música tab.
   - 0.2.0: ID3 titles, themed notification.
   - 0.2.1: tag artist and embedded covers, Deezer and lyrics.ovh, the bulk lookup waits and goes on after server errors.
   - 0.2.2: fixed songs pausing right after they start. Re-registering the lock-screen session rebuilds it, so `usePlayer.setNowPlaying` registers once and only again for a new theme colour while paused. Also reads the whole ID3 tag.
 
 ## Pending and known issues
 
-- Unreleased (after 0.2.2): the whole-storage music walk and the «Carpetas con música» list are written, typed and linted but NOT yet built into an APK or tested on the phone. Check: the permission page opens for Retro Beats, songs outside the index appear, nothing from Ringtones/Alarms/voice notes sneaks in, the walk's time on the 186-song phone, and that songs found by both the index and the walk are not doubled (matched by file name).
+- 0.2.3 whole-storage music walk, tested on the phone: it lists the folders with music (SnapTube Audio 166, Music/Telegram 32, Download/Music 3) and found a test file in a `.nomedia` folder that the system index does not list; a copy in Ringtones was left out. It works with only the audio permission; «all files access» was granted by `appops` and gave the same result, and the button opens the right Android page. The walk adds some seconds to a scan. The XMusic `.wav` backups were listed as songs; the fix (skip folders named *backup*) is in the code after 0.2.3 and not yet in an APK.
 
 - 111 songs have no lyrics. The ones checked are instrumentals, game/anime covers and YouTube raps that LRCLIB and lyrics.ovh don't have. YouTube was not used: it has no keyless search, and scraping it breaks its terms. The official YouTube Data API or Genius would need a key from the user.
 - Tags are only read from MP3 (ID3). `.m4a`/`.opus` files (MP4 atoms, Vorbis comments) keep the name from the file; WhatsApp voice notes (`AUD-…-WA0022`) show that name.

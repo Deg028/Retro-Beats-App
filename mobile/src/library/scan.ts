@@ -166,7 +166,7 @@ export async function scanFolders(
 // ---------- Whole phone: finding the music wherever it is kept
 
 const STORAGE = "file:///storage"
-/** Folders that hold system sounds and voice messages, or app data nobody can read anyway */
+/** Folders that hold system sounds, voice messages and app backups (XMusic saves its backups as .wav), or app data nobody can read anyway */
 const NOT_MUSIC = new Set(["android", "ringtones", "notifications", "alarms", "ui", "lost.dir", "voice notes", "whatsapp voice notes", "call recordings", "recordings"])
 
 /** Main storage and every memory card, as folder addresses. */
@@ -191,7 +191,7 @@ async function storageRoots() {
  */
 export async function scanDevice(onProgress: (n: number) => void): Promise<RawFile[]> {
   if (Platform.OS !== "android") return []
-  return (await scanFolders(await storageRoots(), onProgress, (name) => NOT_MUSIC.has(name))).files
+  return (await scanFolders(await storageRoots(), onProgress, (name) => NOT_MUSIC.has(name) || name.includes("backup"))).files
 }
 
 export type MusicFolder = { uri: string; count: number }
