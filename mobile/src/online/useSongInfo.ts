@@ -349,7 +349,8 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     stopBulk: () => {
       stopRequested.current = true
     },
-    withCover: entries.filter((e) => typeof e.cover === "string").length,
+    // Any picture counts: official, saved inside the file, or the video thumbnail
+    withCover: entries.filter((e) => [e.cover, e.embedded, e.thumb].some((c) => typeof c === "string")).length,
     withLyrics: entries.filter((e) => e.lyrics).length,
   }
 }

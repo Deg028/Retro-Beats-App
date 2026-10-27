@@ -192,7 +192,7 @@ export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLib
               <Chip label={info.enabled ? "Activada" : "Desactivada"} active={info.enabled} onPress={() => info.setEnabled(!info.enabled)} />
             </View>
             <T variant="caption" color={theme.c.textMuted}>
-              Al sonar una canción se busca su carátula original (catálogo de Apple Music, MusicBrainz y Cover Art Archive) y su letra (LRCLIB). Solo se envía el título y el artista, sin tu cuenta ni tus archivos. Lo que se encuentra se guarda en el teléfono y no se vuelve a pedir. Si activas «Romaji» en el reproductor, las líneas con kanji de la letra se envían una a una a Google Traductor para leerlas.
+              Al abrir la app se busca la carátula original (catálogos de Apple Music y Deezer, MusicBrainz y Cover Art Archive) y la letra (LRCLIB y, si no la tiene, lyrics.ovh) de cada canción que aún no las tenga. Solo se envía el título y el artista, sin tu cuenta ni tus archivos. Lo que se encuentra se guarda en el teléfono y no se vuelve a pedir. Si activas «Romaji» en el reproductor, las líneas con kanji de la letra se envían una a una a Google Traductor para leerlas.
             </T>
             <T variant="caption" color={theme.c.highlight}>
               {info.withCover} con carátula · {info.withLyrics} con letra
@@ -264,7 +264,7 @@ export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLib
           Por ahora
         </T>
         <T variant="caption" color={theme.c.textMuted}>
-          Los títulos y artistas salen del nombre de cada archivo (se limpian los textos que dejan las descargas de YouTube) y, cuando internet los reconoce, se corrigen. Las portadas son de pixel art hasta que se encuentra la original. {byFolder ? "La duración aparece la primera vez que suena cada canción. " : ""}Leer las etiquetas y la carátula que ya trae el archivo llega con la versión instalable de la app, que además lee toda la música sin elegir carpetas.
+          Los títulos y artistas salen del nombre de cada archivo (se limpian los textos que dejan las descargas de YouTube) y, cuando internet los reconoce, se corrigen. Las portadas son de pixel art hasta que se encuentra la original. {byFolder ? "La duración aparece la primera vez que suena cada canción. " : ""}Si el archivo trae dentro su artista o su carátula (SnapTube y Telegram los guardan), se usan esos.
         </T>
       </Surface>
     </ScrollView>
