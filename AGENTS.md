@@ -76,6 +76,16 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
 - Stellio Player is the reference only through its public reviews (`replica/fixes.md`); its themes and visuals are not copied.
 - The user talks in Spanish; replies and UI copy are in Spanish. Confirm before each Replica skill step.
 
+## How we work (process)
+
+- **Versions are batched.** Changes pile up on `main` as unreleased work (listed under Pending); an APK is built only when the person asks or a batch is ready. Do not build a new APK for a single small fix.
+- **Commit locally as you go; push only when the person says so** (they continue from another PC after each push). Never push on your own initiative. When pushing, the APK goes in the same commit as the version bump and the AGENTS.md update.
+- **Release steps:** bump `version` and `versionCode` in `mobile/app.json` and the `User-Agent` in `online/http.ts` -> `git lfs pull` -> `npx tsc --noEmit` and `npm run lint` -> `CI=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile preview --non-interactive --no-wait --json` -> wait for `FINISHED` (free queue 15-40 min, build 5-8 min) -> the APK URL is `artifacts.buildUrl` in `build:view --json` -> `curl -sL --compressed -o apk/RetroBeats-<version>-alpha.apk <url>` -> install and test on the phone -> record the result in this file.
+- **Waiting for a build:** use a background `while true; do ...; case "$status" in FINISHED*|ERRORED*|CANCELED*) break;; esac; sleep 60; done`. Do NOT write it as `until x; case ...; do`: the `case` returns 0 and the loop ends at once.
+- **Test on the phone after every release**, with the checks under "Testing on the phone". Whatever is not tested on the device is written down as untested here, never as done.
+- **Test tricks:** `adb shell pm grant com.retrobeats.app android.permission.READ_MEDIA_AUDIO`; `adb shell appops set com.retrobeats.app MANAGE_EXTERNAL_STORAGE allow` to grant «all files access» without the settings page; `adb exec-out screencap -p > file.png`; tap by the `bounds` read from the `uiautomator dump` (the screen is 1080x2460); to test the folder walk, create a folder with a `.nomedia` file and a copy of a song under `/sdcard`, rescan, then delete it (use `MSYS_NO_PATHCONV=1` in Git Bash). Leave no test files on the phone.
+- **Claude Design:** visual explorations of new themes live in a Design artifact (retro + modern mockups: "Vinilo" and "Horizonte 84", each with intro, home and player). They are mockups only; turning one into a theme means adding it to `themes.ts` and an animation to `Intro.tsx`. The canvas link is in the person's Claude account, not in this repo.
+
 ## New machine setup
 
 1. `git clone https://github.com/Deg028/Retro-Beats-App.git`, then `git lfs pull`. The icons in `mobile/assets/*.png` are LFS files. Without them, the EAS build fails in prebuild with `Could not find MIME for Buffer <null>`.
