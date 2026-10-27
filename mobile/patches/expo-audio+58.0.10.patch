@@ -30,14 +30,55 @@ index b6b3b73..9fbb491 100644
  
  enum class InterruptionMode(val value: String) : Enumerable {
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-index 53c36f7..3966005 100644
+index 53c36f7..cf8e3ed 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-@@ -188,6 +188,7 @@ class AudioControlsService : MediaSessionService() {
+@@ -188,6 +188,10 @@ class AudioControlsService : MediaSessionService() {
        .setContentIntent(buildContentIntent())
        .setAutoCancel(false)
        .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-+      .apply { currentOptions?.accentColor?.let { runCatching { setColor(android.graphics.Color.parseColor(it)) } } }
++      .apply {
++        android.util.Log.d("RBAudio", "notification accent=${currentOptions?.accentColor} next=${currentOptions?.showNextTrack} prev=${currentOptions?.showPreviousTrack}")
++        currentOptions?.accentColor?.let { runCatching { setColor(android.graphics.Color.parseColor(it)) } }
++      }
  
      val style = MediaStyleNotificationHelper.MediaStyle(session)
+ 
+@@ -424,8 +428,37 @@ class AudioControlsService : MediaSessionService() {
+         if (isLive) {
+           commands.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+         }
++        // The app owns the queue, so the skip buttons stay available even with a single media item loaded
++        if (playable.supportsNextTrack) {
++          commands.add(Player.COMMAND_SEEK_TO_NEXT)
++          commands.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
++        }
++        if (playable.supportsPreviousTrack) {
++          commands.add(Player.COMMAND_SEEK_TO_PREVIOUS)
++          commands.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
++        }
+         return commands.build()
+       }
++
++      override fun isCommandAvailable(command: Int): Boolean = availableCommands.contains(command)
++
++      override fun hasNextMediaItem(): Boolean = playable.supportsNextTrack || super.hasNextMediaItem()
++
++      override fun seekToNext() {
++        if (playable.supportsNextTrack) this@AudioControlsService.nextTrack() else super.seekToNext()
++      }
++
++      override fun seekToNextMediaItem() {
++        if (playable.supportsNextTrack) this@AudioControlsService.nextTrack() else super.seekToNextMediaItem()
++      }
++
++      override fun seekToPrevious() {
++        if (playable.supportsPreviousTrack) this@AudioControlsService.previousTrack() else super.seekToPrevious()
++      }
++
++      override fun seekToPreviousMediaItem() {
++        if (playable.supportsPreviousTrack) this@AudioControlsService.previousTrack() else super.seekToPreviousMediaItem()
++      }
+     }
+   }
  

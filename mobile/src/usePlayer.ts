@@ -76,7 +76,6 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   const counter = useRef(100)
   const addCounter = useRef(20)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lockScreenActive = useRef(false)
   const failures = useRef(0)
   const failedFor = useRef<number | null>(null)
 
@@ -196,15 +195,11 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   )
 
   /** Media notification and lock screen controls; they need a native build, so Expo Go is skipped (see useNowPlaying). */
-  const lockScreenColor = useRef<string | undefined>(undefined)
   const setNowPlaying = (meta: { title: string; artist?: string; albumTitle?: string; artworkUrl?: string }, accentColor?: string) => {
     if (isRunningInExpoGo()) return
     try {
-      // Skip arrows replace the ±10 s buttons; the theme's accent colours the notification (set again when the theme changes)
-      if (lockScreenActive.current && lockScreenColor.current === accentColor) audio.updateLockScreenMetadata(meta)
-      else audio.setActiveForLockScreen(true, meta, { showNextTrack: true, showPreviousTrack: true, accentColor } as Parameters<typeof audio.setActiveForLockScreen>[2])
-      lockScreenColor.current = accentColor
-      lockScreenActive.current = true
+      // Skip arrows replace the ±10 s buttons and the theme's accent colours the notification; the options are sent with every song because the service can forget them
+      audio.setActiveForLockScreen(true, meta, { showNextTrack: true, showPreviousTrack: true, accentColor } as Parameters<typeof audio.setActiveForLockScreen>[2])
     } catch {
       // The playback service may be unavailable on this device
     }
