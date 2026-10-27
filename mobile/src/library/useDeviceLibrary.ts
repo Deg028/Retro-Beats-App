@@ -5,7 +5,7 @@ import { addListener } from "expo-media-library"
 import { classify, RawFile } from "./files"
 import { UNKNOWN_ARTIST } from "./names"
 import { isOpaqueName, readTags, Tags } from "./tags"
-import { Access, checkAccess, FolderIssue, pickFolder, scanFiles, scanFolders } from "./scan"
+import { Access, checkAccess, FolderIssue, musicFolders, pickFolder, scanDevice, scanFiles, scanFolders } from "./scan"
 
 const MIN_KEY = "retro-beats:min-seconds"
 const FOLDERS_KEY = "retro-beats:folders"
@@ -15,6 +15,14 @@ const TAGS_KEY = "retro-beats:tag-names:3"
 export const DEFAULT_MIN_SECONDS = 15
 /** Coming back to the app rescans, but not more often than this. */
 const RESCAN_AFTER_MS = 5 * 60_000
+/** Walking all the storage is slower than reading the index, so rescans reuse its result for this long. */
+const DEEP_AFTER_MS = 10 * 60_000
+
+/** Files the media index knows, plus the ones only the folder walk found (same file name = same song). */
+function merge(indexed: RawFile[], walked: RawFile[]) {
+  const names = new Set(indexed.map((f) => f.name.toLowerCase()))
+  return indexed.concat(walked.filter((f) => !names.has(f.name.toLowerCase()) && names.add(f.name.toLowerCase())))
+}
 
 /** A rescan that finds the same files keeps the old list, so nothing downstream is rebuilt. */
 function sameFiles(a: RawFile[], b: RawFile[]) {
@@ -43,6 +51,10 @@ export function useDeviceLibrary() {
   const [issues, setIssues] = useState<FolderIssue[]>([])
   const running = useRef(false)
   const lastScan = useRef(0)
+  // What walking the whole storage found, kept between scans
+  const walked = useRef({ at: 0, files: [] as RawFile[] })
+  const [walkedFiles, setWalkedFiles] = useState<RawFile[]>([])
+  const folderList = useMemo(() => musicFolders(walkedFiles), [walkedFiles])
 
   const { tracks: byName, skipped } = useMemo(() => classify(files, minSeconds), [files, minSeconds])
 
@@ -113,8 +125,17 @@ export function useDeviceLibrary() {
         setIssues(found.issues)
       } else {
         const read = await scanFiles(setProgress)
-        setFiles((prev) => (sameFiles(prev, read) ? prev : read))
+        const first = merge(read, walked.current.files)
+        setFiles((prev) => (sameFiles(prev, first) ? prev : first))
         setIssues([])
+        // Then look through every folder for music the index doesn't list (it only costs time, so it runs after the first list is shown)
+        if (ask || Date.now() - walked.current.at > DEEP_AFTER_MS) {
+          const extra = await scanDevice((n) => setProgress(read.length + n)).catch(() => [])
+          walked.current = { at: Date.now(), files: extra }
+          setWalkedFiles(extra)
+          const all = merge(read, extra)
+          setFiles((prev) => (sameFiles(prev, all) ? prev : all))
+        }
       }
       lastScan.current = Date.now()
       setScannedAt(lastScan.current)
@@ -199,6 +220,8 @@ export function useDeviceLibrary() {
     skipped,
     folders,
     issues,
+    /** Folders found by walking the whole storage that hold music, with their song counts (library mode) */
+    musicFolders: folderList,
     minSeconds,
     setMinSeconds,
     scan,

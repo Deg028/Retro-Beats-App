@@ -3,7 +3,8 @@ import { ActivityIndicator, Linking, ScrollView, StyleSheet, View } from "react-
 import { Button, Chip, Icon, Surface, T } from "../components/ui"
 import { useTheme } from "../themes/ThemeContext"
 import { SKIP_LABEL, SkipReason } from "../library/files"
-import { folderLabel } from "../library/scan"
+import { startActivityAsync } from "expo-intent-launcher"
+import { folderLabel, pathLabel } from "../library/scan"
 import { DEFAULT_MIN_SECONDS, DeviceLibrary } from "../library/useDeviceLibrary"
 import { SongInfo } from "../online/useSongInfo"
 import { PlayerApi } from "../usePlayer"
@@ -16,6 +17,12 @@ const span = (seconds: number) => {
   const m = Math.round(seconds / 60)
   return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`
 }
+
+const FOLDERS_SHOWN = 8
+
+/** Android's page where the person lets the app see every folder, which is how music outside the system's index is found. */
+const allFilesPage = () =>
+  startActivityAsync("android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION", { data: "package:com.retrobeats.app" }).catch(() => Linking.openSettings())
 
 const clock = (t: number) => new Date(t).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
 
@@ -101,6 +108,37 @@ export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLib
           {tracks.length > 0 && <Button label="Ver canciones" variant="secondary" icon="home" onPress={onOpenHome} />}
         </View>
       </Surface>
+
+      {!byFolder && !lib.isSample && phase === "done" && (
+        <View style={{ gap: 10 }}>
+          <T variant="title">Carpetas con música</T>
+          {lib.musicFolders.slice(0, FOLDERS_SHOWN).map((f) => (
+            <Surface key={f.uri} style={{ padding: 12 }}>
+              <View style={styles.statusHead}>
+                <T variant="body" style={{ flex: 1 }} numberOfLines={2}>
+                  {pathLabel(f.uri)}
+                </T>
+                <T variant="caption" color={theme.c.textMuted}>
+                  {f.count}
+                </T>
+              </View>
+            </Surface>
+          ))}
+          {lib.musicFolders.length > FOLDERS_SHOWN && (
+            <T variant="caption" color={theme.c.textMuted}>
+              y {lib.musicFolders.length - FOLDERS_SHOWN} carpetas más
+            </T>
+          )}
+          <Surface tone="surface2" style={{ padding: 12, gap: 10 }}>
+            <T variant="caption" color={theme.c.textMuted}>
+              {lib.musicFolders.length
+                ? "La app recorre todas las carpetas del teléfono y encuentra la música aunque Android no la tenga en su lista."
+                : "Para encontrar música guardada fuera de la lista de Android (Telegram, carpetas copiadas a mano), la app necesita ver todas las carpetas. Activa «Permitir gestión de todos los archivos»."}
+            </T>
+            <Button label="Dar acceso a todas las carpetas" variant="secondary" icon="themes" disabled={scanning} onPress={() => allFilesPage().then(() => lib.scan(true))} />
+          </Surface>
+        </View>
+      )}
 
       {byFolder && lib.folders.length > 0 && (
         <View style={{ gap: 10 }}>

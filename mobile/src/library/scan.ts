@@ -116,7 +116,12 @@ const MAX_FILES = 100_000
 const idle = () => new Promise<void>((r) => setTimeout(r, 0))
 
 /** Walks the chosen folders and lists their audio files. A folder that can't be read is reported, not hidden. */
-export async function scanFolders(folders: string[], onProgress: (n: number) => void): Promise<{ files: RawFile[]; issues: FolderIssue[] }> {
+export async function scanFolders(
+  folders: string[],
+  onProgress: (n: number) => void,
+  /** Folder names to leave out, given in lower case */
+  skip: (name: string) => boolean = () => false,
+): Promise<{ files: RawFile[]; issues: FolderIssue[] }> {
   const files: RawFile[] = []
   const issues: FolderIssue[] = []
   const seen = new Set<string>()
@@ -129,7 +134,7 @@ export async function scanFolders(folders: string[], onProgress: (n: number) => 
     for (const item of dir.list()) {
       if (item instanceof Directory) {
         const name = nameFromUri(item.uri)
-        if (depth < MAX_DEPTH && !name.startsWith(".")) await walk(item, depth + 1)
+        if (depth < MAX_DEPTH && !name.startsWith(".") && !skip(name.toLowerCase())) await walk(item, depth + 1)
         continue
       }
       const name = nameFromUri(item.uri)
@@ -156,4 +161,56 @@ export async function scanFolders(folders: string[], onProgress: (n: number) => 
     if (own) f.lyricsUri = own
   }
   return { files, issues }
+}
+
+// ---------- Whole phone: finding the music wherever it is kept
+
+const STORAGE = "file:///storage"
+/** Folders that hold system sounds and voice messages, or app data nobody can read anyway */
+const NOT_MUSIC = new Set(["android", "ringtones", "notifications", "alarms", "ui", "lost.dir", "voice notes", "whatsapp voice notes", "call recordings", "recordings"])
+
+/** Main storage and every memory card, as folder addresses. */
+async function storageRoots() {
+  const roots = [`${STORAGE}/emulated/0`]
+  try {
+    for (const item of new Directory(STORAGE).list()) {
+      const name = item.uri.replace(new RegExp("/+$"), "").split("/").pop() ?? ""
+      // Memory cards are named like 1A2B-3C4D; "emulated" is the main storage and "self" points back to it
+      if (item instanceof Directory && /^[0-9A-F]{4}-[0-9A-F]{4}$/i.test(name)) roots.push(`${STORAGE}/${name}`)
+    }
+  } catch {
+    // Can't list /storage: the main storage is still tried
+  }
+  return roots
+}
+
+/**
+ * Walks the phone's storage from the top and lists every audio file it finds, whether or not the system's media index
+ * knows it (folders with a .nomedia file, files copied in by hand, music kept by Telegram or other apps). Needs
+ * "all files access"; without it Android shows little or nothing and the result is just short.
+ */
+export async function scanDevice(onProgress: (n: number) => void): Promise<RawFile[]> {
+  if (Platform.OS !== "android") return []
+  return (await scanFolders(await storageRoots(), onProgress, (name) => NOT_MUSIC.has(name))).files
+}
+
+export type MusicFolder = { uri: string; count: number }
+
+/** The folders that hold music, biggest first, from the files' own addresses. */
+export function musicFolders(files: { uri: string }[]): MusicFolder[] {
+  const counts = new Map<string, number>()
+  for (const f of files) {
+    if (!f.uri.startsWith("file://")) continue
+    const dir = f.uri.slice(0, f.uri.lastIndexOf("/"))
+    counts.set(dir, (counts.get(dir) ?? 0) + 1)
+  }
+  return [...counts].map(([uri, count]) => ({ uri, count })).sort((a, b) => b.count - a.count)
+}
+
+/** "Almacenamiento interno / Download / Telegram" from file:///storage/emulated/0/Download/Telegram. */
+export function pathLabel(uri: string) {
+  const [volume, ...path] = decodeURIComponent(uri.replace("file:///storage/", "")).split("/")
+  const where = volume === "emulated" ? "Almacenamiento interno" : "Tarjeta SD"
+  const rest = (volume === "emulated" ? path.slice(1) : path).join(" / ")
+  return rest ? `${where} / ${rest}` : where
 }
