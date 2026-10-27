@@ -195,11 +195,17 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   )
 
   /** Media notification and lock screen controls; they need a native build, so Expo Go is skipped (see useNowPlaying). */
+  const lockScreenColor = useRef<string | null>(null)
   const setNowPlaying = (meta: { title: string; artist?: string; albumTitle?: string; artworkUrl?: string }, accentColor?: string) => {
     if (isRunningInExpoGo()) return
     try {
-      // Skip arrows replace the ±10 s buttons and the theme's accent colours the notification; the options are sent with every song because the service can forget them
+      // Registering again rebuilds the media session, which pauses the song: done the first time, and for a new
+      // theme colour only while the music is paused. Otherwise only the text and picture change.
+      // Skip arrows replace the ±10 s buttons and the accent colours the notification
+      const color = accentColor ?? ""
+      if (lockScreenColor.current !== null && (lockScreenColor.current === color || audio.playing)) return audio.updateLockScreenMetadata(meta)
       audio.setActiveForLockScreen(true, meta, { showNextTrack: true, showPreviousTrack: true, accentColor } as Parameters<typeof audio.setActiveForLockScreen>[2])
+      lockScreenColor.current = color
     } catch {
       // The playback service may be unavailable on this device
     }

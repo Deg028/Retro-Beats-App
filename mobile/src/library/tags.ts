@@ -137,7 +137,8 @@ export function cleanArtist(s?: string) {
   return /^<?unknown>?$/i.test(name) ? "" : name
 }
 
-// The whole tag is read when its picture is wanted; covers larger than this are left out
+// The whole tag is read: frames can come in any order, and the artist is sometimes saved after a large cover.
+// Tags larger than this are only read as far as HEAD
 const MAX_TAG = 4 * 1024 * 1024
 
 async function readHead(uri: string, whole: boolean) {
@@ -145,7 +146,7 @@ async function readHead(uri: string, whole: boolean) {
   try {
     handle = new File(uri).open(FileMode.ReadOnly)
     let head = await handle.readBytes(HEAD)
-    if (whole && head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33 && head.length >= 10) {
+    if (head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33 && head.length >= 10) {
       const size = 10 + synchsafe(head, 6)
       if (size > head.length && size <= MAX_TAG) {
         handle.offset = 0

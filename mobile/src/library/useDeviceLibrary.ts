@@ -9,8 +9,8 @@ import { Access, checkAccess, FolderIssue, pickFolder, scanFiles, scanFolders } 
 
 const MIN_KEY = "retro-beats:min-seconds"
 const FOLDERS_KEY = "retro-beats:folders"
-// 2: also read for songs whose file name gives no artist
-const TAGS_KEY = "retro-beats:tag-names:2"
+// 2: also read for songs whose file name gives no artist; 3: the whole tag, since the artist can come after the cover
+const TAGS_KEY = "retro-beats:tag-names:3"
 /** Files shorter than this are treated as tones and system sounds unless the person includes them. */
 export const DEFAULT_MIN_SECONDS = 15
 /** Coming back to the app rescans, but not more often than this. */

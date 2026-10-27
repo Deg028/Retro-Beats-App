@@ -14,8 +14,9 @@ import { Entry, InfoStore } from "./store"
 const WEEK = 7 * 24 * 3600 * 1000
 // Bumped when lyrics are prepared differently (2: files with the original, romanisation and translation keep the original)
 const LYRICS_V = 2
-// Bumped when a new source is added (2: Deezer covers, lyrics.ovh, the title alone), so earlier misses are tried again at once
-const SOURCES_V = 2
+// Bumped when a new source is added (2: Deezer covers, lyrics.ovh, the title alone; 3: artists read from the whole tag),
+// so earlier misses are tried again at once
+const SOURCES_V = 3
 const SNAPTUBE_KEY = "retro-beats:snaptube-folder"
 const ROMAJI_KEY = "retro-beats:romaji"
 
