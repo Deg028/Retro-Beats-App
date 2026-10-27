@@ -8,6 +8,7 @@ import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
 import { sleep } from "./http"
 import { lookup, saveCover } from "./lookup"
+import { parseLrc } from "./lrclib"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
 import { Entry, InfoStore } from "./store"
 
@@ -29,6 +30,8 @@ function wanted(song: Song, entry: Entry | undefined, force = false) {
   // Only plain words were found: a timed version may have been added since, so it is looked for again now and then
   const upgrade = entry?.lyrics === true && entry.lyricsSynced === false && (!entry.syncTriedAt || Date.now() - entry.syncTriedAt > WEEK)
   const stale = entry?.lyrics === true && (entry.lyricsV ?? 1) < LYRICS_V
+  // Lyrics the person imported are never searched again
+  if (entry?.manualLyrics) return { lyrics: false, cover: !force && typeof entry.thumb !== "string" && typeof entry.embedded !== "string" && needs(entry, "cover") }
   return { lyrics: song.duration > 0 && (force || needs(entry, "lyrics") || redo || upgrade || stale), // A downloader's thumbnail is already the cover: no search for another one
     cover: !force && typeof entry?.thumb !== "string" && typeof entry?.embedded !== "string" && needs(entry, "cover") }
 }
@@ -104,7 +107,7 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
         // A cover that exists but failed to download is not "no cover": leave it unmarked so it is tried again
         if (cover || !found.release?.coverUrl) store.patch(song.id, { cover, album: found.release?.album ?? null, coverAt: now, srcV: SOURCES_V })
       }
-      if (found.fix) store.patch(song.id, found.fix)
+      if (found.fix && !entry?.edited) store.patch(song.id, found.fix)
     } catch (e) {
       error = e instanceof Error ? e.message : String(e)
     } finally {
@@ -116,6 +119,34 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
       })
     }
     return !error
+  }
+
+  /** The person's own title and artist, which the databases never replace; the lyrics and cover are searched again with them. */
+  const editSong = (song: Song, names: { artist: string; title: string }) => {
+    const artist = names.artist.trim() || song.artist
+    const title = names.title.trim() || song.title
+    store.patch(song.id, { artist, title, edited: true, cover: undefined, coverAt: undefined, ...(entriesRef.current[song.id]?.manualLyrics ? null : { lyricsAt: undefined, lyricsSynced: undefined }) })
+    // The entry above is only visible to the next look-up once it has been applied
+    setTimeout(() => run({ ...song, artist, title }), 0)
+  }
+
+  /**
+   * Lyrics the person found on the internet and pasted. Text with [mm:ss.xx] times is saved as timed lyrics,
+   * anything else as plain words.
+   */
+  const importLyrics = (song: Song, text: string) => {
+    const timed = parseLrc(text)
+    const plain = text
+      .split(/\r?\n/)
+      .map((row) => row.replace(/\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]/g, "").trim())
+      .filter((row, i, rows) => row || (i > 0 && rows[i - 1]))
+      .join("\n")
+      .trim()
+    const synced = timed.length >= 3 ? timed : null
+    if (!synced && !plain) return false
+    store.saveLyrics(song.id, { synced, plain: plain || null, duration: song.duration || undefined })
+    store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!synced, syncTriedAt: Date.now(), lyricsV: LYRICS_V, manualLyrics: true, offset: 0 })
+    return true
   }
 
   const id = current?.id
@@ -331,6 +362,8 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     setEnabled: store.setEnabled,
     lyricsState,
     error: id !== undefined ? errors[id] : undefined,
+    editSong,
+    importLyrics,
     retry: () => current && run(current),
     /** Looks for timed lyrics again right now, for a song that only has plain words */
     retrySynced: () => current && run(current, true),

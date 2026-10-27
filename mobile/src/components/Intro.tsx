@@ -4,6 +4,7 @@ import { Equalizer } from "./Pixel"
 import { Icon, PixelCorners, steps } from "./ui"
 import { useTheme } from "../themes/ThemeContext"
 import { Theme } from "../themes/themes"
+import { VERSION_LABEL } from "../version"
 
 // Each opening is driven by one 0..1 value; retro intros advance in visible frames
 const SPEC: Record<Theme["intro"], { duration: number; frames?: number }> = {
@@ -52,6 +53,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   return (
     <Pressable style={[styles.root, { backgroundColor: theme.c.bg }]} onPress={onDone} accessibilityLabel="Saltar introducción">
       <Body t={t} theme={theme} />
+      <Text style={[styles.version, { color: theme.c.textMuted, fontFamily: theme.type.label.family }]}>{VERSION_LABEL}</Text>
     </Pressable>
   )
 }
@@ -202,6 +204,7 @@ function Fade({ t, theme }: BodyProps) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  version: { position: "absolute", bottom: 28, left: 0, right: 0, textAlign: "center", fontSize: 12, letterSpacing: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 22, overflow: "hidden" },
   loadBox: { width: 224, height: 22, borderWidth: 4, flexDirection: "row", gap: 2, padding: 2 },
   lcd: { width: 260, height: 170, borderWidth: 4, alignItems: "center", justifyContent: "center", gap: 10, overflow: "hidden" },

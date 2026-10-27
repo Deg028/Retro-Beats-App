@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
-import { Animated, BackHandler, Easing, Pressable, StyleSheet, useWindowDimensions, View } from "react-native"
+import { Animated, BackHandler, Easing, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { StatusBar } from "expo-status-bar"
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"
@@ -37,6 +37,34 @@ const SNAP_DISMISSED_KEY = "retro-beats:snaptube-notice-dismissed"
 
 type Tab = Exclude<Screen, "player">
 const TAB_INDEX: Record<Tab, number> = { home: 0, scan: 1, themes: 2, playlists: 3, recap: 4 }
+// The tabs the swipe walks through, in the order of the tab bar (Playlists and Recap are reached from the menu)
+const SWIPE_TABS: Tab[] = ["home", "scan", "themes"]
+
+/**
+ * Swipes on an area: left/right (the finger moves that way) and, if asked for, up. Vertical scrolling and horizontal
+ * lists inside keep their gestures: this only claims a clearly horizontal (or, for `up`, clearly upward) drag.
+ */
+function useSwipe(on: { left?: () => void; right?: () => void; up?: () => void }) {
+  const latest = useRef(on)
+  useEffect(() => {
+    latest.current = on
+  })
+  return useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) =>
+          (Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6) || (!!latest.current.up && g.dy < -24 && -g.dy > Math.abs(g.dx) * 1.6),
+        onPanResponderRelease: (_, g) => {
+          const { left, right, up } = latest.current
+          if (Math.abs(g.dx) > Math.abs(g.dy)) {
+            if (g.dx < -60 || g.vx < -0.6) left?.()
+            else if (g.dx > 60 || g.vx > 0.6) right?.()
+          } else if (g.dy < -50 || g.vy < -0.6) up?.()
+        },
+      }).panHandlers,
+    [],
+  )
+}
 
 function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi; lib: DeviceLibrary; info: SongInfo; playlists: PlaylistsApi; listening: Listening }) {
   const { theme, ready } = useThemeControl()
@@ -80,6 +108,17 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
     if (playerOpen) closePlayer()
     if (next !== tab) showTab(next, TAB_INDEX[next] > TAB_INDEX[tab] ? 1 : -1)
   }
+
+  // Swiping the screen walks through the tabs, and from Home to the left edge opens the menu; swiping up on the bar opens the player
+  const swipeTab = (step: 1 | -1) => {
+    if (playerOpen || menuOpen) return
+    const i = SWIPE_TABS.indexOf(tab)
+    if (i === -1) return step === -1 ? showTab("home", -1) : undefined
+    if (SWIPE_TABS[i + step]) showTab(SWIPE_TABS[i + step], step)
+    else if (tab === "home" && step === -1) setMenuOpen(true)
+  }
+  const screenSwipe = useSwipe({ left: () => swipeTab(1), right: () => swipeTab(-1) })
+  const barSwipe = useSwipe({ left: () => swipeTab(1), right: () => swipeTab(-1), up: () => !playerOpen && !menuOpen && go("player") })
 
   const slideIn = useEffectEvent(() => motion(theme, layerY, 0, 330).start())
   useEffect(() => {
@@ -128,7 +167,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
     <View style={[styles.root, { backgroundColor: theme.c.bg }]}>
       <StatusBar style={theme.dark ? "light" : "dark"} />
       <View style={{ flex: 1, paddingTop: insets.top }}>
-        <Animated.View style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28 * dir, 0] }) }] }}>
+        <Animated.View {...screenSwipe} style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28 * dir, 0] }) }] }}>
           {tab === "home" && <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />}
           {tab === "themes" && <Themes />}
           {tab === "recap" && <Recap listening={listening} initial={recapStart} />}
@@ -188,8 +227,10 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
             </T>
           </View>
         )}
-        <MiniPlayer player={player} onOpen={() => go("player")} />
-        <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} />
+        <View {...barSwipe}>
+          <MiniPlayer player={player} onOpen={() => go("player")} />
+          <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} />
+        </View>
       </View>
 
       {playerOpen && (

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Retro Beats",
     "slug": "retro-beats",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.retrobeats.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",

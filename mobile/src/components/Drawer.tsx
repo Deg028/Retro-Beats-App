@@ -5,6 +5,7 @@ import { Icon, IconName, motion, PixelCorners, Press, T } from "./ui"
 import { useTheme } from "../themes/ThemeContext"
 import { CATEGORY_LABEL } from "../themes/themes"
 import { Section, SECTIONS } from "../screens/Home"
+import { VERSION_LABEL } from "../version"
 
 type Shortcut = "themes" | "scan" | "sleep" | "playlists" | "recap"
 
@@ -161,6 +162,9 @@ export function Drawer({
           {row("themes", "themes", `Temas · ${theme.name}`, () => onShortcut("themes"))}
           <T variant="caption" color={theme.c.textMuted} style={{ paddingHorizontal: 12, marginTop: 2 }}>
             {CATEGORY_LABEL[theme.category]} · cambia colores, letras y animaciones
+          </T>
+          <T variant="caption" color={theme.c.textMuted} style={{ paddingHorizontal: 12, marginTop: 18, marginBottom: 8, textAlign: "center" }}>
+            Retro Beats · {VERSION_LABEL}
           </T>
         </ScrollView>
       </Animated.View>

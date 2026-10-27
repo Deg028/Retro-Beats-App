@@ -37,6 +37,10 @@ export type Entry = {
   /** Names from the databases, kept only when they fix the ones from the file name */
   artist?: string
   title?: string
+  /** The person typed the title and artist: the databases never replace them */
+  edited?: boolean
+  /** The person imported the lyrics: searches never replace them */
+  manualLyrics?: boolean
 }
 
 /** What the player shows in place of the file's own information. */

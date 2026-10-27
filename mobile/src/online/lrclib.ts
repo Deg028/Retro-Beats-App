@@ -117,6 +117,9 @@ export function parseLrc(text: string): LyricLine[] {
 // Seconds of difference in length up to which timed lyrics are still taken over untimed ones
 const SYNC_TOLERANCE = 12
 
+// Seconds of difference in length up to which a match found by title alone (no artist) is still taken for the same recording
+const TITLE_ONLY_GAP = 4
+
 const same = (a: string, b: string) => !!a && !!b && (a === b || (Math.min(a.length, b.length) >= 4 && (a.includes(b) || b.includes(a))))
 
 /** Rates a search result for this song; -1 means it is a different song. */
@@ -128,8 +131,9 @@ function score(hit: Hit, terms: SearchTerms, duration: number) {
   let s = 0
   if (duration > 0 && hit.duration > 0) {
     const gap = Math.abs(hit.duration - duration)
-    // A very different length is a different version (live, extended), whose timings would not fit
-    if (gap > 15) return -1
+    // A very different length is a different version (live, extended), whose timings would not fit. With the title
+    // alone there is also nothing to tell two songs with that title apart ("The Top" has many), so the length must match closely
+    if (gap > (terms.artist ? 15 : TITLE_ONLY_GAP)) return -1
     // Timed lyrics from a version a few seconds off still follow the song (the person can nudge them), which
     // plain words never do: they win over untimed ones even when those match the length exactly
     s += hit.syncedLyrics ? (gap <= SYNC_TOLERANCE ? 10 : 3) : 0

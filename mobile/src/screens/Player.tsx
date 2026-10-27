@@ -13,6 +13,7 @@ import { LyricsState, SongInfo } from "../online/useSongInfo"
 import { useTheme } from "../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../usePlayer"
 import { AddToPlaylistSheet } from "./Playlists"
+import { InfoSheet } from "./player/InfoSheet"
 import { HoldSeek, LyricsWindow, QueueSheet, shareSong, useDismiss, useSeek, useSwipe, useTimeLabels } from "./player/shared"
 
 /** Height of the lyrics window: room for four short lines, or two that wrap */
@@ -35,7 +36,7 @@ export default function Player({
 }) {
   const theme = useTheme()
   const { current: song, playing, shuffle, repeat } = player
-  const [sheet, setSheet] = useState<"queue" | "playlists" | null>(null)
+  const [sheet, setSheet] = useState<"queue" | "playlists" | "info" | null>(null)
   const [lyricsOpen, setLyricsOpen] = useState(true)
   const { width, height } = useWindowDimensions()
   const insets = useSafeAreaInsets()
@@ -199,6 +200,7 @@ export default function Player({
             <Action icon="queue" label="Cola" onPress={() => setSheet("queue")} />
             <Action icon="playlist" label="Listas" onPress={() => setSheet("playlists")} />
             <Action icon="share" label="Compartir" onPress={() => shareSong(song)} />
+            <Action icon="more" label="Datos" onPress={() => setSheet("info")} />
           </ActionBar>
 
           {lyricsOpen && (
@@ -298,6 +300,7 @@ export default function Player({
         </View>
       </ScrollView>
 
+      {sheet === "info" && <InfoSheet song={song} info={info} visible onClose={() => setSheet(null)} />}
       <QueueSheet player={player} visible={sheet === "queue"} onClose={() => setSheet(null)} />
       <AddToPlaylistSheet visible={sheet === "playlists"} onClose={() => setSheet(null)} song={song} playlists={playlists} />
     </View>
