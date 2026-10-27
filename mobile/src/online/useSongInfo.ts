@@ -6,6 +6,7 @@ import { pickFolder } from "../library/scan"
 import { readPicture } from "../library/tags"
 import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
+import { sleep } from "./http"
 import { lookup, saveCover } from "./lookup"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
 import { Entry, InfoStore } from "./store"
@@ -40,8 +41,10 @@ function needs(entry: Entry | undefined, part: "lyrics" | "cover") {
 
 export type LyricsState = "off" | "loading" | "found" | "none" | "error"
 
-/** After this many songs in a row fail to reach the server, a bulk run stops and says so. */
+/** After this many songs in a row fail to reach the server, a bulk run waits a minute; after a few such waits it stops and says so. */
 const MAX_FAILS_IN_A_ROW = 3
+const PAUSE_MS = 60_000
+const MAX_PAUSES = 3
 
 /**
  * Looks up lyrics, names and cover for the song that is playing, and for the whole library on request.
@@ -145,13 +148,20 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     })
     setBulk({ done: 0, total: todo.length })
     let fails = 0
+    let pauses = 0
     for (let i = 0; i < todo.length && !stopRequested.current; i++) {
       fails = (await run(todo[i])) ? 0 : fails + 1
       setBulk({ done: i + 1, total: todo.length })
-      if (fails >= MAX_FAILS_IN_A_ROW) {
+      if (fails < MAX_FAILS_IN_A_ROW) continue
+      // Servers that are busy or limit how fast they are asked recover in a minute: wait, then go on with the
+      // songs that failed. Only a connection that stays down stops the run
+      if (++pauses > MAX_PAUSES) {
         setBulkError("Se detuvo porque no hay conexión con los servidores. Vuelve a intentarlo cuando tengas internet.")
         break
       }
+      fails = 0
+      i -= MAX_FAILS_IN_A_ROW
+      await sleep(PAUSE_MS)
     }
     setBulk(null)
   }
