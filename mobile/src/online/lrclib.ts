@@ -161,27 +161,31 @@ export type LyricsMatch = { lyrics: Lyrics; artist: string; title: string; terms
 /** Looks for lyrics on LRCLIB with each guess in turn and returns the first real match, or null. */
 export async function findLyrics(attempts: SearchTerms[], duration: number): Promise<LyricsMatch | null> {
   for (const terms of attempts) {
-    const q = terms.artist
-      ? `track_name=${encodeURIComponent(terms.title)}&artist_name=${encodeURIComponent(terms.artist)}`
-      : `q=${encodeURIComponent(terms.title)}`
-    const hits = (await getJson<Hit[]>(`https://lrclib.net/api/search?${q}`)) ?? []
-    let best: { hit: Hit; score: number } | null = null
-    for (const hit of hits) {
-      if (hit.instrumental || (!hit.syncedLyrics && !hit.plainLyrics)) continue
-      const s = score(hit, terms, duration)
-      if (s >= 0 && (!best || s > best.score)) best = { hit, score: s }
-    }
-    if (!best) continue
-    const plain = best.hit.plainLyrics?.trim() || null
-    const lines = best.hit.syncedLyrics ? expandChorus(singleLanguage(parseLrc(best.hit.syncedLyrics)), plain) : []
-    const synced = lines.map(({ t, text }) => ({ t, text }))
-    // The reading some files carry for each line, in the same order as the lines
-    const romaji = lines.some((l) => l.r) ? lines.map((l) => l.r ?? "") : undefined
-    return {
-      lyrics: { synced: synced.length ? synced : null, plain: plain ? expandPlainChorus(singleLanguagePlain(plain)) : null, duration: best.hit.duration || undefined, romaji },
-      artist: best.hit.artistName,
-      title: best.hit.trackName,
-      terms,
+    // The exact search first; when the file's title carries extra words ("Initial D Forever Young") it finds nothing,
+    // so the title alone is searched too, and the artist and length still have to match
+    const queries = terms.artist
+      ? [`track_name=${encodeURIComponent(terms.title)}&artist_name=${encodeURIComponent(terms.artist)}`, `q=${encodeURIComponent(terms.title)}`]
+      : [`q=${encodeURIComponent(terms.title)}`]
+    for (const q of queries) {
+      const hits = (await getJson<Hit[]>(`https://lrclib.net/api/search?${q}`)) ?? []
+      let best: { hit: Hit; score: number } | null = null
+      for (const hit of hits) {
+        if (hit.instrumental || (!hit.syncedLyrics && !hit.plainLyrics)) continue
+        const s = score(hit, terms, duration)
+        if (s >= 0 && (!best || s > best.score)) best = { hit, score: s }
+      }
+      if (!best) continue
+      const plain = best.hit.plainLyrics?.trim() || null
+      const lines = best.hit.syncedLyrics ? expandChorus(singleLanguage(parseLrc(best.hit.syncedLyrics)), plain) : []
+      const synced = lines.map(({ t, text }) => ({ t, text }))
+      // The reading some files carry for each line, in the same order as the lines
+      const romaji = lines.some((l) => l.r) ? lines.map((l) => l.r ?? "") : undefined
+      return {
+        lyrics: { synced: synced.length ? synced : null, plain: plain ? expandPlainChorus(singleLanguagePlain(plain)) : null, duration: best.hit.duration || undefined, romaji },
+        artist: best.hit.artistName,
+        title: best.hit.trackName,
+        terms,
+      }
     }
   }
   return null

@@ -43,8 +43,8 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
 
 ## Status (2026-10-27)
 
-- Current version: **0.2.3-alpha** (`mobile/app.json`: `version` 0.2.3, `android.versionCode` 5). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
-- APKs live in `apk/` as `RetroBeats-<version>-alpha.apk` (Git LFS). `RetroBeats-0.1.0-alpha.apk` is only an LFS pointer to an older 24 MB build; 0.2.0 to 0.2.3 are real EAS builds (~88 MB).
+- Current version: **0.2.5-alpha** (`mobile/app.json`: `version` 0.2.5, `android.versionCode` 7). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
+- APKs live in `apk/` as `RetroBeats-<version>-alpha.apk` (Git LFS). `RetroBeats-0.1.0-alpha.apk` is only an LFS pointer to an older 24 MB build; 0.2.0 to 0.2.5 are real EAS builds (~88 MB).
 - Done and checked on the phone (TECNO LH7n, Android 14, 186 songs, mostly SnapTube and Telegram downloads):
   - Telegram files named only with digits show their real title, read from the ID3 tag.
   - Artists are read from the tag, including when they come after a large cover picture.
@@ -52,6 +52,8 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
   - The media notification has previous/next arrows and the theme's accent colour, emoji and name. Next/previous from the notification change songs and playback keeps going.
   - Synced lyrics with romaji work.
 - Version history:
+  - 0.2.5: lyric search also queries LRCLIB by title alone (artist and length still enforced), so titles with extra words ("Initial D Forever Young") find the timed lyrics.
+  - 0.2.4: swipe left/right changes tab (right on Home opens the menu), swipe up on the bottom bar opens the player; «v0.2.4 alpha» on the opening and at the end of the side menu (`src/version.ts`); «Datos» sheet in the player (`screens/player/InfoSheet.tsx`) to edit title and artist (`Entry.edited`: databases never replace them) and to paste lyrics found on the internet (`Entry.manualLyrics`: searches never replace them; text with [mm:ss] times becomes timed lyrics); lyrics found by title alone must match the length within 4 s.
   - 0.2.3: music search through all folders, with the «Carpetas con música» list in the Música tab.
   - 0.2.0: ID3 titles, themed notification.
   - 0.2.1: tag artist and embedded covers, Deezer and lyrics.ovh, the bulk lookup waits and goes on after server errors.
@@ -59,7 +61,9 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
 
 ## Pending and known issues
 
-- 0.2.3 whole-storage music walk, tested on the phone: it lists the folders with music (SnapTube Audio 166, Music/Telegram 32, Download/Music 3) and found a test file in a `.nomedia` folder that the system index does not list; a copy in Ringtones was left out. It works with only the audio permission; «all files access» was granted by `appops` and gave the same result, and the button opens the right Android page. The walk adds some seconds to a scan. The XMusic `.wav` backups were listed as songs; the fix (skip folders named *backup*) is in the code after 0.2.3 and not yet in an APK.
+- 0.2.4 tested on the phone: the version label shows in the opening and the menu, swiping between tabs and opening the menu works, the player opens by swiping up on the bar, and editing «The Top» to the artist Ken Blast replaced the wrong lyrics with the right timed ones. The 0.2.5 lyric-search change (Forever Young by Symbol) is NOT yet tested on the phone.
+- Wrong artist from the databases: «The Top» came as Dave Rodgers (it is Ken Blast). The person fixes such cases in «Datos»; the automatic name fix from a title-only match is still loose.
+- 0.2.3 whole-storage music walk, tested on the phone: it lists the folders with music (SnapTube Audio 166, Music/Telegram 32, Download/Music 3) and found a test file in a `.nomedia` folder that the system index does not list; a copy in Ringtones was left out. It works with only the audio permission; «all files access» was granted by `appops` and gave the same result, and the button opens the right Android page. The walk adds some seconds to a scan. The XMusic `.wav` backups were listed as songs in 0.2.3; since 0.2.4 folders named *backup* are skipped and the Música tab no longer lists them.
 
 - 111 songs have no lyrics. The ones checked are instrumentals, game/anime covers and YouTube raps that LRCLIB and lyrics.ovh don't have. YouTube was not used: it has no keyless search, and scraping it breaks its terms. The official YouTube Data API or Genius would need a key from the user.
 - Tags are only read from MP3 (ID3). `.m4a`/`.opus` files (MP4 atoms, Vorbis comments) keep the name from the file; WhatsApp voice notes (`AUD-…-WA0022`) show that name.
