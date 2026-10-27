@@ -1,7 +1,9 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import { Directory, File, Paths } from "expo-file-system"
 import { Song } from "../data"
 import { pickFolder } from "../library/scan"
+import { readPicture } from "../library/tags"
 import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
 import { lookup, saveCover } from "./lookup"
@@ -11,6 +13,8 @@ import { Entry, InfoStore } from "./store"
 const WEEK = 7 * 24 * 3600 * 1000
 // Bumped when lyrics are prepared differently (2: files with the original, romanisation and translation keep the original)
 const LYRICS_V = 2
+// Bumped when a new source is added (2: Deezer covers, lyrics.ovh, the title alone), so earlier misses are tried again at once
+const SOURCES_V = 2
 const SNAPTUBE_KEY = "retro-beats:snaptube-folder"
 const ROMAJI_KEY = "retro-beats:romaji"
 
@@ -24,14 +28,14 @@ function wanted(song: Song, entry: Entry | undefined, force = false) {
   const upgrade = entry?.lyrics === true && entry.lyricsSynced === false && (!entry.syncTriedAt || Date.now() - entry.syncTriedAt > WEEK)
   const stale = entry?.lyrics === true && (entry.lyricsV ?? 1) < LYRICS_V
   return { lyrics: song.duration > 0 && (force || needs(entry, "lyrics") || redo || upgrade || stale), // A downloader's thumbnail is already the cover: no search for another one
-    cover: !force && typeof entry?.thumb !== "string" && needs(entry, "cover") }
+    cover: !force && typeof entry?.thumb !== "string" && typeof entry?.embedded !== "string" && needs(entry, "cover") }
 }
 
 /** A part is looked up if it never was, or if it was and came back empty more than a week ago. Whatever was found stays. */
 function needs(entry: Entry | undefined, part: "lyrics" | "cover") {
   const at = part === "lyrics" ? entry?.lyricsAt : entry?.coverAt
   const found = part === "lyrics" ? entry?.lyrics === true : typeof entry?.cover === "string"
-  return !at || (!found && Date.now() - at > WEEK)
+  return !at || (!found && (Date.now() - at > WEEK || (entry?.srcV ?? 1) < SOURCES_V))
 }
 
 export type LyricsState = "off" | "loading" | "found" | "none" | "error"
@@ -80,9 +84,9 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
           // Words without timing never replace timed lyrics that were saved before
           if (lyrics?.synced || !entry?.lyricsSynced) {
             store.saveLyrics(song.id, lyrics)
-            store.patch(song.id, { lyrics: !!lyrics, lyricsAt: now, lyricsFor: song.duration, lyricsSynced: !!lyrics?.synced, syncTriedAt: now, lyricsV: LYRICS_V })
+            store.patch(song.id, { lyrics: !!lyrics, lyricsAt: now, lyricsFor: song.duration, lyricsSynced: !!lyrics?.synced, syncTriedAt: now, lyricsV: LYRICS_V, srcV: SOURCES_V })
           } else store.patch(song.id, { syncTriedAt: now, lyricsV: LYRICS_V })
-        } else store.patch(song.id, { lyricsFor: song.duration, syncTriedAt: now, lyricsV: LYRICS_V })
+        } else store.patch(song.id, { lyricsAt: now, lyricsFor: song.duration, syncTriedAt: now, lyricsV: LYRICS_V, srcV: SOURCES_V })
       }
       if (want.cover && found.release !== undefined) {
         let cover: string | null = null
@@ -94,7 +98,7 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
           }
         }
         // A cover that exists but failed to download is not "no cover": leave it unmarked so it is tried again
-        if (cover || !found.release?.coverUrl) store.patch(song.id, { cover, album: found.release?.album ?? null, coverAt: now })
+        if (cover || !found.release?.coverUrl) store.patch(song.id, { cover, album: found.release?.album ?? null, coverAt: now, srcV: SOURCES_V })
       }
       if (found.fix) store.patch(song.id, found.fix)
     } catch (e) {
@@ -203,6 +207,48 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     return () => clearTimeout(timer)
   }, [wantsRomaji, id, current?.lyrics])
 
+  /**
+   * Covers saved on the phone that are gone (the app's data was moved or cleaned) are forgotten, so they are found
+   * again instead of showing a broken picture.
+   */
+  const forgetMissingFiles = () => {
+    const fix: Record<number, Partial<Entry>> = {}
+    for (const [key, e] of Object.entries(entriesRef.current)) {
+      const gone = (uri?: string | null) => typeof uri === "string" && uri.startsWith("file:") && !new File(uri).exists
+      const f: Partial<Entry> = {}
+      if (gone(e.cover)) Object.assign(f, { cover: undefined, coverAt: undefined })
+      if (gone(e.thumb)) f.thumb = undefined
+      if (gone(e.embedded)) Object.assign(f, { embedded: undefined, embeddedAt: undefined })
+      if (Object.keys(f).length) fix[Number(key)] = f
+    }
+    if (Object.keys(fix).length) store.patchMany(fix)
+  }
+
+  /** Copies the picture saved inside each MP3 that has no cover yet, so it shows without asking the internet. */
+  const importEmbedded = async (songs: Song[]) => {
+    const dir = new Directory(Paths.document, "covers")
+    const found: Record<number, Partial<Entry>> = {}
+    for (const song of songs) {
+      const e = entriesRef.current[song.id]
+      if (!song.uri || !/\.mp3$/i.test(song.file ?? "") || e?.embeddedAt || typeof e?.cover === "string" || typeof e?.thumb === "string") continue
+      let embedded: string | null = null
+      const picture = await readPicture(song.uri)
+      if (picture) {
+        try {
+          dir.create({ intermediates: true, idempotent: true })
+          // "-video" marks a wide picture, which is shown whole over a blurred copy (see Art)
+          const file = new File(dir, `${song.id}-tag${picture.wide ? "-video" : ""}.${picture.ext}`)
+          await file.write(picture.data)
+          embedded = file.uri
+        } catch {
+          // Could not be saved: the song keeps its pixel art and the internet search goes on
+        }
+      }
+      found[song.id] = { embedded, embeddedAt: Date.now() }
+    }
+    if (Object.keys(found).length) store.patchMany(found)
+  }
+
   const [thumbs, setThumbs] = useState<{ done: number; total: number } | null>(null)
   // Set at once, unlike `thumbs`, so the folder being picked and the automatic run never overlap
   const thumbsRun = useRef<Promise<void> | null>(null)
@@ -291,6 +337,8 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     bulkError,
     enrichAll,
     importLyricsFiles,
+    importEmbedded,
+    forgetMissingFiles,
     importThumbnails,
     thumbs,
     thumbsMessage,

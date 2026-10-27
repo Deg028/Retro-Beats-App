@@ -1,5 +1,5 @@
 /** Public music databases ask clients to say who they are; this names the app and its public project page. */
-export const USER_AGENT = "RetroBeats/0.1.0 (https://github.com/Deg028/Retro-Beats-App)"
+export const USER_AGENT = "RetroBeats/0.2.1 (https://github.com/Deg028/Retro-Beats-App)"
 
 /** The server could not be reached or answered with an error, as opposed to answering "not found". */
 export class NetworkError extends Error {

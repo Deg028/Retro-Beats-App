@@ -260,8 +260,11 @@ function Main() {
   useEffect(() => {
     if (store.hydrated && player.library.length) readLyricFiles()
   }, [store.hydrated, player.library.length])
-  // Covers fill in on their own: first the downloader's thumbnails, then the online search for what is still bare
+  // Covers and lyrics fill in on their own: first the pictures saved inside the files and the downloader's
+  // thumbnails, then the online search for every song still missing either
   const fillCovers = useEffectEvent(async () => {
+    info.forgetMissingFiles()
+    await info.importEmbedded(player.library)
     if (info.snaptubeLinked) await info.importThumbnails(player.library, false)
     await info.enrichAll(player.library)
   })

@@ -3,12 +3,14 @@ import { AppState, Platform } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { addListener } from "expo-media-library"
 import { classify, RawFile } from "./files"
+import { UNKNOWN_ARTIST } from "./names"
 import { isOpaqueName, readTags, Tags } from "./tags"
 import { Access, checkAccess, FolderIssue, pickFolder, scanFiles, scanFolders } from "./scan"
 
 const MIN_KEY = "retro-beats:min-seconds"
 const FOLDERS_KEY = "retro-beats:folders"
-const TAGS_KEY = "retro-beats:tag-names"
+// 2: also read for songs whose file name gives no artist
+const TAGS_KEY = "retro-beats:tag-names:2"
 /** Files shorter than this are treated as tones and system sounds unless the person includes them. */
 export const DEFAULT_MIN_SECONDS = 15
 /** Coming back to the app rescans, but not more often than this. */
@@ -44,7 +46,8 @@ export function useDeviceLibrary() {
 
   const { tracks: byName, skipped } = useMemo(() => classify(files, minSeconds), [files, minSeconds])
 
-  // Files named only with numbers ("1_4945510745191220486.mp3") get their title and artist from the tag inside the file
+  // Files named only with numbers ("1_4945510745191220486.mp3") get their title from the tag inside the file, and
+  // files whose name gives no artist get the artist saved there (downloaders write the channel or the singer)
   const [tagged, setTagged] = useState<Record<string, Tags>>({})
   const tagsLoaded = useRef(false)
   useEffect(() => {
@@ -54,7 +57,7 @@ export function useDeviceLibrary() {
       .finally(() => (tagsLoaded.current = true))
   }, [])
   const readOpaque = useEffectEvent(async () => {
-    const pending = byName.filter((t) => isOpaqueName(t.title) && !(t.uri in tagged))
+    const pending = byName.filter((t) => (isOpaqueName(t.title) || t.artist === UNKNOWN_ARTIST) && !(t.uri in tagged))
     if (!pending.length || !tagsLoaded.current) return
     const found: Record<string, Tags> = {}
     for (const t of pending) {
@@ -71,7 +74,17 @@ export function useDeviceLibrary() {
   useEffect(() => {
     readOpaque()
   }, [byName])
-  const tracks = useMemo(() => byName.map((t) => (tagged[t.uri]?.title ? { ...t, ...tagged[t.uri] } : t)), [byName, tagged])
+  const tracks = useMemo(
+    () =>
+      byName.map((t) => {
+        const tag = tagged[t.uri]
+        if (!tag?.title) return t
+        const title = isOpaqueName(t.title) ? tag.title : t.title
+        const artist = t.artist === UNKNOWN_ARTIST ? tag.artist : t.artist
+        return title === t.title && artist === t.artist ? t : { ...t, title, artist }
+      }),
+    [byName, tagged],
+  )
 
   const run = async (ask: boolean, chosen: string[]) => {
     if (running.current) return

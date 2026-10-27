@@ -14,7 +14,7 @@ export const ArtProvider = ArtContext.Provider
 export function Art({ seed, size, palette, bg, blur }: { seed: number; size: number; palette?: readonly string[]; bg?: string; blur?: number }) {
   const uri = useContext(ArtContext)[seed]?.cover
   const [failed, setFailed] = useState<string | null>(null)
-  if (uri && failed !== uri && uri.endsWith("-video.jpg")) {
+  if (uri && failed !== uri && /-video\.(jpg|png)$/.test(uri)) {
     // A video thumbnail is widescreen: shown whole over a blurred copy of itself, so the square has no empty bars and no cropped words
     return (
       <View style={{ width: size, height: size, overflow: "hidden", backgroundColor: bg }} accessibilityLabel="Miniatura del video">

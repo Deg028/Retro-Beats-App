@@ -29,6 +29,11 @@ export type Entry = {
   album?: string | null
   /** The video's thumbnail saved by the downloader app, used while no official cover is found */
   thumb?: string | null
+  /** The picture saved inside the audio file, copied to the app's storage; null: the file has none */
+  embedded?: string | null
+  embeddedAt?: number
+  /** Which set of online sources the last lookup used; misses from an older set are looked up again */
+  srcV?: number
   /** Names from the databases, kept only when they fix the ones from the file name */
   artist?: string
   title?: string
@@ -151,7 +156,7 @@ export function useInfoStore() {
         artist: e.artist,
         title: e.title,
         album: e.album ?? undefined,
-        cover: e.cover ?? e.thumb ?? undefined,
+        cover: e.cover ?? e.embedded ?? e.thumb ?? undefined,
         lyrics: lyrics[id]?.synced ?? undefined,
         romaji: lyrics[id]?.romaji,
         plain: lyrics[id]?.plain ?? undefined,

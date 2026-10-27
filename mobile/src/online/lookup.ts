@@ -3,7 +3,9 @@ import { Directory, File, Paths } from "expo-file-system"
 import { SearchTerms, searchAttempts, UNKNOWN_ARTIST } from "../library/names"
 import { NetworkError } from "./http"
 import { findLyrics, Lyrics } from "./lrclib"
+import { findDeezerCover } from "./deezer"
 import { findStoreCover } from "./itunes"
+import { findPlainLyrics } from "./lyricsovh"
 import { findRelease, Release } from "./musicbrainz"
 
 export type Want = { lyrics: boolean; cover: boolean }
@@ -17,15 +19,20 @@ export type Found = {
   error?: string
 }
 
-/** The album's cover from the store catalogue when it has it (quick), otherwise from MusicBrainz, which also gives the names. */
+/**
+ * The album's cover from the store catalogues when they have it (quick: Apple first, then Deezer), otherwise from
+ * MusicBrainz, which also gives the names.
+ */
 async function findAlbum(attempts: SearchTerms[], duration: number, storeFirst: boolean): Promise<Release | null> {
   let storeError: unknown
   if (storeFirst) {
-    try {
-      const store = await findStoreCover(attempts, duration)
-      if (store) return store
-    } catch (e) {
-      storeError = e
+    for (const find of [findStoreCover, findDeezerCover]) {
+      try {
+        const store = await find(attempts, duration)
+        if (store) return store
+      } catch (e) {
+        storeError ??= e
+      }
     }
   }
   try {
@@ -35,14 +42,26 @@ async function findAlbum(attempts: SearchTerms[], duration: number, storeFirst: 
   }
 }
 
+/**
+ * The guesses for a song, and then its title alone: the artist in a file is often a video channel the databases
+ * don't know, and the title with the song's exact length still finds it.
+ */
+function allAttempts(artist: string, title: string): SearchTerms[] {
+  const out = searchAttempts(artist, title)
+  if (artist === UNKNOWN_ARTIST) return out
+  for (const bare of searchAttempts(UNKNOWN_ARTIST, title)) if (!out.some((a) => !a.artist && a.title === bare.title)) out.push(bare)
+  return out
+}
+
 const reason = (r: PromiseRejectedResult) => (r.reason instanceof NetworkError ? r.reason.message : "No se pudo completar la búsqueda")
 
 /**
- * Looks a song up online: lyrics on LRCLIB, and its names, album and cover on MusicBrainz and the Cover Art Archive.
+ * Looks a song up online: lyrics on LRCLIB (then lyrics.ovh), and its names, album and cover on Apple Music, Deezer,
+ * MusicBrainz and the Cover Art Archive.
  * The two run side by side. One failing (no connection) never hides what the other found.
  */
 export async function lookup(song: { artist: string; title: string; duration: number }, want: Want): Promise<Found> {
-  const attempts = searchAttempts(song.artist, song.title)
+  const attempts = allAttempts(song.artist, song.title)
   const unknownArtist = song.artist === UNKNOWN_ARTIST
   const [lyricsRun, releaseRun] = await Promise.allSettled([
     want.lyrics ? findLyrics(attempts, song.duration) : Promise.resolve(undefined),
@@ -61,6 +80,11 @@ export async function lookup(song: { artist: string; title: string; duration: nu
     } catch (e) {
       found.error = e instanceof NetworkError ? e.message : found.error
     }
+  }
+  // LRCLIB has nothing: plain words from lyrics.ovh, with the database's names first when they are known
+  if (want.lyrics && lyricsRun.status === "fulfilled" && !lyricsMatch) {
+    const named = found.release ? [{ artist: found.release.artist, title: found.release.title }] : []
+    lyricsMatch = await findPlainLyrics([...named, ...attempts])
   }
   if (want.lyrics && lyricsRun.status === "fulfilled") found.lyrics = lyricsMatch?.lyrics ?? null
   // The lyrics revealed who the artist is: look for the album cover again with that name
