@@ -12,8 +12,12 @@ The former web prototype (React + Vite, Figma Make) was discarded; a backup is i
 - `mobile/src/library/` - the phone's music, which is the app's only music (no demo songs): `scan.ts` reads the system media index with `expo-media-library`, or, when the build can't get the audio permission (Expo Go on Android 13+), walks folders the person picked with `expo-file-system` (SAF; Android keeps the access, the choice is saved and rescanned on every open and return to the app); `files.ts` (pure: file name to title/artist, skip reasons, ids); `useDeviceLibrary.ts` (one scan at a time, mode switch, rescans). Songs carry the file `uri` and ids from `DEVICE_ID_BASE`. `screens/Scan.tsx` (the Música tab) shows what was found and what was skipped and why
 - `mobile/src/library/tags.ts` - reads what is saved inside an MP3 (ID3v2, then ID3v1): the title for files whose name says nothing (only digits, e.g. Telegram's `1_4945510745191220486.mp3`, or `AUD-…-WA0001`), the artist for files whose name gives none (`useDeviceLibrary.ts` applies and remembers both), and the embedded cover picture (`useSongInfo.importEmbedded` copies it to app storage)
 - `mobile/src/library/names.ts` - pure: cleans file names left by YouTube downloaders ("Official Video", `[id]`, "- Topic") into artist and title, builds the search guesses (with `feat.` removed, then artist and title swapped)
-- `mobile/src/online/` - lookups for the song that is playing: `lrclib.ts` (lyrics, synced or plain; writes out choruses that are only labelled "CHORUS", keeps one language when a file repeats each line in three; lyrics are only looked up once the song length is known, so the timings fit that recording; the person can nudge them in the player), `itunes.ts` (official album art from the public Apple Music catalogue search, tried first: one quick request), `deezer.ts` (Deezer's public catalogue search, tried next), `musicbrainz.ts` (names, album, and the front cover from the Cover Art Archive, studio releases first; 1 request per second; the fallback for covers), `lookup.ts` (runs both, saves the cover in the app's storage), `lyricsovh.ts` (plain lyrics from lyrics.ovh when LRCLIB has none; rests 10 min after a failure), `local.ts` (lyrics file beside a song, e.g. SnapTube's `name_private.lrc`), `snaptube.ts` (reads SnapTube's download history from the `snaptube/db` folder the person picks, copies it into app storage and queries it with `expo-sqlite`: each download has its video thumbnail, used as cover when no official one exists), `store.ts` (what was found, saved on the phone; lyrics under one key per song), `useSongInfo.ts` (looks up the current song once its length is known, plus a bulk run; a miss is retried after a week, or at once when `SOURCES_V` is bumped for a new source; on opening, the app copies embedded covers, then SnapTube thumbnails, then searches every song still missing lyrics or cover; saved covers whose file is gone are forgotten and found again). Public APIs only, sending just title and artist; the person can turn it off in the Música tab. `components/Art.tsx` shows the found cover and falls back to the pixel art
+- `mobile/src/online/` - lookups of lyrics, names and covers, for the song that is playing and for the whole library: `lrclib.ts` (lyrics, synced or plain; writes out choruses that are only labelled "CHORUS", keeps one language when a file repeats each line in three; lyrics are only looked up once the song length is known, so the timings fit that recording; the person can nudge them in the player), `itunes.ts` (official album art from the public Apple Music catalogue search, tried first: one quick request), `deezer.ts` (Deezer's public catalogue search, tried next), `musicbrainz.ts` (names, album, and the front cover from the Cover Art Archive, studio releases first; 1 request per second; the fallback for covers), `lookup.ts` (runs lyrics and cover searches side by side, then with the song's title alone, and saves the cover in the app's storage), `lyricsovh.ts` (plain lyrics from lyrics.ovh when LRCLIB has none; rests 10 min after a failure), `local.ts` (lyrics file beside a song, e.g. SnapTube's `name_private.lrc`), `snaptube.ts` (reads SnapTube's download history from the `snaptube/db` folder the person picks, copies it into app storage and queries it with `expo-sqlite`: each download has its video thumbnail, used as cover when no official one exists), `store.ts` (what was found, saved on the phone; lyrics under one key per song), `useSongInfo.ts` (looks up the current song once its length is known, plus a bulk run; a miss is retried after a week, or at once when `SOURCES_V` is bumped for a new source; on opening, the app copies embedded covers, then SnapTube thumbnails, then searches every song still missing lyrics or cover; saved covers whose file is gone are forgotten and found again). Public APIs only, sending just title and artist; the person can turn it off in the Música tab. `components/Art.tsx` shows the found cover and falls back to the pixel art
 - `mobile/src/usePlayer.ts` - playback engine on `expo-audio` (the running time is NOT in the player object: screens that draw it call `usePlaybackTime(player)`, so the app does not redraw four times a second): queue, shuffle, repeat, sleep timer, lock screen, persistence; files that fail to open are marked broken and skipped (a tap retries; automatic skipping never does)
+- `mobile/src/playlists.ts` and `screens/Playlists.tsx` - the person's own playlists (make, rename, fill with a song picker, play in order or shuffled), saved on the phone
+- `mobile/src/useListening.ts`, `mobile/src/recap.ts` (pure) and `screens/Recap.tsx` - counts the time each song is really heard, by month; the recap shows hours, top song, artist and album for a month or a year
+- `mobile/src/online/romaji.ts` - Hepburn reading under Japanese lyric lines: kana on the phone, lines with kanji through Google Translate, only when the person turns «Romaji» on
+- `mobile/src/screens/Home.tsx` - the song list by section (Agregadas, Favoritas, Top, Recientes) with search; `components/Drawer.tsx` is the side menu; `components/GameBoy.tsx` is the cover of the Bolsillo LCD theme; `components/Pixel.tsx` the generated pixel-art covers
 - `mobile/src/themes/themes.ts` - the theme engine: 6 themes (retro, moderno, combinado), each a full set of tokens plus style switches (cover, progress, play button, background, retro signature, icon set, dynamic color). Add a theme here and it appears in the Temas screen
 - `mobile/src/themes/ThemeContext.tsx` - `ThemeProvider`, `useTheme()`; persists the chosen theme
 - `mobile/src/components/ui.tsx` - themed primitives (`T`, `Icon`, `Cover`, `Surface`, `Press`, `PlayButton`, `ProgressTrack`, `Action`, `Chip`, `Button`) and `motion()`; screens never hard-code colors. Use `Press` instead of `Pressable` so every control has press feedback, and keep active states as accent fill + onAccent
@@ -36,3 +40,56 @@ npm run build:apk       # installable APK through EAS
 ```
 
 Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattributes`).
+
+## Status (2026-10-27)
+
+- Current version: **0.2.2-alpha** (`mobile/app.json`: `version` 0.2.2, `android.versionCode` 4). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
+- APKs live in `apk/` as `RetroBeats-<version>-alpha.apk` (Git LFS). `RetroBeats-0.1.0-alpha.apk` is only an LFS pointer to an older 24 MB build; 0.2.0, 0.2.1 and 0.2.2 are real EAS builds (~88 MB).
+- Done and checked on the phone (TECNO LH7n, Android 14, 186 songs, mostly SnapTube and Telegram downloads):
+  - Telegram files named only with digits show their real title, read from the ID3 tag.
+  - Artists are read from the tag, including when they come after a large cover picture.
+  - 182 of 186 songs have a cover (embedded pictures, SnapTube thumbnails, Apple Music, Deezer); 75 have lyrics.
+  - The media notification has previous/next arrows and the theme's accent colour, emoji and name. Next/previous from the notification change songs and playback keeps going.
+  - Synced lyrics with romaji work.
+- Version history:
+  - 0.2.0: ID3 titles, themed notification.
+  - 0.2.1: tag artist and embedded covers, Deezer and lyrics.ovh, the bulk lookup waits and goes on after server errors.
+  - 0.2.2: fixed songs pausing right after they start. Re-registering the lock-screen session rebuilds it, so `usePlayer.setNowPlaying` registers once and only again for a new theme colour while paused. Also reads the whole ID3 tag.
+
+## Pending and known issues
+
+- 111 songs have no lyrics. The ones checked are instrumentals, game/anime covers and YouTube raps that LRCLIB and lyrics.ovh don't have. YouTube was not used: it has no keyless search, and scraping it breaks its terms. The official YouTube Data API or Genius would need a key from the user.
+- Tags are only read from MP3 (ID3). `.m4a`/`.opus` files (MP4 atoms, Vorbis comments) keep the name from the file; WhatsApp voice notes (`AUD-…-WA0022`) show that name.
+- The phone's SystemUI logs `FileNotFoundException` for `files/covers/*.jpg`: expo-audio passes the cover's private path as artwork URI, which SystemUI can't open. Harmless; the notification shows the cover the service loads itself.
+- A new theme colour reaches the notification only after the music is paused (see 0.2.2 above).
+- The APK ships the x86 and x86_64 libraries too (emulators only, ~20 MB). `app.json` still asks for `READ/WRITE_EXTERNAL_STORAGE` and `READ_MEDIA_VISUAL_USER_SELECTED`, which an audio player on Android 13+ doesn't need. The app data backup (`allowBackup`) is on.
+- `replica/features.csv` and `replica/build-log.md` are behind the code (playlists, Recap, tags and covers are done).
+
+## Decisions
+
+- Only public APIs that need no key, sending just title and artist; the person can turn lookups off in the Música tab.
+- Stellio Player is the reference only through its public reviews (`replica/fixes.md`); its themes and visuals are not copied.
+- The user talks in Spanish; replies and UI copy are in Spanish. Confirm before each Replica skill step.
+
+## New machine setup
+
+1. `git clone https://github.com/Deg028/Retro-Beats-App.git`, then `git lfs pull`. The icons in `mobile/assets/*.png` are LFS files. Without them, the EAS build fails in prebuild with `Could not find MIME for Buffer <null>`.
+2. `cd mobile && npm install`. Its `postinstall` runs `patch-package`, which applies `patches/expo-audio+58.0.10.patch`.
+3. No local Java or Android SDK is needed: builds run on EAS. `npx eas-cli login` (account `deg_018`, project `retro-beats`).
+4. Build: `npx eas-cli build --platform android --profile preview --non-interactive --json`.
+   - The JSON's `artifacts.buildUrl` is the APK; save it as `apk/RetroBeats-<version>-alpha.apk`, then commit and push.
+   - Build logs (`logFiles`) are compressed: fetch them with `curl --compressed`.
+   - The Gradle log shows `> Task :expo-audio:…` lines when the patch is really compiled.
+5. Phone over wireless ADB (Android platform-tools, installed at `C:\platform-tools` on the first PC):
+   - Pair once: `adb pair <ip>:<pairing port> <code>` (Opciones de desarrollador → Depuración inalámbrica → Vincular con código).
+   - Connect: `adb connect <ip>:<port>`, with the port shown on the main Depuración inalámbrica screen; it changes every time wireless debugging restarts. The phone was at 192.168.1.15.
+   - VS Code has the `android-adb` MCP server in `.vscode/mcp.json`, which expects ADB in `C:\platform-tools`.
+6. Install with `adb install -r apk/RetroBeats-<version>-alpha.apk`. Same signing key on EAS, so the person's data stays.
+
+## Testing on the phone
+
+- Playback state and the song in the notification: `adb shell dumpsys media_session`, the `ExpoAudioLockScreenSession` entry (`state=PLAYING/PAUSED`, `custom actions` lists Previous/Next Track).
+- Notification colour: `adb shell dumpsys notification --noredact`, the `pkg=com.retrobeats.app` record's `color=`.
+- Screen text: `adb shell uiautomator dump`, then read the XML. Song rows have `content-desc` "Reproducir <título>", covers "Carátula del álbum", "Miniatura del video" or "Portada pixel art".
+- The Música tab shows "N con carátula · N con letra" and the progress of the library lookup ("Buscando X de Y…", about 5 songs a minute).
+- The notification shade also shows the person's private messages: read the notification with `dumpsys` instead of screenshots where possible. The phone also has a third-party "Reproductor de música" (`musicplayer.musicapps.music.mp3player`). When looking at it, skip its full-screen ads and never tap "Instalar".
