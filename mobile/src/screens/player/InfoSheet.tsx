@@ -52,6 +52,16 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
         {field(title, setTitle, "Título")}
         {field(artist, setArtist, "Artista")}
         <Button
+          label="Intercambiar título y artista"
+          variant="secondary"
+          icon="repeat"
+          disabled={!artist.trim() || artist === "Artista desconocido"}
+          onPress={() => {
+            setTitle(artist)
+            setArtist(title)
+          }}
+        />
+        <Button
           label="Guardar y buscar de nuevo"
           icon="check"
           disabled={!title.trim()}
