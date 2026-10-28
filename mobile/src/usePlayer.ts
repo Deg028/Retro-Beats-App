@@ -4,6 +4,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { isRunningInExpoGo } from "expo"
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio"
 import type { AudioPlayer } from "expo-audio"
+import { File } from "expo-file-system"
+import { Asset } from "expo-media-library"
 import { Song } from "./data"
 import { DeviceTrack } from "./library/files"
 import type { SongMeta } from "./online/store"
@@ -15,6 +17,8 @@ const STORAGE_KEY = "retro-beats:v2"
 const LEGACY_KEY = "retro-beats:v1"
 /** The song that was open when the app closed, and where it was */
 const LAST_KEY = "retro-beats:last"
+/** Songs the person removed from the app: they stay hidden even though the file is still on the phone */
+const HIDDEN_KEY = "retro-beats:hidden"
 
 type SavedSong = Pick<Song, "id" | "plays" | "fav" | "lastPlayed" | "addedAt" | "added">
 /** The phone's songs as library entries, keeping what was recorded about each one before. */
@@ -71,6 +75,7 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   // Stable shuffled order (so "previous" works) and songs the user removed from the queue this session
   const [shuffleOrder, setShuffleOrder] = useState<number[]>([])
   const [removed, setRemoved] = useState<number[]>([])
+  const [hidden, setHidden] = useState<number[]>([])
   const [sleep, setSleep] = useState<Sleep>(null)
   // A playlist being played: its songs are the queue, and the name shows where the music comes from
   const [context, setContext] = useState<{ ids: number[]; label: string } | null>(null)
@@ -96,7 +101,7 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
 
   const songs = useMemo(
     () =>
-      stored.map((s): Song => {
+      stored.filter((s) => !hidden.includes(s.id)).map((s): Song => {
         const m = meta[s.id]
         if (!m) return s
         // The same song with the same information stays the same object, so lists do not redraw its row
@@ -106,7 +111,7 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
         derived.set(s, { meta: m, song })
         return song
       }),
-    [stored, meta],
+    [stored, meta, hidden],
   )
   const byId = useMemo(() => new Map(songs.map((s) => [s.id, s])), [songs])
   const current = (currentId !== null && byId.get(currentId)) || null
@@ -416,6 +421,39 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
 
   const removeFromQueue = (id: number) => setRemoved((r) => [...r, id])
 
+  useEffect(() => {
+    AsyncStorage.getItem(HIDDEN_KEY)
+      .then((raw) => raw && setHidden((prev) => [...new Set([...(JSON.parse(raw) as number[]), ...prev])]))
+      .catch(() => {})
+  }, [])
+
+  /** Takes a song out of the app, and with `fromPhone` also deletes its file (Android asks the person to confirm). Returns false if the file could not be deleted. */
+  const deleteSong = async (id: number, fromPhone: boolean) => {
+    const song = byId.get(id)
+    if (!song) return false
+    if (fromPhone) {
+      try {
+        if (song.uri.startsWith("content://")) await new Asset(song.uri).delete()
+        else new File(song.uri).delete()
+      } catch {
+        showToast(`No se pudo borrar «${song.title}» del teléfono.`)
+        return false
+      }
+    }
+    if (currentId === id) {
+      audio.pause()
+      setCurrentId(null)
+      setPlaying(false)
+    }
+    setHidden((h) => {
+      const next = h.includes(id) ? h : [...h, id]
+      AsyncStorage.setItem(HIDDEN_KEY, JSON.stringify(next)).catch(() => {})
+      return next
+    })
+    showToast(fromPhone ? `«${song.title}» borrada del teléfono.` : `«${song.title}» quitada de la app.`)
+    return true
+  }
+
   const toggleFav = (id: number) => setSongs((ss) => ss.map((s) => (s.id === id ? { ...s, fav: !s.fav } : s)))
 
   const toggleLibrary = (id: number) => {
@@ -465,6 +503,7 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
     cycleRepeat,
     setSleepTimer,
     removeFromQueue,
+    deleteSong,
     toggleFav,
     toggleLibrary,
     setNowPlaying,

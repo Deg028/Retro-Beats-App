@@ -65,6 +65,8 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
 
 ## Pending and known issues
 
+- Unreleased on top of 0.2.6 (written, typechecked and linted, NOT built or tested on the phone; the EAS free plan ran out of Android builds until 2026-11-01): dragging down anywhere on the player closes it when the content is at the top (`useDismiss` got `canStart`; `Player.tsx` wraps the ScrollView); «Datos» sheet gained «Quitar de la app» (hides the song, `retro-beats:hidden`) and «Borrar del teléfono» (`Asset.delete()` for content:// files, `File.delete()` otherwise), both with a confirmation (`usePlayer.deleteSong`).
+
 - 0.2.6 tested on the phone: the saved list and last song (see Version history), and the **Vinilo** and **Terminal Pro** themes (openings, home, player: all draw correctly; Vinilo shows the cover on a record in the player, Terminal Pro scan lines on the cover). NOT tested yet: the approximate lyric times (press «Sincronizar» twice on a song with no timed version) and the Terminal Pro / Vinilo lyric card with lyrics showing.
 
 - 0.2.4 tested on the phone: the version label shows in the opening and the menu, swiping between tabs and opening the menu works, the player opens by swiping up on the bar, and editing «The Top» to the artist Ken Blast replaced the wrong lyrics with the right timed ones. The extras of the same 0.2.5 (the two new themes and the approximate lyric times) are NOT yet tested on the phone. 0.2.5 tested too: pressing «Sincronizar» on «Initial D Forever Young» (Symbol, 6:17) now gives timed lyrics that follow the song (before, only plain words). Songs that already hold plain lyrics only upgrade by pressing «Sincronizar» or after a week.

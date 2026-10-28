@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, TextStyle, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
@@ -42,6 +42,9 @@ export default function Player({
   const insets = useSafeAreaInsets()
   const swipe = useSwipe(() => player.step(1), () => player.step(-1))
   const dragToClose = useDismiss(drag.y, onClose, drag.settle)
+  // Dragging down anywhere on the player closes it, as long as the content is scrolled to the top
+  const scrollTop = useRef(true)
+  const dragOnContent = useDismiss(drag.y, onClose, drag.settle, () => scrollTop.current)
 
   const [spin] = useState(() => new Animated.Value(0))
   useEffect(() => {
@@ -110,7 +113,12 @@ export default function Player({
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+      <View {...dragOnContent} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        scrollEventThrottle={16}
+        onScroll={(e) => (scrollTop.current = e.nativeEvent.contentOffset.y <= 0)}
+      >
         <View
           style={[
             { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20, gap: 16 },
@@ -309,8 +317,21 @@ export default function Player({
           )}
         </View>
       </ScrollView>
+      </View>
 
-      {sheet === "info" && <InfoSheet song={song} info={info} visible onClose={() => setSheet(null)} />}
+      {sheet === "info" && (
+        <InfoSheet
+          song={song}
+          info={info}
+          visible
+          onClose={() => setSheet(null)}
+          onDelete={async (fromPhone) => {
+            const ok = await player.deleteSong(song.id, fromPhone)
+            if (ok) onClose()
+            return ok
+          }}
+        />
+      )}
       <QueueSheet player={player} visible={sheet === "queue"} onClose={() => setSheet(null)} />
       <AddToPlaylistSheet visible={sheet === "playlists"} onClose={() => setSheet(null)} song={song} playlists={playlists} />
     </View>

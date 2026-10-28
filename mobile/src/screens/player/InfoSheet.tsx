@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Linking, ScrollView, TextInput, View } from "react-native"
+import { Alert, Linking, ScrollView, TextInput, View } from "react-native"
 import { Song } from "../../data"
 import { Button, T, textStyle } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
@@ -8,9 +8,9 @@ import { Sheet } from "./shared"
 
 /**
  * Lets the person correct what the app got wrong: the title and artist (the databases then never replace them) and the
- * lyrics, which they can look for on the internet and paste here, with or without [mm:ss] times.
+ * lyrics, which they can look for on the internet and paste here, with or without [mm:ss] times. It also takes the song out of the app or deletes its file.
  */
-export function InfoSheet({ song, info, visible, onClose }: { song: Song; info: SongInfo; visible: boolean; onClose: () => void }) {
+export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: Song; info: SongInfo; visible: boolean; onClose: () => void; onDelete: (fromPhone: boolean) => Promise<boolean> }) {
   const theme = useTheme()
   const [title, setTitle] = useState(song.title)
   const [artist, setArtist] = useState(song.artist)
@@ -32,6 +32,16 @@ export function InfoSheet({ song, info, visible, onClose }: { song: Song; info: 
   )
   const terms = encodeURIComponent(`${song.title} ${song.artist === "Artista desconocido" ? "" : song.artist}`.trim())
   const open = (url: string) => Linking.openURL(url).catch(() => setMessage("No se pudo abrir el navegador."))
+
+  const confirmDelete = (fromPhone: boolean) =>
+    Alert.alert(
+      fromPhone ? "¿Borrar del teléfono?" : "¿Quitar de la app?",
+      fromPhone ? `«${song.title}» se borra del teléfono y no se puede recuperar.` : `«${song.title}» deja de aparecer en la app. El archivo sigue en el teléfono.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: fromPhone ? "Borrar" : "Quitar", style: "destructive", onPress: () => void onDelete(fromPhone).then((ok) => ok && onClose()) },
+      ],
+    )
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Datos y letra">
@@ -72,6 +82,14 @@ export function InfoSheet({ song, info, visible, onClose }: { song: Song; info: 
             if (ok) setLyrics("")
           }}
         />
+
+        <T variant="label" color={theme.c.textMuted} style={{ marginTop: 8 }}>
+          Eliminar
+        </T>
+        <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+          <Button label="Quitar de la app" variant="secondary" icon="close" onPress={() => confirmDelete(false)} />
+          <Button label="Borrar del teléfono" variant="secondary" icon="close" onPress={() => confirmDelete(true)} />
+        </View>
         {!!message && (
           <T variant="caption" color={theme.c.accent} style={{ textTransform: "none" }}>
             {message}
