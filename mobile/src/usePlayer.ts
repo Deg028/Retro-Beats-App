@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { AppState } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { isRunningInExpoGo } from "expo"
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio"
@@ -12,6 +13,8 @@ export type Sleep = { kind: "time"; until: number } | { kind: "end" } | null
 
 const STORAGE_KEY = "retro-beats:v2"
 const LEGACY_KEY = "retro-beats:v1"
+/** The song that was open when the app closed, and where it was */
+const LAST_KEY = "retro-beats:last"
 
 type SavedSong = Pick<Song, "id" | "plays" | "fav" | "lastPlayed" | "addedAt" | "added">
 /** The phone's songs as library entries, keeping what was recorded about each one before. */
@@ -176,6 +179,43 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(saved)).catch(() => {})
   }, [songs, savedPhone, shuffle, repeat, hydrated])
 
+  // The last song comes back ready (paused, at the second it stopped) once the library is listed
+  const restored = useRef(false)
+  const started = useRef(false)
+  const pendingSeek = useRef<number | null>(null)
+  const saveLast = useEffectEvent(() => {
+    if (currentId === null || pendingSeek.current !== null) return
+    AsyncStorage.setItem(LAST_KEY, JSON.stringify({ id: currentId, at: audio.currentTime })).catch(() => {})
+  })
+  const restoreLast = useEffectEvent(() => {
+    if (restored.current || !stored.length) return
+    restored.current = true
+    AsyncStorage.getItem(LAST_KEY)
+      .then((raw) => {
+        const last = raw ? (JSON.parse(raw) as { id: number; at: number }) : null
+        const song = last && stored.find((s) => s.id === last.id)
+        // The person may have started something while this was being read
+        if (!last || !song || started.current) return
+        pendingSeek.current = last.at > 1 ? last.at : null
+        setCurrentId(song.id)
+        audio.replace({ uri: song.uri })
+      })
+      .catch(() => {})
+  })
+  useEffect(() => restoreLast(), [stored])
+  const applySeek = useEffectEvent(() => {
+    if (loadedDuration > 0 && pendingSeek.current !== null) {
+      audio.seekTo(pendingSeek.current).catch(() => {})
+      pendingSeek.current = null
+    }
+  })
+  useEffect(() => applySeek(), [loadedDuration])
+  useEffect(() => saveLast(), [currentId, playing])
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (s) => s !== "active" && saveLast())
+    return () => sub.remove()
+  }, [])
+
   // New "added" stamps must stay above the phone songs' order numbers
   useEffect(() => {
     addCounter.current = Math.max(addCounter.current, ...songs.map((s) => s.addedAt))
@@ -231,6 +271,8 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
     // Tapping a song that failed before gives it another chance
     if (retry) setBroken((b) => b.filter((x) => x !== id))
     failedFor.current = null
+    started.current = true
+    pendingSeek.current = null
     // The length reported so far belongs to the song that was playing
     setLoadedDuration(0)
     setCurrentId(id)

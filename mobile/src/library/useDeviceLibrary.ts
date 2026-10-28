@@ -11,6 +11,8 @@ const MIN_KEY = "retro-beats:min-seconds"
 const FOLDERS_KEY = "retro-beats:folders"
 // 2: also read for songs whose file name gives no artist; 3: the whole tag, since the artist can come after the cover
 const TAGS_KEY = "retro-beats:tag-names:3"
+// The last list of files found: it is shown at once on opening, while the scan checks what changed
+const FILES_KEY = "retro-beats:files"
 /** Files shorter than this are treated as tones and system sounds unless the person includes them. */
 export const DEFAULT_MIN_SECONDS = 15
 /** Coming back to the app rescans, but not more often than this. */
@@ -173,12 +175,21 @@ export function useDeviceLibrary() {
     AsyncStorage.setItem(MIN_KEY, String(seconds)).catch(() => {})
   }
 
+  const cacheReady = useRef(false)
+  useEffect(() => {
+    if (!cacheReady.current || !files.length) return
+    const timer = setTimeout(() => AsyncStorage.setItem(FILES_KEY, JSON.stringify(files)).catch(() => {}), 1000)
+    return () => clearTimeout(timer)
+  }, [files])
+
   const startup = useEffectEvent(() => {
-    Promise.all([AsyncStorage.getItem(MIN_KEY), AsyncStorage.getItem(FOLDERS_KEY)])
-      .then(([min, saved]) => {
+    Promise.all([AsyncStorage.getItem(MIN_KEY), AsyncStorage.getItem(FOLDERS_KEY), AsyncStorage.getItem(FILES_KEY)])
+      .then(([min, saved, cached]) => {
         if (min !== null && Number.isFinite(Number(min))) setMinSecondsState(Number(min))
         const list: string[] = saved ? JSON.parse(saved) : []
         setFolders(list)
+        if (cached) setFiles((prev) => (prev.length ? prev : (JSON.parse(cached) as RawFile[])))
+        cacheReady.current = true
         return run(false, list)
       })
       .catch(() => {})
