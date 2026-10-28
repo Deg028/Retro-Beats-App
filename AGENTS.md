@@ -43,10 +43,10 @@ npm run build:apk       # installable APK through EAS
 
 Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattributes`).
 
-## Status (2026-10-27)
+## Status (2026-10-28)
 
-- Current version: **0.2.5-alpha** (`mobile/app.json`: `version` 0.2.5, `android.versionCode` 7). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
-- APKs live in `apk/` as `RetroBeats-<version>-alpha.apk` (Git LFS). `RetroBeats-0.1.0-alpha.apk` is only an LFS pointer to an older 24 MB build; 0.2.0 to 0.2.5 are real EAS builds (~88 MB).
+- Current version: **0.2.6-alpha** (`mobile/app.json`: `version` 0.2.6, `android.versionCode` 8). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
+- APKs live in `apk/` as `RetroBeats-<version>-alpha.apk` (Git LFS). `RetroBeats-0.1.0-alpha.apk` is only an LFS pointer to an older 24 MB build; 0.2.0 to 0.2.6 are real EAS builds (~88 MB).
 - Done and checked on the phone (TECNO LH7n, Android 14, 186 songs, mostly SnapTube and Telegram downloads):
   - Telegram files named only with digits show their real title, read from the ID3 tag.
   - Artists are read from the tag, including when they come after a large cover picture.
@@ -54,6 +54,7 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
   - The media notification has previous/next arrows and the theme's accent colour, emoji and name. Next/previous from the notification change songs and playback keeps going.
   - Synced lyrics with romaji work.
 - Version history:
+  - 0.2.6: closing the app no longer empties the list: `useDeviceLibrary.ts` saves the last list of files (`retro-beats:files`) and shows it at once; `usePlayer.ts` saves the open song and its second (`retro-beats:last`, on pause, song change and leaving the app) and reopens it paused at that second. Tested on the phone (TECNO LH7n): list shown at once after a force-stop; after playing «The Top» 20 s, going Home and force-stopping, it came back paused at 0:20 (`dumpsys media_session` PAUSED position 20233). A bare `force-stop` with no Home first saves no position (no background event), which is not what swiping from recents does.
   - 0.2.5 (also, same version): themes **Vinilo** (record shop of the 70s with a modern interface) and **Terminal Pro** (green phosphor console, editor style) with their own openings; when no timed version of a song's lyrics is found twice in a row (`Entry.syncFails`), the plain lines are spread over the song (`estimateTimes` in `online/lrclib.ts`, `Lyrics.estimated`) so they follow it roughly and the person corrects them with the − / + adjustment; the player says the times are approximate and offers «Buscar» to look for a real timed version, which replaces them.
   - 0.2.5: lyric search also queries LRCLIB by title alone (artist and length still enforced), so titles with extra words ("Initial D Forever Young") find the timed lyrics.
   - 0.2.4: swipe left/right changes tab (right on Home opens the menu), swipe up on the bottom bar opens the player; «v0.2.4 alpha» on the opening and at the end of the side menu (`src/version.ts`); «Datos» sheet in the player (`screens/player/InfoSheet.tsx`) to edit title and artist (`Entry.edited`: databases never replace them) and to paste lyrics found on the internet (`Entry.manualLyrics`: searches never replace them; text with [mm:ss] times becomes timed lyrics); lyrics found by title alone must match the length within 4 s.
@@ -64,7 +65,7 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
 
 ## Pending and known issues
 
-- Unreleased (written, typechecked and linted, NOT tested on the phone): closing the app no longer empties the list. `useDeviceLibrary.ts` saves the last list of files (`retro-beats:files`) and shows it at once on opening while the scan checks what changed; `usePlayer.ts` saves the open song and its second (`retro-beats:last`, on pause, song change and leaving the app) and on opening leaves it ready, paused, at that second. To test: play a song, close the app from recents, open it again: the songs are listed at once and the mini player shows the same song at the same point.
+- 0.2.6 tested on the phone: the saved list and last song (see Version history), and the **Vinilo** and **Terminal Pro** themes (openings, home, player: all draw correctly; Vinilo shows the cover on a record in the player, Terminal Pro scan lines on the cover). NOT tested yet: the approximate lyric times (press «Sincronizar» twice on a song with no timed version) and the Terminal Pro / Vinilo lyric card with lyrics showing.
 
 - 0.2.4 tested on the phone: the version label shows in the opening and the menu, swiping between tabs and opening the menu works, the player opens by swiping up on the bar, and editing «The Top» to the artist Ken Blast replaced the wrong lyrics with the right timed ones. The extras of the same 0.2.5 (the two new themes and the approximate lyric times) are NOT yet tested on the phone. 0.2.5 tested too: pressing «Sincronizar» on «Initial D Forever Young» (Symbol, 6:17) now gives timed lyrics that follow the song (before, only plain words). Songs that already hold plain lyrics only upgrade by pressing «Sincronizar» or after a week.
 - Wrong artist from the databases: «The Top» came as Dave Rodgers (it is Ken Blast). The person fixes such cases in «Datos»; the automatic name fix from a title-only match is still loose.
@@ -79,7 +80,7 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
 
 ## Next steps
 
-- Test on the phone the extras of 0.2.5 that are written but untested: the Vinilo and Terminal Pro themes (opening, home, player) and the approximate lyric times (press «Sincronizar» twice on a song with no timed version; the card says the times are approximate and − / + adjust them).
+- Test on the phone the approximate lyric times, still untested (press «Sincronizar» twice on a song with no timed version; the card says the times are approximate and − / + adjust them).
 - The person picks which of the remaining mockups to apply next, and what goes into 0.3.0.
 - The automatic artist fix from a title-only match is loose («The Top» came as Dave Rodgers instead of Ken Blast); it is corrected by hand in «Datos» for now.
 - Before the 1.0.0 beta: keep the whole-storage music walk working and tested (see Decisions).
