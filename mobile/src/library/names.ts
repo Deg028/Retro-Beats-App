@@ -45,6 +45,14 @@ function plainName(bare: string): { title: string; artist: string } {
   return { artist: UNKNOWN_ARTIST, title: title || bare }
 }
 
+// Words that describe a version of a song, not a person: "Metal Cover", "Eurobeat Remix", "SNES ... OST"
+const VERSION_START = /^(?:cover|covers|remix|mashup|metal|eurobeat|extended|soundfont|arrangement|medley|ost|theme|instrumental|version|ver\.?|opening|amv|slowed|reverb|español|latino|lyrics|fan made)(?![\p{L}])/iu
+const VERSION_END = /(?<![\p{L}])(?:cover|covers|remix|mashup|metal|eurobeat|extended|soundfont|arrangement|medley|ost|theme|instrumental|version|ver\.?|opening|amv|slowed|reverb|español|latino|lyrics|fan made)$/iu
+/** A piece of a name that says what kind of version it is, or is too long or has emoji to be a name: it can't be told apart as an artist or a title. */
+function describes(part: string, asArtist: boolean) {
+  return VERSION_START.test(part) || VERSION_END.test(part) || (asArtist && (/\p{Extended_Pictographic}/u.test(part) || part.length > 55))
+}
+
 /**
  * Title and artist from a file name. Works on names typed by hand ("03 - Artista - Título.mp3") and on
  * names left by video downloaders ("Artista - Título (Official Video) [dQw4w9WgXcQ].mp3").
@@ -82,6 +90,9 @@ export function parseName(filename: string): { title: string; artist: string } {
     .map(unquote)
     .filter((p) => p && !/^topic$/i.test(p))
   if (parts.some((p) => !balanced(p))) return plainName(bare)
+  // "Cover Latino - Dragon Ball…" or "Artista - Eurobeat Remix": which side is the artist can't be known, so the whole
+  // name is the title and the databases find the artist
+  if (parts.length >= 2 && (describes(parts[0], true) || describes(parts.slice(1).join(" - "), false))) return { artist: UNKNOWN_ARTIST, title: parts.join(" - ") }
   if (parts.length >= 2) return { artist: parts[0], title: parts.slice(1).join(" - ") }
   return { artist: UNKNOWN_ARTIST, title: unquote(s) || bare || filename }
 }
