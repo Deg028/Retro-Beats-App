@@ -16,6 +16,8 @@ const SPEC: Record<Theme["intro"], { duration: number; frames?: number }> = {
   fade: { duration: 1700 },
   vinyl: { duration: 2500 },
   terminal: { duration: 2600, frames: 52 },
+  girders: { duration: 2600, frames: 52 },
+  overworld: { duration: 2600, frames: 52 },
 }
 
 type V = Animated.Value
@@ -51,7 +53,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
     return () => anim.stop()
   }, [t, duration, frames])
 
-  const Body = { coin: Coin, boot: Boot, tape: Tape, morph: Morph, flicker: Flicker, fade: Fade, vinyl: Vinyl, terminal: Terminal }[theme.intro]
+  const Body = { coin: Coin, boot: Boot, tape: Tape, morph: Morph, flicker: Flicker, fade: Fade, vinyl: Vinyl, terminal: Terminal, girders: Girders, overworld: Overworld }[theme.intro]
   return (
     <Pressable style={[styles.root, { backgroundColor: theme.c.bg }]} onPress={onDone} accessibilityLabel="Saltar introducción">
       <Body t={t} theme={theme} />
@@ -267,6 +269,110 @@ function Terminal({ t, theme }: BodyProps) {
       <View style={[styles.loadBox, { borderColor: theme.c.accent, width: "100%", height: 20 }]}>
         {Array.from({ length: 16 }, (_, i) => (
           <Animated.View key={i} style={{ flex: 1, backgroundColor: theme.c.accent, opacity: seg(t, 0.62 + i * 0.022, 0.621 + i * 0.022) }} />
+        ))}
+      </View>
+    </View>
+  )
+}
+
+/** Vigas: girders stack up with their ladders, the title lands on the top one and a barrel rolls along the next. */
+function Girders({ t, theme }: BodyProps) {
+  const { width } = useWindowDimensions()
+  const cells = Math.ceil(width / 22) + 1
+  const levels = [0, 1, 2, 3]
+  const girder = (level: number) => (
+    <Animated.View
+      key={level}
+      style={{ position: "absolute", left: -10, right: -10, top: 24 + level * 86, height: 20, backgroundColor: theme.c.border, opacity: seg(t, level * 0.08, level * 0.08 + 0.01), transform: [{ rotate: level % 2 ? "1.5deg" : "-1.5deg" }] }}
+    >
+      <View style={{ flexDirection: "row", gap: 6, paddingLeft: 4, alignItems: "center", height: 20 }}>
+        {Array.from({ length: cells }, (_, i) => (
+          <View key={i} style={{ width: 12, height: 12, backgroundColor: theme.c.bg, opacity: 0.55, transform: [{ rotate: "45deg" }] }} />
+        ))}
+      </View>
+    </Animated.View>
+  )
+  const ladder = (level: number, x: number) => (
+    <Animated.View key={`${level}-${x}`} style={{ position: "absolute", left: x, top: 44 + level * 86, width: 26, height: 66, opacity: seg(t, 0.3 + level * 0.06, 0.31 + level * 0.06) }}>
+      <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: theme.c.textMuted }} />
+      <View style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: theme.c.textMuted }} />
+      {[6, 20, 34, 48].map((y) => (
+        <View key={y} style={{ position: "absolute", left: 0, right: 0, top: y, height: 3, backgroundColor: theme.c.textMuted }} />
+      ))}
+    </Animated.View>
+  )
+  const logo = { fontFamily: theme.type.display.family, fontSize: 30, lineHeight: 44 }
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 18, overflow: "hidden" }}>
+      <View style={{ alignItems: "center" }}>
+        <Animated.Text style={[logo, { color: theme.c.text, transform: [{ translateY: seg(t, 0.35, 0.55, -300, 0) }] }]}>RETRO</Animated.Text>
+        <Animated.Text style={[logo, { color: theme.c.highlight, textShadowColor: theme.shadowColor, textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, transform: [{ translateY: seg(t, 0.45, 0.65, -360, 0) }] }]}>
+          BEATS
+        </Animated.Text>
+      </View>
+      <View style={{ width: "100%", height: 350 }}>
+        {levels.map(girder)}
+        {ladder(0, width * 0.62)}
+        {ladder(1, width * 0.18)}
+        {ladder(2, width * 0.7)}
+        <Animated.View
+          style={{
+            position: "absolute",
+            top: 24 + 86 * 2 - 30,
+            width: 30,
+            height: 30,
+            borderWidth: 3,
+            borderColor: theme.c.bg,
+            backgroundColor: theme.c.highlight,
+            opacity: seg(t, 0.55, 0.56),
+            transform: [{ translateX: seg(t, 0.55, 1, -40, width + 10) }, { rotate: seg(t, 0.55, 1).interpolate({ inputRange: [0, 1], outputRange: ["0deg", "1080deg"] }) }],
+          }}
+        >
+          <View style={{ position: "absolute", left: 0, right: 0, top: 9, height: 3, backgroundColor: theme.c.bg }} />
+          <View style={{ position: "absolute", left: 0, right: 0, top: 18, height: 3, backgroundColor: theme.c.bg }} />
+        </Animated.View>
+      </View>
+      <Animated.Text style={{ fontFamily: theme.type.label.family, fontSize: 8, color: theme.c.warm, opacity: blink(t, 0.6, 1, 8) }}>PRESIONA START</Animated.Text>
+    </View>
+  )
+}
+
+/** Mundo 1-1 / Subsuelo: a block bumps and spits a coin, the title shows over the sky, with brick ground and a pipe. */
+function Overworld({ t, theme }: BodyProps) {
+  const { width } = useWindowDimensions()
+  const outline = theme.c.onAccent
+  const brick = theme.c.cover[0]
+  const cols = Math.ceil(width / 40) + 1
+  const logo = { fontFamily: theme.type.display.family, fontSize: 30, lineHeight: 46, color: "#ffffff", textShadowColor: outline, textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0 }
+  const cloud = (left: number, top: number, w: number, from: number) => (
+    <Animated.View style={{ position: "absolute", left, top, width: w, height: 26, backgroundColor: "#fcfcfc", opacity: theme.dark ? 0.12 : 1, transform: [{ translateX: seg(t, 0, 1, from, from + 40) }] }}>
+      <View style={{ position: "absolute", left: 10, top: -10, width: w * 0.5, height: 16, backgroundColor: "#fcfcfc" }} />
+    </Animated.View>
+  )
+  return (
+    <View style={{ flex: 1, overflow: "hidden" }}>
+      {cloud(20, 90, 90, 0)}
+      {cloud(width - 130, 150, 110, 0)}
+      <View style={{ position: "absolute", top: 250, left: 0, right: 0, alignItems: "center" }}>
+        <Animated.View style={{ width: 52, height: 52, backgroundColor: theme.c.warm, borderWidth: 3, borderColor: outline, alignItems: "center", justifyContent: "center", transform: [{ translateY: seg(t, 0.3, 0.38, 0, -14) }] }}>
+          <Text style={{ fontFamily: theme.type.display.family, fontSize: 22, color: outline }}>?</Text>
+        </Animated.View>
+        <Animated.View style={{ position: "absolute", top: 0, width: 22, height: 30, backgroundColor: theme.c.warm, borderWidth: 3, borderColor: outline, opacity: Animated.multiply(seg(t, 0.34, 0.35), seg(t, 0.55, 0.56, 1, 0)), transform: [{ translateY: seg(t, 0.34, 0.55, -10, -110) }] }} />
+      </View>
+      <Animated.View style={{ position: "absolute", top: 380, left: 0, right: 0, alignItems: "center", opacity: seg(t, 0.5, 0.51) }}>
+        <Text style={logo}>RETRO</Text>
+        <Text style={[logo, { color: theme.c.warm }]}>BEATS</Text>
+      </Animated.View>
+      <Animated.Text style={{ position: "absolute", top: 560, left: 0, right: 0, textAlign: "center", fontFamily: theme.type.label.family, fontSize: 10, color: "#ffffff", opacity: blink(t, 0.6, 1, 8) }}>
+        PRESIONA START
+      </Animated.Text>
+      <View style={{ position: "absolute", right: 28, bottom: 64 }}>
+        <View style={{ width: 66, height: 26, backgroundColor: theme.c.highlight, borderWidth: 3, borderColor: outline, marginLeft: -7 }} />
+        <View style={{ width: 52, height: 60, backgroundColor: theme.c.highlight, borderWidth: 3, borderTopWidth: 0, borderColor: outline }} />
+      </View>
+      <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 64, flexDirection: "row", flexWrap: "wrap", overflow: "hidden" }}>
+        {Array.from({ length: cols * 2 }, (_, i) => (
+          <View key={i} style={{ width: 40, height: 32, backgroundColor: brick, borderWidth: 2, borderColor: outline }} />
         ))}
       </View>
     </View>
