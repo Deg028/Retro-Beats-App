@@ -36,9 +36,9 @@ import { colors } from "./src/theme"
 const SNAP_DISMISSED_KEY = "retro-beats:snaptube-notice-dismissed"
 
 type Tab = Exclude<Screen, "player">
-const TAB_INDEX: Record<Tab, number> = { home: 0, scan: 1, themes: 2, playlists: 3, recap: 4 }
-// The tabs the swipe walks through, in the order of the tab bar (Playlists and Recap are reached from the menu)
-const SWIPE_TABS: Tab[] = ["home", "scan", "themes"]
+const TAB_INDEX: Record<Tab, number> = { home: 0, playlists: 1, scan: 2, themes: 3, recap: 4 }
+// The tabs the swipe walks through, in the order of the tab bar (Recap is reached from the menu)
+const SWIPE_TABS: Tab[] = ["home", "playlists", "scan", "themes"]
 
 /**
  * Swipes on an area: left/right (the finger moves that way) and, if asked for, up. Vertical scrolling and horizontal

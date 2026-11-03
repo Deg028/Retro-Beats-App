@@ -39,6 +39,7 @@ export default function Player({
   const { current: song, playing, shuffle, repeat } = player
   const [sheet, setSheet] = useState<"queue" | "playlists" | "info" | null>(null)
   const [lyricsOpen, setLyricsOpen] = useState(true)
+  const [syncTried, setSyncTried] = useState<number | null>(null)
   const { width, height } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const swipe = useSwipe(() => player.step(1), () => player.step(-1))
@@ -276,14 +277,6 @@ export default function Player({
               {song.lyrics ? (
                 <>
                   <SyncedLyrics player={player} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
-                  {song.lyricsEstimated && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 }}>
-                      <T variant="caption" color={theme.c.lyricsDim} style={{ flex: 1, textTransform: "none" }}>
-                        No hay una versión con tiempos de esta canción: los tiempos son aproximados. Ajústalos con − y +.
-                      </T>
-                      {info.enabled && !info.searching && <Button label="Buscar" variant="secondary" icon="repeat" onPress={info.retrySynced} />}
-                    </View>
-                  )}
                 </>
               ) : song.plain ? (
                 <View style={{ gap: 10 }}>
@@ -292,13 +285,24 @@ export default function Player({
                       {song.plain}
                     </T>
                   </ScrollView>
-                  {info.enabled && (
+                  {info.enabled && (syncTried !== song.id || info.searching) && (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                       {info.searching && <ActivityIndicator color={theme.c.accent} />}
                       <T variant="caption" color={theme.c.lyricsDim} style={{ flex: 1, textTransform: "none" }}>
                         {info.searching ? "Buscando la letra con tiempos…" : "Esta letra no tiene tiempos, por eso no avanza con la canción."}
                       </T>
-                      {!info.searching && <Button label="Sincronizar" variant="secondary" icon="repeat" onPress={info.retrySynced} />}
+                      {!info.searching && (
+                        <Button
+                          label="Sincronizar"
+                          variant="secondary"
+                          icon="repeat"
+                          onPress={() => {
+                            // Once tried, the notice and the button go away so they do not stay over the lyrics
+                            setSyncTried(song.id)
+                            info.retrySynced()
+                          }}
+                        />
+                      )}
                     </View>
                   )}
                 </View>

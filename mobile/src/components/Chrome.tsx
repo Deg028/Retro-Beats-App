@@ -10,6 +10,7 @@ export type Screen = "home" | "player" | "scan" | "themes" | "playlists" | "reca
 const TABS: { key: Screen; label: string; icon: IconName }[] = [
   { key: "home", label: "Inicio", icon: "home" },
   { key: "player", label: "Canción", icon: "player" },
+  { key: "playlists", label: "Listas", icon: "playlist" },
   { key: "scan", label: "Música", icon: "queue" },
   { key: "themes", label: "Temas", icon: "themes" },
 ]
