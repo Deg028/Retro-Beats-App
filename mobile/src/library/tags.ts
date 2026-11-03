@@ -94,8 +94,23 @@ function framePicture(d: Uint8Array, version: number): Picture | null {
   return { data, ext: data[0] === 0x89 ? "png" : "jpg", wide: size.width > size.height * 1.2 }
 }
 
-/** Title, artist and front picture from the ID3v2 tag at the start of an MP3 (versions 2.2, 2.3 and 2.4). Null when there is none. */
-export function parseId3v2(b: Uint8Array): { title?: string; artist?: string; picture?: Picture } | null {
+/** The text of a USLT (2.3, 2.4) or ULT (2.2) frame: encoding, language, a description, then the lyrics. */
+function frameLyrics(d: Uint8Array): string {
+  if (d.length < 6) return ""
+  const encoding = d[0]
+  let at = 4
+  if (encoding === 1 || encoding === 2) {
+    while (at + 1 < d.length && (d[at] !== 0 || d[at + 1] !== 0)) at += 2
+    at += 2
+  } else {
+    while (at < d.length && d[at] !== 0) at++
+    at++
+  }
+  return decode(d.subarray(at), encoding)
+}
+
+/** Title, artist, front picture and unsynchronised lyrics from the ID3v2 tag at the start of an MP3 (versions 2.2, 2.3 and 2.4). Null when there is none. */
+export function parseId3v2(b: Uint8Array): { title?: string; artist?: string; picture?: Picture; lyrics?: string } | null {
   if (b.length < 10 || b[0] !== 0x49 || b[1] !== 0x44 || b[2] !== 0x33) return null
   const version = b[3]
   const end = Math.min(b.length, 10 + synchsafe(b, 6))
@@ -103,6 +118,7 @@ export function parseId3v2(b: Uint8Array): { title?: string; artist?: string; pi
   const headLength = version === 2 ? 6 : 10
   const found: Record<string, string> = {}
   let picture: Picture | undefined
+  let lyrics: string | undefined
   let at = 10
   // An extended header comes first in some tags (2.3 and 2.4)
   if (b[5] & 0x40 && version >= 3) at += version === 4 ? synchsafe(b, at) : 4 + ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3])
@@ -115,9 +131,10 @@ export function parseId3v2(b: Uint8Array): { title?: string; artist?: string; pi
     const data = b.subarray(at + headLength, at + headLength + size)
     if (id === "TIT2" || id === "TT2" || id === "TPE1" || id === "TP1" || id === "TPE2" || id === "TP2") found[id] = frameText(data)
     else if (!picture && (id === "APIC" || id === "PIC")) picture = framePicture(data, version) ?? undefined
+    else if (!lyrics && (id === "USLT" || id === "ULT")) lyrics = frameLyrics(data)
     at += headLength + size
   }
-  return { title: found.TIT2 ?? found.TT2, artist: found.TPE1 ?? found.TP1 ?? found.TPE2 ?? found.TP2, picture }
+  return { title: found.TIT2 ?? found.TT2, artist: found.TPE1 ?? found.TP1 ?? found.TPE2 ?? found.TP2, picture, lyrics }
 }
 
 /** The old ID3v1 block: the last 128 bytes of the file, fixed-width Latin-1 fields. */
@@ -184,6 +201,16 @@ export async function readTags(uri: string): Promise<Tags | null> {
 export async function readPicture(uri: string): Promise<Picture | null> {
   try {
     return (await readHead(uri, true))?.picture ?? null
+  } catch {
+    return null
+  }
+}
+
+/** The lyrics saved inside an MP3, or null when it has none. */
+export async function readEmbeddedLyrics(uri: string): Promise<string | null> {
+  try {
+    const text = (await readHead(uri, true))?.lyrics
+    return text ? text.replace(/\r\n?/g, "\n").trim() : null
   } catch {
     return null
   }

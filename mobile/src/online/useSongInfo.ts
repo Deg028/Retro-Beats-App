@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Directory, File, Paths } from "expo-file-system"
 import { Song } from "../data"
 import { pickFolder } from "../library/scan"
-import { readPicture } from "../library/tags"
+import { readEmbeddedLyrics, readPicture } from "../library/tags"
 import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
 import { sleep } from "./http"
@@ -49,6 +49,18 @@ export type LyricsState = "off" | "loading" | "found" | "none" | "error"
 const MAX_FAILS_IN_A_ROW = 3
 const PAUSE_MS = 60_000
 const MAX_PAUSES = 3
+
+/** Lyrics text as timed lines when it carries [mm:ss] times, and as plain lines without them. */
+function splitLyrics(text: string) {
+  const timed = parseLrc(text)
+  const plain = text
+    .split(/\r?\n/)
+    .map((row) => row.replace(/\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]/g, "").trim())
+    .filter((row, i, rows) => row || (i > 0 && rows[i - 1]))
+    .join("\n")
+    .trim()
+  return { synced: timed.length >= 3 ? timed : null, plain }
+}
 
 /**
  * Looks up lyrics, names and cover for the song that is playing, and for the whole library on request.
@@ -150,18 +162,30 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
    * anything else as plain words.
    */
   const importLyrics = (song: Song, text: string) => {
-    const timed = parseLrc(text)
-    const plain = text
-      .split(/\r?\n/)
-      .map((row) => row.replace(/\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]/g, "").trim())
-      .filter((row, i, rows) => row || (i > 0 && rows[i - 1]))
-      .join("\n")
-      .trim()
-    const synced = timed.length >= 3 ? timed : null
+    const { synced, plain } = splitLyrics(text)
     if (!synced && !plain) return false
     store.saveLyrics(song.id, { synced, plain: plain || null, duration: song.duration || undefined })
     store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!synced, syncTriedAt: Date.now(), lyricsV: LYRICS_V, manualLyrics: true, offset: 0 })
     return true
+  }
+
+  /** Lyrics saved inside the MP3 (many downloads carry them) are read once, so they show with no search at all. */
+  const importEmbeddedLyrics = async (songs: Song[]) => {
+    const found: Record<number, Partial<Entry>> = {}
+    const now = Date.now()
+    for (const song of songs) {
+      const e = entriesRef.current[song.id]
+      if (!song.uri || !/\.mp3$/i.test(song.file ?? "") || e?.embeddedLyricsAt || e?.lyrics || e?.manualLyrics) continue
+      const text = await readEmbeddedLyrics(song.uri)
+      const { synced, plain } = splitLyrics(text ?? "")
+      // A few words in the tag are a note, not the lyrics
+      if (text && (synced || plain.replace(/\s+/g, "").length >= 40)) {
+        store.saveLyrics(song.id, { synced, plain: plain || null })
+        // lyricsFor stays empty: once the song plays and its length is known, the internet is asked for timed lyrics too
+        found[song.id] = { lyrics: true, lyricsAt: now, lyricsSynced: !!synced, embeddedLyricsAt: now }
+      } else found[song.id] = { embeddedLyricsAt: now }
+    }
+    if (Object.keys(found).length) store.patchMany(found)
   }
 
   const id = current?.id
@@ -379,6 +403,7 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     error: id !== undefined ? errors[id] : undefined,
     editSong,
     importLyrics,
+    importEmbeddedLyrics,
     retry: () => current && run(current),
     /** Looks for timed lyrics again right now, for a song that only has plain words */
     retrySynced: () => current && run(current, true),

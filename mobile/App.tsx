@@ -173,7 +173,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
         <Animated.View {...screenSwipe} style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28 * dir, 0] }) }] }}>
           {tab === "home" && <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />}
           {tab === "themes" && <Themes />}
-          {tab === "recap" && <Recap listening={listening} initial={recapStart} />}
+          {tab === "recap" && <Recap listening={listening} player={player} initial={recapStart} />}
           {tab === "playlists" && <Playlists playlists={playlists} player={player} onOpenPlayer={() => go("player")} />}
           {tab === "scan" && <Scan lib={lib} player={player} info={info} onOpenHome={() => go("home")} />}
         </Animated.View>
@@ -309,6 +309,7 @@ function Main() {
   const fillCovers = useEffectEvent(async () => {
     info.forgetMissingFiles()
     await info.importEmbedded(player.library)
+    await info.importEmbeddedLyrics(player.library)
     if (info.snaptubeLinked) await info.importThumbnails(player.library, false)
     await info.enrichAll(player.library)
   })

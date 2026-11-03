@@ -32,6 +32,8 @@ export type Entry = {
   /** The picture saved inside the audio file, copied to the app's storage; null: the file has none */
   embedded?: string | null
   embeddedAt?: number
+  /** When the lyrics saved inside the audio file were looked at, so the file is read once */
+  embeddedLyricsAt?: number
   /** Which set of online sources the last lookup used; misses from an older set are looked up again */
   srcV?: number
   /** Names from the databases, kept only when they fix the ones from the file name */

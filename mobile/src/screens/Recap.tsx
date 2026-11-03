@@ -1,14 +1,15 @@
 import { useEffect, useReducer, useState } from "react"
 import { ScrollView, StyleSheet, View } from "react-native"
-import { Chip, Press, Surface, T } from "../components/ui"
+import { Chip, IconButton, Press, Surface, T } from "../components/ui"
 import { formatListening, monthsWithData, Period, periodLabel, periodOf, Ranked, shiftPeriod, summarize } from "../recap"
 import { useTheme } from "../themes/ThemeContext"
 import { Listening } from "../useListening"
+import { PlayerApi } from "../usePlayer"
 
 const TOP = 10
 
 /** The recap of a month or a year of listening: hours, the song, artist and album heard most, and the top list. */
-export default function Recap({ listening, initial }: { listening: Listening; initial?: Period | null }) {
+export default function Recap({ listening, player, initial }: { listening: Listening; player: PlayerApi; initial?: Period | null }) {
   const theme = useTheme()
   const [today] = useState(() => new Date())
   const [kind, setKind] = useState<Period["kind"]>(initial?.kind ?? "month")
@@ -34,6 +35,9 @@ export default function Recap({ listening, initial }: { listening: Listening; in
   const label = periodLabel(period)
   const top = summary.songs.slice(0, TOP)
   const max = top[0]?.seconds || 1
+  // Songs of the top that are still on the phone can be played from here; playing one queues the rest of the top after it
+  const here = new Set(player.songs.map((s) => s.id))
+  const playable = top.flatMap((s) => (s.id !== undefined && here.has(s.id) ? [s.id] : []))
 
   const highlight = (label: string, item: Ranked | undefined, empty: string, detail?: string) => (
     <Surface tone="surface2" style={styles.highlight}>
@@ -138,6 +142,14 @@ export default function Recap({ listening, initial }: { listening: Listening; in
                   <View style={{ width: `${Math.max(4, (song.seconds / max) * 100)}%`, height: 4, backgroundColor: theme.c.accent, borderRadius: theme.radius.sm }} />
                 </View>
               </View>
+              {song.id !== undefined && here.has(song.id) && (
+                <IconButton
+                  icon={player.currentId === song.id && player.playing ? "pause" : "play"}
+                  label={player.currentId === song.id && player.playing ? `Pausar ${song.name}` : `Reproducir ${song.name}`}
+                  active={player.currentId === song.id}
+                  onPress={() => (player.currentId === song.id ? player.togglePlaying() : player.playList(playable, "Más escuchadas", { startId: song.id }))}
+                />
+              )}
             </Surface>
           ))}
         </>

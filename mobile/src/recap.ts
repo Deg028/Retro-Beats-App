@@ -6,7 +6,7 @@ export type Stat = { s: number; t: string; a: string; al?: string | null }
 export type ListeningLog = Record<string, Record<string, Stat>>
 
 export type Period = { kind: "month" | "year"; key: string }
-export type Ranked = { name: string; detail?: string; seconds: number }
+export type Ranked = { name: string; detail?: string; seconds: number; /** Song id, only in the song ranking */ id?: number }
 export type Summary = {
   seconds: number
   /** Different songs heard */
@@ -43,16 +43,16 @@ export function summarize(log: ListeningLog, period: Period): Summary {
   const artists = new Map<string, Ranked>()
   const albums = new Map<string, Ranked>()
   let seconds = 0
-  const bump = (map: Map<string, Ranked>, key: string, name: string, detail: string | undefined, s: number) => {
+  const bump = (map: Map<string, Ranked>, key: string, name: string, detail: string | undefined, s: number, id?: number) => {
     const found = map.get(key)
     if (found) found.seconds += s
-    else map.set(key, { name, detail, seconds: s })
+    else map.set(key, { name, detail, seconds: s, id })
   }
   for (const [month, stats] of Object.entries(log)) {
     if (!inPeriod(month, period)) continue
     for (const [id, stat] of Object.entries(stats)) {
       seconds += stat.s
-      bump(songs, id, stat.t, stat.a, stat.s)
+      bump(songs, id, stat.t, stat.a, stat.s, Number(id))
       if (stat.a && stat.a !== UNKNOWN_ARTIST) bump(artists, stat.a.toLowerCase().trim(), stat.a, undefined, stat.s)
       if (stat.al) bump(albums, `${stat.al.toLowerCase().trim()}|${stat.a.toLowerCase().trim()}`, stat.al, stat.a, stat.s)
     }

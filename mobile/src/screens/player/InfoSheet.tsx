@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Alert, Linking, ScrollView, TextInput, View } from "react-native"
+import * as Clipboard from "expo-clipboard"
 import { Song } from "../../data"
 import { Button, T, textStyle } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
@@ -81,6 +82,18 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
           <Button label="Buscar en Genius" variant="secondary" icon="search" onPress={() => open(`https://genius.com/search?q=${terms}`)} />
           <Button label="Buscar en Google" variant="secondary" icon="search" onPress={() => open(`https://www.google.com/search?q=${terms}+letra+lyrics`)} />
         </View>
+        <Button
+          label="Pegar del portapapeles"
+          variant="secondary"
+          icon="lyrics"
+          onPress={async () => {
+            const text = (await Clipboard.getStringAsync().catch(() => "")).trim()
+            if (!text) return setMessage("El portapapeles está vacío: copia la letra primero.")
+            // One tap: what was copied is saved as this song's lyrics
+            const ok = info.importLyrics(song, text)
+            setMessage(ok ? "Letra pegada y guardada." : "Lo copiado no parece una letra.")
+          }}
+        />
         {field(lyrics, setLyrics, "Pega aquí la letra", true)}
         <Button
           label="Guardar letra"

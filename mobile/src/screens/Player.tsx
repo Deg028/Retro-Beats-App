@@ -5,6 +5,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 import { Art } from "../components/Art"
 import { GameBoy } from "../components/GameBoy"
 import { LyricLine } from "../data"
+import { Marquee } from "../components/Marquee"
 import { Equalizer } from "../components/Pixel"
 import { Action, ActionBar, Button, Cover, IconButton, PlayButton, Press, ProgressTrack, SkipButton, T, textStyle } from "../components/ui"
 import { lyricsHaveJapanese } from "../online/romaji"
@@ -170,12 +171,12 @@ export default function Player({
         <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: theme.background === "tonal" ? 18 : 0 }}>
           <View style={styles.info}>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <T variant="display" numberOfLines={1}>
+              <Marquee variant="display" moving={playing}>
                 {song.title}
-              </T>
-              <T variant="body" numberOfLines={1} color={theme.c.warm}>
+              </Marquee>
+              <Marquee variant="body" color={theme.c.warm} moving={playing}>
                 {song.artist}
-              </T>
+              </Marquee>
             </View>
             <IconButton
               icon={song.added ? "libraryOn" : "library"}

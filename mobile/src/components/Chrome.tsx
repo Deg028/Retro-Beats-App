@@ -1,4 +1,5 @@
 import { StyleSheet, View } from "react-native"
+import { Marquee } from "./Marquee"
 import { Equalizer } from "./Pixel"
 import { Cover, Icon, IconName, PlayButton, Press, T } from "./ui"
 import { useTheme } from "../themes/ThemeContext"
@@ -87,12 +88,12 @@ export function MiniPlayer({ player, onOpen }: { player: PlayerApi; onOpen: () =
         <Press style={styles.miniMain} radius={theme.radius.sm} scaleTo={0.98} onPress={onOpen} accessibilityLabel="Abrir reproductor">
           <Cover seed={current.id} size={40} behind={theme.c.surface2} />
           <View style={{ flex: 1 }}>
-            <T variant="title" numberOfLines={1} style={{ fontSize: Math.min(theme.type.title.size, 14), lineHeight: 20 }}>
+            <Marquee variant="title" style={{ fontSize: Math.min(theme.type.title.size, 14), lineHeight: 20 }} moving={playing}>
               {current.title}
-            </T>
-            <T variant="caption" numberOfLines={1} color={theme.c.warm}>
+            </Marquee>
+            <Marquee variant="caption" color={theme.c.warm} moving={playing}>
               {current.artist}
-            </T>
+            </Marquee>
           </View>
           <Equalizer playing={playing} bars={4} height={16} color={theme.c.accent} />
         </Press>
