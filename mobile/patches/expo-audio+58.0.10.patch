@@ -30,10 +30,36 @@ index b6b3b73..9fbb491 100644
  
  enum class InterruptionMode(val value: String) : Enumerable {
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-index 53c36f7..271fed1 100644
+index 53c36f7..e9f23aa 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-@@ -188,6 +188,7 @@ class AudioControlsService : MediaSessionService() {
+@@ -121,9 +121,15 @@ class AudioControlsService : MediaSessionService() {
+     }
+   }
+ 
++  // The app's own status bar icon (drawable "notification_icon", added by the app's config plugin), else the generic one
++  private val notificationSmallIcon: Int by lazy {
++    val id = resources.getIdentifier("notification_icon", "drawable", packageName)
++    if (id != 0) id else androidx.media3.session.R.drawable.media3_icon_circular_play
++  }
++
+   private fun buildPlaceholderNotification(): Notification =
+     NotificationCompat.Builder(this, CHANNEL_ID)
+-      .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_circular_play)
++      .setSmallIcon(notificationSmallIcon)
+       .setContentTitle("‎")
+       .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+       .setSilent(true)
+@@ -179,7 +185,7 @@ class AudioControlsService : MediaSessionService() {
+     val session = mediaSession ?: return null
+ 
+     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+-      .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_circular_play)
++      .setSmallIcon(notificationSmallIcon)
+       // If the title is null or empty string android sets the notification to "<AppName> is running..." we want to keep the notification empty so we \u200E to keep the text empty.
+       .setContentTitle(currentMetadata?.title ?: "\u200E")
+       .setContentText(currentMetadata?.artist)
+@@ -188,6 +194,7 @@ class AudioControlsService : MediaSessionService() {
        .setContentIntent(buildContentIntent())
        .setAutoCancel(false)
        .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
@@ -41,7 +67,7 @@ index 53c36f7..271fed1 100644
  
      val style = MediaStyleNotificationHelper.MediaStyle(session)
  
-@@ -424,8 +425,37 @@ class AudioControlsService : MediaSessionService() {
+@@ -424,8 +431,37 @@ class AudioControlsService : MediaSessionService() {
          if (isLive) {
            commands.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
          }
