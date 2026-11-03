@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Alert, Linking, ScrollView, TextInput, View } from "react-native"
 import * as Clipboard from "expo-clipboard"
+import { File } from "expo-file-system"
 import { Song } from "../../data"
 import { Button, T, textStyle } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
@@ -76,7 +77,7 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
           Letra
         </T>
         <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
-          Si la app no la encuentra, búscala en internet, cópiala y pégala aquí. Si trae tiempos como [01:23.45], se sincroniza con la canción.
+          Si la app no la encuentra, búscala en internet y pégala aquí, o importa un archivo .lrc. Si trae tiempos como [01:23.45], se sincroniza con la canción.
         </T>
         <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
           <Button label="Buscar en Genius" variant="secondary" icon="search" onPress={() => open(`https://genius.com/search?q=${terms}`)} />
@@ -92,6 +93,23 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
             // One tap: what was copied is saved as this song's lyrics
             const ok = info.importLyrics(song, text)
             setMessage(ok ? "Letra pegada y guardada." : "Lo copiado no parece una letra.")
+          }}
+        />
+        <Button
+          label="Importar archivo .lrc o .txt"
+          variant="secondary"
+          icon="lyrics"
+          onPress={async () => {
+            try {
+              // .lrc has no standard type, so every file is offered
+              const picked = await File.pickFileAsync({ mimeTypes: ["*/*"] })
+              if (picked.canceled) return
+              const text = (await picked.result.text()).replace(/^﻿/, "").trim()
+              const ok = !!text && info.importLyrics(song, text)
+              setMessage(ok ? "Archivo importado y guardado como letra de esta canción." : "Ese archivo no parece una letra.")
+            } catch {
+              setMessage("No se pudo leer el archivo.")
+            }
           }}
         />
         {field(lyrics, setLyrics, "Pega aquí la letra", true)}
