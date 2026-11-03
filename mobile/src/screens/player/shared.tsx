@@ -98,7 +98,7 @@ export function useSwipe(onNext: () => void, onPrev: () => void) {
  * Drag down to dismiss: moves `y` with the finger and closes past a distance or on a fast flick.
  * Captures vertical drags from the buttons inside, so attach it to a bar outside any ScrollView.
  */
-export function useDismiss(y: Animated.Value, onClose: () => void, onSettle: () => void, canStart: () => boolean = () => true) {
+export function useDismiss(y: Animated.Value, onClose: () => void, onSettle: () => void, canStart: () => boolean = () => true, slop = 10) {
   const start = useRef({ x: 0, y: 0, t: 0 })
   const dy = (e: GestureResponderEvent) => e.nativeEvent.pageY - start.current.y
   const panHandlers: ViewProps = {
@@ -106,7 +106,7 @@ export function useDismiss(y: Animated.Value, onClose: () => void, onSettle: () 
       start.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, t: Date.now() }
     },
     // canStart: over scrolling content, only when it is already at the top
-    onMoveShouldSetResponderCapture: (e) => canStart() && dy(e) > 10 && dy(e) > Math.abs(e.nativeEvent.pageX - start.current.x) * 1.2,
+    onMoveShouldSetResponderCapture: (e) => canStart() && dy(e) > slop && dy(e) > Math.abs(e.nativeEvent.pageX - start.current.x) * 1.2,
     onResponderTerminationRequest: () => false,
     onResponderMove: (e) => y.setValue(Math.max(0, dy(e))),
     onResponderRelease: (e) => {

@@ -195,10 +195,11 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   const restoreLast = useEffectEvent(() => {
     if (restored.current || !stored.length) return
     restored.current = true
-    AsyncStorage.getItem(LAST_KEY)
-      .then((raw) => {
+    Promise.all([AsyncStorage.getItem(LAST_KEY), AsyncStorage.getItem(HIDDEN_KEY)])
+      .then(([raw, hiddenRaw]) => {
         const last = raw ? (JSON.parse(raw) as { id: number; at: number }) : null
-        const song = last && stored.find((s) => s.id === last.id)
+        const gone: number[] = hiddenRaw ? JSON.parse(hiddenRaw) : []
+        const song = last && !gone.includes(last.id) && stored.find((s) => s.id === last.id)
         // The person may have started something while this was being read
         if (!last || !song || started.current) return
         pendingSeek.current = last.at > 1 ? last.at : null
@@ -440,6 +441,7 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
         return false
       }
     }
+    AsyncStorage.removeItem(LAST_KEY).catch(() => {})
     if (currentId === id) {
       audio.pause()
       setCurrentId(null)

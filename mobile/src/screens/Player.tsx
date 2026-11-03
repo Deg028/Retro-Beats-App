@@ -42,9 +42,9 @@ export default function Player({
   const insets = useSafeAreaInsets()
   const swipe = useSwipe(() => player.step(1), () => player.step(-1))
   const dragToClose = useDismiss(drag.y, onClose, drag.settle)
-  // Dragging down anywhere on the player closes it, as long as the content is scrolled to the top
+  // Dragging down anywhere on the player closes it, as long as the content is scrolled to the top (3 dp: the ScrollView takes the drag after about 8)
   const scrollTop = useRef(true)
-  const dragOnContent = useDismiss(drag.y, onClose, drag.settle, () => scrollTop.current)
+  const dragOnContent = useDismiss(drag.y, onClose, drag.settle, () => scrollTop.current, 3)
 
   const [spin] = useState(() => new Animated.Value(0))
   useEffect(() => {
