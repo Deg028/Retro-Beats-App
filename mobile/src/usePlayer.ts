@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
-import { AppState } from "react-native"
+import { AppState, BackHandler } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { isRunningInExpoGo } from "expo"
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio"
@@ -337,8 +337,14 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
   const toggleFav = (id: number) => setSongs((ss) => ss.map((s) => (s.id === id ? { ...s, fav: !s.fav } : s)))
 
   // A file that fails to open must not leave the player stalled on it: skip ahead, unless several in a row fail
-  const onAudioStatus = useEffectEvent((s: { didJustFinish: boolean; error: string | null; playing: boolean; isBuffering: boolean; duration: number; remoteCommand?: "next" | "previous" | "favorite" }) => {
+  const onAudioStatus = useEffectEvent((s: { didJustFinish: boolean; error: string | null; playing: boolean; isBuffering: boolean; duration: number; remoteCommand?: "next" | "previous" | "favorite" | "close" }) => {
     // Skip arrows in the media notification (sent by the expo-audio patch in patches/)
+    // Exit button: pause, keep the place in the song, and leave (the service ends the process shortly after)
+    if (s.remoteCommand === "close") {
+      audio.pause()
+      saveLast()
+      return BackHandler.exitApp()
+    }
     if (s.remoteCommand === "favorite") return currentId !== null && toggleFav(currentId)
     if (s.remoteCommand) return step(s.remoteCommand === "next" ? 1 : -1)
     setPlaying(s.playing)

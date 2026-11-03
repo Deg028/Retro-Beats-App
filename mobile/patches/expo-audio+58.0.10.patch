@@ -1,8 +1,8 @@
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
-index fb2d0b5..f1d6344 100644
+index fb2d0b5..850a46e 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
-@@ -62,6 +62,13 @@ class AudioPlayer(
+@@ -62,6 +62,14 @@ class AudioPlayer(
    var preservesPitch = true
    var keepAudioSessionActive = false
  
@@ -12,6 +12,7 @@ index fb2d0b5..f1d6344 100644
 +  override fun nextTrack() = sendStatusUpdate(mapOf("remoteCommand" to "next"))
 +  override fun previousTrack() = sendStatusUpdate(mapOf("remoteCommand" to "previous"))
 +  override fun toggleFavorite() = sendStatusUpdate(mapOf("remoteCommand" to "favorite"))
++  override fun closeApp() = sendStatusUpdate(mapOf("remoteCommand" to "close"))
 +
    // Lock screen controls
    override var isActiveForLockScreen = false
@@ -31,20 +32,22 @@ index b6b3b73..9fbb491 100644
  
  enum class InterruptionMode(val value: String) : Enumerable {
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/LockScreenPlayable.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/LockScreenPlayable.kt
-index 7ac4a57..76bc952 100644
+index 7ac4a57..5db3bac 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/LockScreenPlayable.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/LockScreenPlayable.kt
-@@ -26,6 +26,8 @@ interface LockScreenPlayable : Playable {
+@@ -26,6 +26,10 @@ interface LockScreenPlayable : Playable {
  
    fun previousTrack() = Unit
  
 +  fun toggleFavorite() = Unit
 +
++  fun closeApp() = Unit
++
    fun setActiveForLockScreen(
      active: Boolean,
      metadata: Metadata? = null,
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-index 53c36f7..051cd82 100644
+index 53c36f7..1fb635b 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 @@ -121,9 +121,15 @@ class AudioControlsService : MediaSessionService() {
@@ -116,7 +119,7 @@ index 53c36f7..051cd82 100644
            .setDisplayName("Next Track")
            .setEnabled(true)
            .setSessionCommand(SessionCommand(ACTION_NEXT_TRACK, Bundle.EMPTY))
-@@ -354,6 +371,16 @@ class AudioControlsService : MediaSessionService() {
+@@ -354,6 +371,26 @@ class AudioControlsService : MediaSessionService() {
        )
      }
  
@@ -130,10 +133,20 @@ index 53c36f7..051cd82 100644
 +        .build()
 +    )
 +
++    // The exit button: closes playback and the app
++    mediaButtons.add(
++      appIconButton(CommandButton.ICON_STOP, "notification_close")
++        .setDisplayName("Close")
++        .setEnabled(true)
++        .setSessionCommand(SessionCommand(ACTION_CLOSE_APP, Bundle.EMPTY))
++        .setSlots(CommandButton.SLOT_OVERFLOW)
++        .build()
++    )
++
      session.setCustomLayout(mediaButtons)
      session.setMediaButtonPreferences(mediaButtons)
    }
-@@ -424,8 +451,37 @@ class AudioControlsService : MediaSessionService() {
+@@ -424,8 +461,37 @@ class AudioControlsService : MediaSessionService() {
          if (isLive) {
            commands.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
          }
@@ -171,7 +184,7 @@ index 53c36f7..051cd82 100644
      }
    }
  
-@@ -491,6 +547,7 @@ class AudioControlsService : MediaSessionService() {
+@@ -491,6 +557,7 @@ class AudioControlsService : MediaSessionService() {
      currentMetadata = metadata
      sessionMetadataPlayer?.updateMetadata(metadata)
      updateArtwork(metadata)
@@ -179,7 +192,7 @@ index 53c36f7..051cd82 100644
    }
  
    private fun clearSessionInternal() {
-@@ -583,6 +640,10 @@ class AudioControlsService : MediaSessionService() {
+@@ -583,6 +650,19 @@ class AudioControlsService : MediaSessionService() {
      currentPlayable?.takeIf { it.supportsPreviousTrack }?.previousTrack()
    }
  
@@ -187,34 +200,49 @@ index 53c36f7..051cd82 100644
 +    currentPlayable?.toggleFavorite()
 +  }
 +
++  // The app is told first (it pauses and saves where the song was); then the service and the whole process end, so nothing stays in the background
++  fun closeApp() {
++    currentPlayable?.closeApp()
++    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
++      stopSelf()
++      android.os.Process.killProcess(android.os.Process.myPid())
++    }, 700)
++  }
++
    fun supportsNextTrack(): Boolean {
      return currentPlayable?.supportsNextTrack == true
    }
-@@ -693,5 +754,6 @@ class AudioControlsService : MediaSessionService() {
+@@ -693,5 +773,7 @@ class AudioControlsService : MediaSessionService() {
      const val ACTION_SEEK_BACKWARD = "expo.modules.audio.action.SEEK_BACKWARD"
      const val ACTION_NEXT_TRACK = "expo.modules.audio.action.NEXT_TRACK"
      const val ACTION_PREVIOUS_TRACK = "expo.modules.audio.action.PREVIOUS_TRACK"
 +    const val ACTION_TOGGLE_FAVORITE = "expo.modules.audio.action.TOGGLE_FAVORITE"
++    const val ACTION_CLOSE_APP = "expo.modules.audio.action.CLOSE_APP"
    }
  }
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
-index ee83be1..7627e25 100644
+index ee83be1..9fd1a09 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
-@@ -38,6 +38,7 @@ class AudioMediaSessionCallback(
+@@ -38,6 +38,8 @@ class AudioMediaSessionCallback(
        val availableSessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
          .add(SessionCommand(AudioControlsService.ACTION_SEEK_BACKWARD, Bundle.EMPTY))
          .add(SessionCommand(AudioControlsService.ACTION_SEEK_FORWARD, Bundle.EMPTY))
 +        .add(SessionCommand(AudioControlsService.ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
++        .add(SessionCommand(AudioControlsService.ACTION_CLOSE_APP, Bundle.EMPTY))
          .apply {
            if (service.supportsPreviousTrack()) {
              add(SessionCommand(AudioControlsService.ACTION_PREVIOUS_TRACK, Bundle.EMPTY))
-@@ -80,6 +81,10 @@ class AudioMediaSessionCallback(
+@@ -80,6 +82,14 @@ class AudioMediaSessionCallback(
          service.previousTrack()
          Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
        }
 +      AudioControlsService.ACTION_TOGGLE_FAVORITE -> {
 +        service.toggleFavorite()
++        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
++      }
++      AudioControlsService.ACTION_CLOSE_APP -> {
++        service.closeApp()
 +        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
 +      }
        else -> super.onCustomCommand(session, controller, command, args)
