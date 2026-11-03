@@ -48,6 +48,8 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
   const artist = current?.artist
   const artwork = current?.cover
   const subtitle = `Tema ${theme.name} · ${CATEGORY_LABEL[theme.category]}`
+  // The notification's heart is filled when the album text ends with an invisible word joiner (read by the expo-audio patch)
+  const favorite = !!current?.fav
   const local = isRunningInExpoGo() && Platform.OS === "android"
 
   const onAction = useEffectEvent((action: string) => {
@@ -67,7 +69,7 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
   useEffect(() => {
     if (!title) return
     if (!isRunningInExpoGo()) {
-      setNowPlaying({ title: `${theme.emoji} ${title}`, artist, albumTitle: `Retro Beats · ${subtitle}`, artworkUrl: artwork }, theme.c.accent)
+      setNowPlaying({ title: `${theme.emoji} ${title}`, artist, albumTitle: `Retro Beats · ${subtitle}${favorite ? "\u2060" : ""}`, artworkUrl: artwork }, theme.c.accent)
       return
     }
     const n = local ? loadNotifications() : null
@@ -95,5 +97,5 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
         })
       })
       .catch(() => {})
-  }, [local, title, artist, artwork, playing, subtitle, theme.emoji, theme.c.accent])
+  }, [local, title, artist, artwork, playing, subtitle, favorite, theme.emoji, theme.c.accent])
 }

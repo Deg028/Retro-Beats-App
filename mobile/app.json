@@ -61,7 +61,8 @@
           ]
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "./plugins/withMediaIcons"
     ],
     "extra": {
       "eas": {

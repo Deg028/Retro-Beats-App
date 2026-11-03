@@ -334,9 +334,12 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
     if (repeat === "one") return play(current.id)
     step(1, true)
   })
+  const toggleFav = (id: number) => setSongs((ss) => ss.map((s) => (s.id === id ? { ...s, fav: !s.fav } : s)))
+
   // A file that fails to open must not leave the player stalled on it: skip ahead, unless several in a row fail
-  const onAudioStatus = useEffectEvent((s: { didJustFinish: boolean; error: string | null; playing: boolean; isBuffering: boolean; duration: number; remoteCommand?: "next" | "previous" }) => {
+  const onAudioStatus = useEffectEvent((s: { didJustFinish: boolean; error: string | null; playing: boolean; isBuffering: boolean; duration: number; remoteCommand?: "next" | "previous" | "favorite" }) => {
     // Skip arrows in the media notification (sent by the expo-audio patch in patches/)
+    if (s.remoteCommand === "favorite") return currentId !== null && toggleFav(currentId)
     if (s.remoteCommand) return step(s.remoteCommand === "next" ? 1 : -1)
     setPlaying(s.playing)
     setBuffering(s.isBuffering)
@@ -456,7 +459,6 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
     return true
   }
 
-  const toggleFav = (id: number) => setSongs((ss) => ss.map((s) => (s.id === id ? { ...s, fav: !s.fav } : s)))
 
   const toggleLibrary = (id: number) => {
     const song = songs.find((s) => s.id === id)
