@@ -23,12 +23,15 @@ const DEEP_AFTER_MS = 10 * 60_000
 /** Files the media index knows, plus the ones only the folder walk found (same file name = same song). */
 function merge(indexed: RawFile[], walked: RawFile[]) {
   const names = new Set(indexed.map((f) => f.name.toLowerCase()))
+  // The folder walk is the one that sees lyrics files (.lrc) beside the songs, so an indexed song takes the file its twin found
+  const lyricsOf = new Map(walked.filter((f) => f.lyricsUri).map((f) => [f.name.toLowerCase(), f.lyricsUri]))
+  indexed = indexed.map((f) => (!f.lyricsUri && lyricsOf.has(f.name.toLowerCase()) ? { ...f, lyricsUri: lyricsOf.get(f.name.toLowerCase()) } : f))
   return indexed.concat(walked.filter((f) => !names.has(f.name.toLowerCase()) && names.add(f.name.toLowerCase())))
 }
 
 /** A rescan that finds the same files keeps the old list, so nothing downstream is rebuilt. */
 function sameFiles(a: RawFile[], b: RawFile[]) {
-  return a.length === b.length && a.every((f, i) => f.uri === b[i].uri && f.duration === b[i].duration)
+  return a.length === b.length && a.every((f, i) => f.uri === b[i].uri && f.duration === b[i].duration && f.lyricsUri === b[i].lyricsUri)
 }
 
 export type ScanPhase = "idle" | "scanning" | "done" | "error"
