@@ -301,9 +301,11 @@ function Main() {
   const listening = useListening(player)
   // Lyrics files found beside songs are read as soon as the songs are known
   const readLyricFiles = useEffectEvent(() => info.importLyricsFiles(player.library))
+  // The files are found by the deep folder walk after the first list is shown, so the count of songs that have one matters too
+  const lyricFileCount = player.library.filter((s) => s.lyricsUri).length
   useEffect(() => {
     if (store.hydrated && player.library.length) readLyricFiles()
-  }, [store.hydrated, player.library.length])
+  }, [store.hydrated, player.library.length, lyricFileCount])
   // Covers and lyrics fill in on their own: first the pictures saved inside the files and the downloader's
   // thumbnails, then the online search for every song still missing either
   const fillCovers = useEffectEvent(async () => {
