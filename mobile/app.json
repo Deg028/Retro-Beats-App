@@ -64,7 +64,24 @@
       ],
       "expo-sqlite",
       "./plugins/withMediaIcons",
-      ["expo-share-intent", { "androidIntentFilters": ["text/*"], "disableIOS": true }]
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": [
+            "text/*"
+          ],
+          "disableIOS": true
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0c1628",
+          "image": "./assets/splash-blank.png",
+          "imageWidth": 64
+        }
+      ],
+      ["./plugins/withThemeIcons", { "defaultId": "pixel" }]
     ],
     "extra": {
       "eas": {

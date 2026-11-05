@@ -12,6 +12,7 @@ import { Silkscreen_400Regular } from "@expo-google-fonts/silkscreen"
 import { useFonts } from "expo-font"
 import { MiniPlayer, Screen, TabBar } from "./src/components/Chrome"
 import { Drawer } from "./src/components/Drawer"
+import { useThemeIcon } from "./src/themeIcon"
 import Intro from "./src/components/Intro"
 import { motion, T } from "./src/components/ui"
 import Home, { Section, sectionLists } from "./src/screens/Home"
@@ -72,7 +73,7 @@ function useSwipe(on: { left?: () => void; right?: () => void; up?: () => void }
 }
 
 function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi; lib: DeviceLibrary; info: SongInfo; playlists: PlaylistsApi; listening: Listening }) {
-  const { theme, ready } = useThemeControl()
+  const { theme, themeId, ready } = useThemeControl()
   const insets = useSafeAreaInsets()
   const { height } = useWindowDimensions()
   const [intro, setIntro] = useState(true)
@@ -97,6 +98,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   const [layerY] = useState(() => new Animated.Value(height))
 
   useNowPlaying(player, theme)
+  useThemeIcon(themeId)
   const counts = useMemo(
     () => Object.fromEntries(Object.entries(sectionLists(player.library)).map(([k, v]) => [k, v.length])) as Record<Section, number>,
     [player.library],

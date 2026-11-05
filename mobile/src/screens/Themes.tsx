@@ -31,7 +31,7 @@ export default function Themes() {
         <View style={{ gap: 14, marginBottom: 16 }}>
           <T variant="display">Temas</T>
           <T variant="caption" color={theme.c.textMuted}>
-            Cada tema cambia toda la app: colores, letras, formas, animaciones y su detalle retro.
+            Cada tema cambia toda la app: colores, letras, formas, animaciones, su detalle retro y el icono de la app, que cambia al salir de ella.
           </T>
           <Surface style={{ padding: 14, gap: 4 }}>
             <T variant="label" color={theme.c.highlight}>
