@@ -5,6 +5,7 @@ import { NetworkError } from "./http"
 import { findLyrics, Lyrics } from "./lrclib"
 import { findDeezerCover } from "./deezer"
 import { findStoreCover } from "./itunes"
+import { findNeteaseLyrics } from "./netease"
 import { findPlainLyrics } from "./lyricsovh"
 import { findRelease, Release } from "./musicbrainz"
 
@@ -56,7 +57,7 @@ function allAttempts(artist: string, title: string): SearchTerms[] {
 const reason = (r: PromiseRejectedResult) => (r.reason instanceof NetworkError ? r.reason.message : "No se pudo completar la búsqueda")
 
 /**
- * Looks a song up online: lyrics on LRCLIB (then lyrics.ovh), and its names, album and cover on Apple Music, Deezer,
+ * Looks a song up online: lyrics on LRCLIB (then NetEase, then lyrics.ovh), and its names, album and cover on Apple Music, Deezer,
  * MusicBrainz and the Cover Art Archive.
  * The two run side by side. One failing (no connection) never hides what the other found.
  */
@@ -81,10 +82,11 @@ export async function lookup(song: { artist: string; title: string; duration: nu
       found.error = e instanceof NetworkError ? e.message : found.error
     }
   }
-  // LRCLIB has nothing: plain words from lyrics.ovh, with the database's names first when they are known
+  // LRCLIB has nothing: timed lyrics from NetEase, then plain words from lyrics.ovh, with the database's names first when they are known
   if (want.lyrics && lyricsRun.status === "fulfilled" && !lyricsMatch) {
     const named = found.release ? [{ artist: found.release.artist, title: found.release.title }] : []
-    lyricsMatch = await findPlainLyrics([...named, ...attempts])
+    lyricsMatch = await findNeteaseLyrics([...named, ...attempts], song.duration)
+    lyricsMatch ??= await findPlainLyrics([...named, ...attempts])
   }
   if (want.lyrics && lyricsRun.status === "fulfilled") found.lyrics = lyricsMatch?.lyrics ?? null
   // The lyrics revealed who the artist is: look for the album cover again with that name
