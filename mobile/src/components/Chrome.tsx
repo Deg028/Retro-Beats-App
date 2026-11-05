@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { Animated, StyleSheet, View } from "react-native"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Animated, PanResponder, StyleSheet, useWindowDimensions, View } from "react-native"
 import { Marquee } from "./Marquee"
 import { Equalizer } from "./Pixel"
 import { Cover, Icon, IconName, motion, PixelCorners, PlayButton, Press, T } from "./ui"
@@ -15,12 +15,48 @@ const TABS: { key: Screen; label: string; icon: IconName }[] = [
   { key: "themes", label: "Temas", icon: "themes" },
 ]
 
-export function TabBar({ screen, onChange, bottom }: { screen: Screen; onChange: (s: Screen) => void; bottom: number }) {
+/**
+ * The bar of tabs. Besides tapping a button, the person can slide a finger along the bar: the highlight follows the
+ * finger and the tab under it opens on release. A drag upwards opens the player.
+ */
+export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen; onChange: (s: Screen) => void; bottom: number; onSwipeUp?: () => void }) {
   const theme = useTheme()
+  const { width } = useWindowDimensions()
   const blocks = theme.nav === "blocks"
   const bar = blocks || theme.nav === "indicator" ? theme.c.surface : theme.c.bg
+  // The tab under the finger while it slides along the bar
+  const [hover, setHover] = useState<number | null>(null)
+  const latest = useRef({ screen, onChange, onSwipeUp, width })
+  useEffect(() => {
+    latest.current = { screen, onChange, onSwipeUp, width }
+  })
+  const under = (x: number) => Math.max(0, Math.min(TABS.length - 1, Math.floor((x / latest.current.width) * TABS.length)))
+  // `latest` is only read inside the gesture callbacks, never while drawing
+  /* eslint-disable react-hooks/refs */
+  const slide = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, g) => (Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4) || (g.dy < -24 && -g.dy > Math.abs(g.dx) * 1.6),
+        onPanResponderGrant: (e) => setHover(under(e.nativeEvent.pageX)),
+        onPanResponderMove: (_, g) => {
+          if (Math.abs(g.dx) > Math.abs(g.dy)) setHover(under(g.moveX))
+        },
+        onPanResponderRelease: (_, g) => {
+          setHover(null)
+          const { screen: now, onChange: change, onSwipeUp: up } = latest.current
+          if (Math.abs(g.dx) > Math.abs(g.dy)) {
+            const next = TABS[under(g.moveX)].key
+            if (next !== now) change(next)
+          } else if (g.dy < -50 || g.vy < -0.6) up?.()
+        },
+        onPanResponderTerminate: () => setHover(null),
+      }),
+    [],
+  )
+  /* eslint-enable react-hooks/refs */
   return (
     <View
+      {...slide.panHandlers}
       accessibilityRole="tablist"
       style={[
         styles.tabs,
@@ -33,8 +69,8 @@ export function TabBar({ screen, onChange, bottom }: { screen: Screen; onChange:
         },
       ]}
     >
-      {TABS.map((t) => (
-        <TabItem key={t.key} tab={t} on={screen === t.key} bar={bar} onPress={() => onChange(t.key)} />
+      {TABS.map((t, i) => (
+        <TabItem key={t.key} tab={t} on={hover === null ? screen === t.key : hover === i} bar={bar} onPress={() => onChange(t.key)} />
       ))}
     </View>
   )

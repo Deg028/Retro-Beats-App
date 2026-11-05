@@ -235,9 +235,11 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
             </T>
           </View>
         )}
-        <View {...barSwipe}>
-          <MiniPlayer player={player} onOpen={() => go("player")} />
-          <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} />
+        <View>
+          <View {...barSwipe}>
+            <MiniPlayer player={player} onOpen={() => go("player")} />
+          </View>
+          <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} onSwipeUp={() => !playerOpen && !menuOpen && go("player")} />
         </View>
       </View>
 
