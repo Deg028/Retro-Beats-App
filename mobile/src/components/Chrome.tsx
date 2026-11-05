@@ -1,7 +1,8 @@
-import { StyleSheet, View } from "react-native"
+import { useEffect, useState } from "react"
+import { Animated, StyleSheet, View } from "react-native"
 import { Marquee } from "./Marquee"
 import { Equalizer } from "./Pixel"
-import { Cover, Icon, IconName, PlayButton, Press, T } from "./ui"
+import { Cover, Icon, IconName, motion, PixelCorners, PlayButton, Press, T } from "./ui"
 import { useTheme } from "../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../usePlayer"
 
@@ -11,13 +12,13 @@ const TABS: { key: Screen; label: string; icon: IconName }[] = [
   { key: "home", label: "Inicio", icon: "home" },
   { key: "player", label: "Canción", icon: "player" },
   { key: "playlists", label: "Listas", icon: "playlist" },
-  { key: "scan", label: "Música", icon: "queue" },
   { key: "themes", label: "Temas", icon: "themes" },
 ]
 
 export function TabBar({ screen, onChange, bottom }: { screen: Screen; onChange: (s: Screen) => void; bottom: number }) {
   const theme = useTheme()
   const blocks = theme.nav === "blocks"
+  const bar = blocks || theme.nav === "indicator" ? theme.c.surface : theme.c.bg
   return (
     <View
       accessibilityRole="tablist"
@@ -25,47 +26,70 @@ export function TabBar({ screen, onChange, bottom }: { screen: Screen; onChange:
         styles.tabs,
         {
           paddingBottom: bottom + 8,
-          gap: blocks ? 6 : 0,
-          paddingHorizontal: blocks ? 10 : 0,
-          backgroundColor: blocks || theme.nav === "indicator" ? theme.c.surface : theme.c.bg,
+          paddingHorizontal: 6,
+          backgroundColor: bar,
           borderTopWidth: Math.max(theme.border, theme.nav === "plain" ? 1 : 0),
           borderTopColor: theme.c.border,
         },
       ]}
     >
-      {TABS.map((t) => {
-        const on = screen === t.key
-        const color = blocks ? (on ? theme.c.onAccent : theme.c.text) : on ? (theme.nav === "plain" ? theme.c.accent : theme.c.text) : theme.c.textMuted
-        return (
-          <Press
-            key={t.key}
-            onPress={() => onChange(t.key)}
-            radius={blocks ? theme.radius.sm : 16}
-            scaleTo={0.9}
-            accessibilityRole="tab"
-            accessibilityLabel={t.label}
-            accessibilityState={{ selected: on }}
-            style={[
-              styles.tab,
-              blocks && {
-                paddingVertical: 6,
-                borderRadius: theme.radius.sm,
-                borderWidth: theme.border,
-                borderColor: theme.c.border,
-                backgroundColor: on ? theme.c.accent : theme.c.surface2,
-              },
-            ]}
-          >
-            <View style={[styles.indicator, theme.nav === "indicator" && on && { backgroundColor: theme.c.surface2 }]}>
-              <Icon name={t.icon} size={22} color={color} />
-            </View>
-            <T variant="label" color={color} style={{ fontSize: Math.min(theme.type.label.size, 11) }}>
-              {t.label}
-            </T>
-          </Press>
-        )
-      })}
+      {TABS.map((t) => (
+        <TabItem key={t.key} tab={t} on={screen === t.key} bar={bar} onPress={() => onChange(t.key)} />
+      ))}
     </View>
+  )
+}
+
+/** One tab: the logo sits in a rounded bubble that fills with the accent and lifts when the tab is active. */
+function TabItem({ tab, on, bar, onPress }: { tab: (typeof TABS)[number]; on: boolean; bar: string; onPress: () => void }) {
+  const theme = useTheme()
+  const [lift] = useState(() => new Animated.Value(on ? 1 : 0))
+  useEffect(() => {
+    motion(theme, lift, on ? 1 : 0, 220).start()
+  }, [on, lift, theme])
+
+  const blocks = theme.nav === "blocks"
+  const plain = theme.nav === "plain"
+  // Pixel themes keep their notched corners; the others get a pill, never a hard square
+  const notched = theme.pixelCorners
+  const radius = notched ? 0 : 18
+  const color = on ? theme.c.onAccent : plain ? theme.c.textMuted : theme.c.text
+  const fill = on ? theme.c.accent : blocks ? theme.c.surface2 : "transparent"
+  const labelColor = on ? (plain ? theme.c.accent : theme.c.text) : theme.c.textMuted
+
+  return (
+    <Press
+      onPress={onPress}
+      radius={20}
+      scaleTo={0.9}
+      accessibilityRole="tab"
+      accessibilityLabel={tab.label}
+      accessibilityState={{ selected: on }}
+      style={styles.tab}
+    >
+      <Animated.View
+        style={[
+          styles.bubble,
+          {
+            borderRadius: radius,
+            backgroundColor: fill,
+            borderWidth: blocks || on ? theme.border : 0,
+            borderColor: on && !blocks ? "transparent" : theme.c.border,
+            transform: [
+              { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) },
+              { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) },
+            ],
+          },
+          on && { shadowColor: theme.c.accent, shadowOpacity: blocks ? 0 : 0.5, shadowRadius: 8, elevation: blocks ? 0 : 5 },
+        ]}
+      >
+        <Icon name={tab.icon} size={24} color={color} />
+        {notched && <PixelCorners step={3} color={bar} />}
+      </Animated.View>
+      <T variant="label" color={labelColor} style={{ fontSize: Math.min(theme.type.label.size, 11) }}>
+        {tab.label}
+      </T>
+    </Press>
   )
 }
 
@@ -160,8 +184,8 @@ function MiniProgress({ player }: { player: PlayerApi }) {
 
 const styles = StyleSheet.create({
   tabs: { flexDirection: "row", paddingTop: 10 },
-  tab: { flex: 1, alignItems: "center", gap: 4 },
-  indicator: { width: 56, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  tab: { flex: 1, alignItems: "center", gap: 3 },
+  bubble: { width: 60, height: 36, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   mini: { marginHorizontal: 8, marginBottom: 8, overflow: "hidden" },
   miniBody: { flexDirection: "row", alignItems: "center", gap: 10, padding: 8 },
   miniMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },

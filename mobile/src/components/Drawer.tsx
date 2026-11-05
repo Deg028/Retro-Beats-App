@@ -157,7 +157,7 @@ export function Drawer({
           {divider}
           {row("playlists", "playlist", "Listas de reproducción", () => onShortcut("playlists"), { trailing: String(playlistCount) })}
           {row("recap", "stats", "Resumen de escucha", () => onShortcut("recap"))}
-          {row("scan", "player", "Música del teléfono", () => onShortcut("scan"), { trailing: String(phoneCount) })}
+          {row("scan", "queue", "Música del teléfono", () => onShortcut("scan"), { trailing: String(phoneCount) })}
           {row("sleep", "moon", "Temporizador de apagado", () => onShortcut("sleep"), { trailing: sleepLabel ?? undefined })}
           {row("themes", "themes", `Temas · ${theme.name}`, () => onShortcut("themes"))}
           <T variant="caption" color={theme.c.textMuted} style={{ paddingHorizontal: 12, marginTop: 2 }}>
