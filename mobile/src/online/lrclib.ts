@@ -211,3 +211,15 @@ export async function findLyrics(attempts: SearchTerms[], duration: number): Pro
   }
   return null
 }
+
+/** Pasted or shared text split in the timed lines (when it has time tags) and the plain words. */
+export function splitLyrics(text: string) {
+  const timed = parseLrc(text)
+  const plain = text
+    .split(/\r?\n/)
+    .map((row) => row.replace(/\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]/g, "").trim())
+    .filter((row, i, rows) => row || (i > 0 && rows[i - 1]))
+    .join("\n")
+    .trim()
+  return { synced: timed.length >= 3 ? timed : null, plain }
+}

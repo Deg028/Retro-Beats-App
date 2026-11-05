@@ -16,6 +16,8 @@ import Intro from "./src/components/Intro"
 import { motion, T } from "./src/components/ui"
 import Home, { Section, sectionLists } from "./src/screens/Home"
 import { SleepSheet, sleepLabel } from "./src/screens/player/shared"
+import { SharedLyricsSheet } from "./src/screens/player/SharedLyricsSheet"
+import { SharedTextProvider, useSharedText } from "./src/sharedText"
 import Player from "./src/screens/Player"
 import Playlists from "./src/screens/Playlists"
 import Recap from "./src/screens/Recap"
@@ -74,6 +76,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   const insets = useSafeAreaInsets()
   const { height } = useWindowDimensions()
   const [intro, setIntro] = useState(true)
+  const shared = useSharedText()
   const [tab, setTab] = useState<Tab>("home")
   const [dir, setDir] = useState(1)
   const [playerOpen, setPlayerOpen] = useState(false)
@@ -248,6 +251,8 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
         </>
       )}
 
+      <SharedLyricsSheet text={shared.text} song={player.current} info={info} onClose={shared.clear} />
+
       <Drawer
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -347,9 +352,11 @@ export default function App() {
   })
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.ink }} />
   return (
-    <SafeAreaProvider>
-      <Main />
-    </SafeAreaProvider>
+    <SharedTextProvider>
+      <SafeAreaProvider>
+        <Main />
+      </SafeAreaProvider>
+    </SharedTextProvider>
   )
 }
 

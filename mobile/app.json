@@ -4,6 +4,7 @@
     "slug": "retro-beats",
     "version": "0.2.6",
     "orientation": "portrait",
+    "scheme": "retrobeats",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
@@ -62,7 +63,8 @@
         }
       ],
       "expo-sqlite",
-      "./plugins/withMediaIcons"
+      "./plugins/withMediaIcons",
+      ["expo-share-intent", { "androidIntentFilters": ["text/*"], "disableIOS": true }]
     ],
     "extra": {
       "eas": {

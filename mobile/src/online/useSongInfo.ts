@@ -8,7 +8,7 @@ import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
 import { sleep } from "./http"
 import { lookup, saveCover } from "./lookup"
-import { estimateTimes, parseLrc } from "./lrclib"
+import { estimateTimes, splitLyrics } from "./lrclib"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
 import { Entry, InfoStore } from "./store"
 
@@ -49,18 +49,6 @@ export type LyricsState = "off" | "loading" | "found" | "none" | "error"
 const MAX_FAILS_IN_A_ROW = 3
 const PAUSE_MS = 60_000
 const MAX_PAUSES = 3
-
-/** Lyrics text as timed lines when it carries [mm:ss] times, and as plain lines without them. */
-function splitLyrics(text: string) {
-  const timed = parseLrc(text)
-  const plain = text
-    .split(/\r?\n/)
-    .map((row) => row.replace(/\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]/g, "").trim())
-    .filter((row, i, rows) => row || (i > 0 && rows[i - 1]))
-    .join("\n")
-    .trim()
-  return { synced: timed.length >= 3 ? timed : null, plain }
-}
 
 /**
  * Looks up lyrics, names and cover for the song that is playing, and for the whole library on request.
