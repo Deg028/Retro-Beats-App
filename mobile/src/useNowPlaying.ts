@@ -69,7 +69,7 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
   useEffect(() => {
     if (!title) return
     if (!isRunningInExpoGo()) {
-      setNowPlaying({ title: `${theme.emoji} ${title}`, artist, albumTitle: `Retro Beats · ${subtitle}${favorite ? "\u2060" : ""}`, artworkUrl: artwork }, theme.c.accent)
+      setNowPlaying({ title, artist, albumTitle: `Retro Beats · ${subtitle}${favorite ? "\u2060" : ""}`, artworkUrl: artwork }, theme.c.accent)
       return
     }
     const n = local ? loadNotifications() : null
@@ -82,7 +82,7 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
         return n.scheduleNotificationAsync({
           identifier: ID,
           content: {
-            title: `${theme.emoji} ${title}`,
+            title,
             body: `${artist} · ${playing ? "Sonando" : "En pausa"}`,
             subtitle,
             color: theme.c.accent,
@@ -97,5 +97,5 @@ export function useNowPlaying(player: PlayerApi, theme: Theme) {
         })
       })
       .catch(() => {})
-  }, [local, title, artist, artwork, playing, subtitle, favorite, theme.emoji, theme.c.accent])
+  }, [local, title, artist, artwork, playing, subtitle, favorite, theme.c.accent])
 }
