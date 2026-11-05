@@ -1,11 +1,13 @@
 import { useRef, useState } from "react"
-import { Alert, Linking, ScrollView, ScrollViewInstance, TextInput, useWindowDimensions, View } from "react-native"
+import { Alert, ScrollView, ScrollViewInstance, TextInput, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Clipboard from "expo-clipboard"
 import { Song } from "../../data"
 import { Button, T, textStyle } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
 import { SongInfo } from "../../online/useSongInfo"
+import { LyricsWebSheet } from "./LyricsWebSheet"
+import { SharedLyricsSheet } from "./SharedLyricsSheet"
 import { Sheet, useKeyboardHeight } from "./shared"
 
 /**
@@ -40,8 +42,9 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
       />
     </View>
   )
-  const terms = encodeURIComponent(`${song.title} ${song.artist === "Artista desconocido" ? "" : song.artist}`.trim())
-  const open = (url: string) => Linking.openURL(url).catch(() => setMessage("No se pudo abrir el navegador."))
+  // The search happens inside the app; what the person picks goes through the same check as lyrics shared from another app
+  const [searching, setSearching] = useState(false)
+  const [found, setFound] = useState<string | null>(null)
   const confirmDelete = (fromPhone: boolean) =>
     Alert.alert(
       fromPhone ? "¿Borrar del teléfono?" : "¿Quitar de la app?",
@@ -86,10 +89,7 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
         <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
           Si la app no la encuentra, búscala en internet, cópiala y pégala aquí. Si trae tiempos como [01:23.45], se sincroniza con la canción.
         </T>
-        <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-          <Button label="Buscar en Genius" variant="secondary" icon="search" onPress={() => open(`https://genius.com/search?q=${terms}`)} />
-          <Button label="Buscar en Google" variant="secondary" icon="search" onPress={() => open(`https://www.google.com/search?q=${terms}+letra+lyrics`)} />
-        </View>
+        <Button label="Buscar la letra en internet" variant="secondary" icon="search" onPress={() => setSearching(true)} />
         <Button
           label="Pegar del portapapeles"
           variant="secondary"
@@ -127,6 +127,16 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
           </T>
         )}
       </ScrollView>
+      <LyricsWebSheet
+        song={song}
+        visible={searching}
+        onClose={() => setSearching(false)}
+        onText={(text) => {
+          setSearching(false)
+          setFound(text)
+        }}
+      />
+      <SharedLyricsSheet text={found} song={song} info={info} onClose={() => setFound(null)} />
     </Sheet>
   )
 }
