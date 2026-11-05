@@ -6,6 +6,7 @@ import {
   Easing,
   FlatList,
   GestureResponderEvent,
+  Keyboard,
   LayoutChangeEvent,
   Modal,
   Pressable,
@@ -348,9 +349,24 @@ export const sleepLabel = (sleep: PlayerApi["sleep"]) => {
   return `${Math.max(1, Math.ceil((sleep.until - Date.now()) / 60_000))} min`
 }
 
+/** Height of the on-screen keyboard (0 when hidden), so a sheet can lift its content above it */
+export function useKeyboardHeight() {
+  const [height, setHeight] = useState(0)
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (e) => setHeight(e.endCoordinates.height))
+    const hide = Keyboard.addListener("keyboardDidHide", () => setHeight(0))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [])
+  return height
+}
+
 export function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
+  const keyboard = useKeyboardHeight()
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <Pressable style={sh.backdrop} onPress={onClose} accessibilityLabel="Cerrar" />
@@ -358,7 +374,8 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
         style={[
           sh.panel,
           {
-            paddingBottom: insets.bottom + 16,
+            // With the keyboard open the panel rises above it, so what is typed stays in view
+            paddingBottom: (keyboard || insets.bottom) + 16,
             backgroundColor: theme.c.surface,
             borderTopLeftRadius: theme.radius.lg,
             borderTopRightRadius: theme.radius.lg,

@@ -1,11 +1,12 @@
-import { useState } from "react"
-import { Alert, ScrollView, TextInput, View } from "react-native"
+import { useRef, useState } from "react"
+import { Alert, ScrollView, ScrollViewInstance, TextInput, useWindowDimensions, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Clipboard from "expo-clipboard"
 import { Song } from "../../data"
 import { Button, T, textStyle } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
 import { SongInfo } from "../../online/useSongInfo"
-import { Sheet } from "./shared"
+import { Sheet, useKeyboardHeight } from "./shared"
 
 /**
  * Lets the person correct what the app got wrong: the title and artist (the databases then never replace them) and the
@@ -17,6 +18,12 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
   const [artist, setArtist] = useState(song.artist)
   const [lyrics, setLyrics] = useState("")
   const [message, setMessage] = useState<string | null>(null)
+  const scroll = useRef<ScrollViewInstance>(null)
+  const keyboard = useKeyboardHeight()
+  const { height: windowHeight } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
+  // With the keyboard open, the list shrinks to the room left above it (minus the sheet's handle, title and padding)
+  const listHeight = keyboard ? Math.max(140, windowHeight - keyboard - insets.top - 130) : 520
 
   const field = (value: string, set: (v: string) => void, label: string, multiline = false) => (
     <View style={{ borderRadius: theme.radius.md, borderWidth: theme.border, borderColor: theme.c.border, backgroundColor: theme.c.surface2, paddingHorizontal: 12 }}>
@@ -27,6 +34,8 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
         placeholderTextColor={theme.c.textMuted}
         accessibilityLabel={label}
         multiline={multiline}
+        // The field being typed in goes to the top of the visible list: the lyrics box is at the end, the others near the start
+        onFocus={() => setTimeout(() => (multiline ? scroll.current?.scrollToEnd({ animated: true }) : scroll.current?.scrollTo({ y: 0, animated: true })), 250)}
         style={[textStyle(theme, "body"), { color: theme.c.text, textTransform: "none", paddingVertical: 10, ...(multiline ? { minHeight: 110, maxHeight: 180, textAlignVertical: "top" as const } : null) }]}
       />
     </View>
@@ -43,7 +52,7 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Datos y letra">
-      <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 520 }} contentContainerStyle={{ gap: 10 }}>
+      <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" style={{ maxHeight: listHeight }} contentContainerStyle={{ gap: 10 }}>
         <T variant="label" color={theme.c.textMuted}>
           Canción
         </T>
