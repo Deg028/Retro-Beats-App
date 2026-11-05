@@ -84,7 +84,7 @@ export function LyricsWebSheet({ song, visible, onClose, onText }: { song: Song;
           <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
             Entra en el resultado con la letra y pulsa el botón. Si la página no es de Genius, selecciona antes el texto de la letra.
           </T>
-          <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
             <Button label="Usar la letra de esta página" icon="lyrics" onPress={() => web.current?.injectJavaScript(GRAB)} />
             <Button label="Cerrar" variant="secondary" onPress={onClose} />
           </View>

@@ -18,7 +18,7 @@ export type SharedLyricsCheck =
 
 const URL_ROW = /^\s*(?:https?:\/\/|www\.)\S+\s*$/i
 // Lines sites add around the words when text is shared or copied
-const LEFTOVER_ROW = /^(?:you might also like|see .* live|get tickets|embed|\d*\s*embed|share|copy link|\d+ contributors?|lyrics?)$/i
+const LEFTOVER_ROW = /^(?:you might also like|see .* live|get tickets|embed|\d*\s*embed|share|copy link|\d+ contributors?|lyrics?|.{3,120} lyrics)$/i
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`
 
