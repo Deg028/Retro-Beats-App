@@ -83,6 +83,8 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   const [playerOpen, setPlayerOpen] = useState(false)
   const [section, setSection] = useState<Section>("added")
   const [menuOpen, setMenuOpen] = useState(false)
+  // Height of the tab bar, so the player layer can end right above it
+  const [barHeight, setBarHeight] = useState(0)
   const [sleepOpen, setSleepOpen] = useState(false)
   // The month or year to open the recap on, when it was opened from the "ready" notice
   const [recapStart, setRecapStart] = useState<Period | null>(null)
@@ -239,7 +241,9 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
           <View {...barSwipe}>
             <MiniPlayer player={player} onOpen={() => go("player")} />
           </View>
-          <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} onSwipeUp={() => !playerOpen && !menuOpen && go("player")} />
+          <View onLayout={(e) => setBarHeight(e.nativeEvent.layout.height)}>
+            <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} onSwipeUp={() => !playerOpen && !menuOpen && go("player")} />
+          </View>
         </View>
       </View>
 
@@ -247,11 +251,14 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
         <>
           <Animated.View
             pointerEvents="none"
-            style={[StyleSheet.absoluteFill, { backgroundColor: "#000", opacity: layerY.interpolate({ inputRange: [0, height], outputRange: [0.5, 0], extrapolate: "clamp" }) }]}
+            style={[StyleSheet.absoluteFill, { bottom: barHeight, backgroundColor: "#000", opacity: layerY.interpolate({ inputRange: [0, height], outputRange: [0.5, 0], extrapolate: "clamp" }) }]}
           />
-          <Animated.View style={[styles.layer, { top: insets.top, backgroundColor: theme.c.bg, transform: [{ translateY: layerY }] }]}>
-            <Player player={player} info={info} playlists={playlists} onClose={closePlayer} drag={{ y: layerY, settle: settlePlayer }} />
-          </Animated.View>
+          {/* The player stops above the tab bar, which stays in reach; the clip keeps the slide from covering the bar */}
+          <View pointerEvents="box-none" style={[styles.layer, { top: insets.top, bottom: barHeight, overflow: "hidden" }]}>
+            <Animated.View style={{ flex: 1, backgroundColor: theme.c.bg, transform: [{ translateY: layerY }] }}>
+              <Player player={player} info={info} playlists={playlists} onClose={closePlayer} drag={{ y: layerY, settle: settlePlayer }} />
+            </Animated.View>
+          </View>
         </>
       )}
 
