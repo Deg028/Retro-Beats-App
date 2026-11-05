@@ -17,17 +17,25 @@ const WebView = NativeWebView as unknown as ComponentType<{
   setSupportMultipleWindows: boolean
 }>
 
-// Runs inside the page the person is looking at: the lyrics block of a Genius page, or else the text they selected
+// Runs inside the page the person is looking at. What they selected wins; otherwise the lyrics block of Genius or of
+// other well-known lyric sites; otherwise the biggest block of the page that looks like lyrics.
 const GRAB = `(function () {
-  var text = ""
-  var blocks = document.querySelectorAll('[data-lyrics-container="true"]')
-  blocks.forEach(function (b) {
-    var copy = b.cloneNode(true)
-    copy.querySelectorAll("br").forEach(function (br) { br.replaceWith("\\n") })
-    text += copy.textContent + "\\n"
-  })
-  if (!text.trim()) text = String(window.getSelection() || "")
-  window.ReactNativeWebView.postMessage(JSON.stringify({ text: text }))
+  var text = String(window.getSelection() || "")
+  if (text.trim().length < 20) {
+    text = ""
+    var blocks = document.querySelectorAll('[data-lyrics-container="true"]')
+    blocks.forEach(function (b) { text += b.innerText + "\\n" })
+    var known = ['.lyric-original', '.mxm-lyrics__content', '#lyric-body-text', '#lyrics', '.lyrics', '.ringtone ~ div:not([class])', '[class*="Lyrics__Container"]', '[class*="lyric"]', '[id*="lyric"]']
+    for (var i = 0; i < known.length && text.trim().length < 80; i++) {
+      var best = ""
+      document.querySelectorAll(known[i]).forEach(function (el) {
+        var t = el.innerText || ""
+        if (t.length > best.length && t.length < 12000) best = t
+      })
+      if (best.trim().length >= 80) text = best
+    }
+  }
+  window.ReactNativeWebView.postMessage(JSON.stringify({ text: text, url: location.href }))
 })();
 true;`
 
@@ -49,7 +57,7 @@ export function LyricsWebSheet({ song, visible, onClose, onText }: { song: Song;
   const onMessage = (e: WebViewMessageEvent) => {
     try {
       const { text } = JSON.parse(e.nativeEvent.data) as { text: string }
-      if (!text.trim()) return setNotice("Abre la página con la letra (en Genius se toma sola) o selecciona el texto de la letra y vuelve a pulsar.")
+      if (!text.trim()) return setNotice("No encontré la letra en esta página: selecciona el texto de la letra (mantén pulsado y arrastra) y vuelve a pulsar.")
       setNotice(null)
       onText(text)
     } catch {
@@ -82,7 +90,7 @@ export function LyricsWebSheet({ song, visible, onClose, onText }: { song: Song;
             </T>
           )}
           <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
-            Entra en el resultado con la letra y pulsa el botón. Si la página no es de Genius, selecciona antes el texto de la letra.
+            Entra en cualquier página con la letra y pulsa el botón. Si seleccionas un texto, se usa ese; si no, la app busca la letra en la página. Podrás corregirla antes de guardarla.
           </T>
           <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
             <Button label="Usar la letra de esta página" icon="lyrics" onPress={() => web.current?.injectJavaScript(GRAB)} />

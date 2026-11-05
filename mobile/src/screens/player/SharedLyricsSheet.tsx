@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react"
-import { ScrollView, View } from "react-native"
+import { ScrollView, TextInput, useWindowDimensions, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Song } from "../../data"
-import { Button, T } from "../../components/ui"
+import { Button, T, textStyle } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
 import { checkSharedLyrics, Reliability } from "../../online/lyricsCheck"
 import { SongInfo } from "../../online/useSongInfo"
-import { Sheet } from "./shared"
+import { Sheet, useKeyboardHeight } from "./shared"
 
 const LEVEL: Record<Reliability, string> = { alta: "Fiabilidad alta", media: "Fiabilidad media", baja: "Fiabilidad baja" }
 
@@ -18,16 +19,26 @@ const time = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).
 export function SharedLyricsSheet({ text, song, info, onClose }: { text: string | null; song: Song | null; info: SongInfo; onClose: () => void }) {
   const theme = useTheme()
   const [saved, setSaved] = useState<string | null>(null)
-  const check = useMemo(() => (text !== null && song ? checkSharedLyrics(text, song) : null), [text, song])
+  // The person's corrections to the received text, kept only for that text
+  const [edit, setEdit] = useState<{ of: string; value: string } | null>(null)
+  const [editing, setEditing] = useState(false)
+  const keyboard = useKeyboardHeight()
+  const { height: windowHeight } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
+  const listHeight = keyboard ? Math.max(140, windowHeight - keyboard - insets.top - 130) : 520
+  const current = text !== null && edit?.of === text ? edit.value : text
+  const check = useMemo(() => (current !== null && song ? checkSharedLyrics(current, song) : null), [current, song])
   const close = () => {
     setSaved(null)
+    setEdit(null)
+    setEditing(false)
     onClose()
   }
   const levelColor = check?.ok ? (check.level === "alta" ? theme.c.accent : check.level === "media" ? theme.c.warm : theme.c.textMuted) : theme.c.textMuted
 
   return (
     <Sheet visible={text !== null} onClose={close} title="Letra recibida">
-      <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ gap: 10 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: listHeight }} contentContainerStyle={{ gap: 10 }}>
         {!song ? (
           <>
             <T variant="body" style={{ textTransform: "none" }}>
@@ -51,12 +62,30 @@ export function SharedLyricsSheet({ text, song, info, onClose }: { text: string 
               «{song.title}» · {song.artist}
               {song.duration > 0 ? ` · ${time(song.duration)}` : ""}
             </T>
-            {check && !check.ok && (
+            {editing && text !== null ? (
+              <>
+                <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
+                  Corrige la letra: quita lo que sobre y arregla las líneas. Si trae tiempos como [01:23.45], se conservan.
+                </T>
+                <View style={{ borderRadius: theme.radius.md, borderWidth: theme.border, borderColor: theme.c.border, backgroundColor: theme.c.surface2, paddingHorizontal: 12 }}>
+                  <TextInput
+                    value={current ?? ""}
+                    onChangeText={(value) => setEdit({ of: text, value })}
+                    multiline
+                    autoFocus
+                    accessibilityLabel="Letra"
+                    style={[textStyle(theme, "body"), { color: theme.c.text, textTransform: "none", paddingVertical: 10, minHeight: 200, maxHeight: Math.max(160, listHeight - 130), textAlignVertical: "top" as const }]}
+                  />
+                </View>
+                <Button label="Listo, ver cómo queda" icon="check" onPress={() => setEditing(false)} />
+              </>
+            ) : null}
+            {!editing && check && !check.ok && (
               <T variant="body" color={theme.c.warm} style={{ textTransform: "none" }}>
                 {check.reason}
               </T>
             )}
-            {check?.ok && (
+            {!editing && check?.ok && (
               <>
                 <T variant="label" color={levelColor}>
                   {LEVEL[check.level]} · {check.timed ? "con tiempos" : "sin tiempos"} · {check.lines} líneas
@@ -93,6 +122,19 @@ export function SharedLyricsSheet({ text, song, info, onClose }: { text: string 
                   }}
                 />
               </>
+            )}
+            {!editing && (
+              <Button
+                label="Editar la letra"
+                variant="secondary"
+                icon="lyrics"
+                onPress={() => {
+                  if (text === null) return
+                  // Start from the cleaned text when there is one
+                  setEdit({ of: text, value: check?.ok ? check.text : (current ?? text) })
+                  setEditing(true)
+                }}
+              />
             )}
             <Button label="Descartar" variant="secondary" onPress={close} />
           </>
