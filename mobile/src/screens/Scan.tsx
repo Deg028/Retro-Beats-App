@@ -302,7 +302,7 @@ export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLib
           Por ahora
         </T>
         <T variant="caption" color={theme.c.textMuted}>
-          Los títulos y artistas salen del nombre de cada archivo (se limpian los textos que dejan las descargas de YouTube) y, cuando internet los reconoce, se corrigen. Las portadas son de pixel art hasta que se encuentra la original. {byFolder ? "La duración aparece la primera vez que suena cada canción. " : ""}Si el archivo trae dentro su artista o su carátula (SnapTube y Telegram los guardan), se usan esos.
+          Los títulos y artistas salen del nombre de cada archivo (se limpian los textos que dejan las descargas de YouTube) y, cuando internet los reconoce, se corrigen. Una canción sin carátula muestra una nota musical hasta que se encuentra la original. {byFolder ? "La duración aparece la primera vez que suena cada canción. " : ""}Si el archivo trae dentro su artista o su carátula (SnapTube y Telegram los guardan), se usan esos.
         </T>
       </Surface>
     </ScrollView>
