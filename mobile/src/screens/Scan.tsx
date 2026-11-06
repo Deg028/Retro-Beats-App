@@ -230,7 +230,7 @@ export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLib
               <Chip label={info.enabled ? "Activada" : "Desactivada"} active={info.enabled} onPress={() => info.setEnabled(!info.enabled)} />
             </View>
             <T variant="caption" color={theme.c.textMuted}>
-              Al abrir la app se busca la carátula original (catálogos de Apple Music y Deezer, MusicBrainz y Cover Art Archive) y la letra (LRCLIB y, si no la tiene, lyrics.ovh) de cada canción que aún no las tenga. Solo se envía el título y el artista, sin tu cuenta ni tus archivos. Lo que se encuentra se guarda en el teléfono y no se vuelve a pedir. Si activas «Romaji» en el reproductor, las líneas con kanji de la letra se envían una a una a Google Traductor para leerlas.
+              Al abrir la app se busca la carátula original (catálogos de Apple Music y Deezer, MusicBrainz y Cover Art Archive) y la letra (LRCLIB y, si no la tiene, NetEase Cloud Music y lyrics.ovh) de cada canción que aún no las tenga. Solo se envía el título y el artista, sin tu cuenta ni tus archivos. Lo que se encuentra se guarda en el teléfono y no se vuelve a pedir. Si activas «Romaji» en el reproductor, las líneas con kanji de la letra se envían una a una a Google Traductor para leerlas.
             </T>
             <T variant="caption" color={theme.c.highlight}>
               {info.withCover} con carátula · {info.withLyrics} con letra

@@ -71,7 +71,7 @@ export function LyricsWebSheet({ song, visible, onClose, onText }: { song: Song;
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
           <View style={{ flex: 1 }}>
             <T variant="title" numberOfLines={1}>
-              Buscar la letra
+              Buscar letra
             </T>
             <T variant="caption" color={theme.c.textMuted} numberOfLines={1} style={{ textTransform: "none" }}>
               {song.title}

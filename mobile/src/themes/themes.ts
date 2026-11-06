@@ -395,7 +395,7 @@ export const THEMES: Theme[] = [
     },
     type: {
       // The condensed lettering printed on studio gear
-      display: { family: BEBAS, size: 36, line: 38, spacing: 1 },
+      display: { family: BEBAS, size: 34, line: 36, spacing: 1 },
       title: { family: BARC, size: 19, line: 23 },
       body: { family: BAR, size: 15, line: 22 },
       label: { family: BARCM, size: 13, line: 16, upper: true, spacing: 1.5 },
@@ -504,7 +504,7 @@ export const THEMES: Theme[] = [
       lyricsDim: "rgba(91,255,138,0.4)",
     },
     type: {
-      display: { family: VT, size: 40, line: 40, upper: true },
+      display: { family: VT, size: 34, line: 36, upper: true },
       title: { family: VT, size: 26, line: 28 },
       // VT323 for headings; a clearer monospace for what is read at length (lists, lyrics)
       body: { family: STM, size: 15, line: 22 },
