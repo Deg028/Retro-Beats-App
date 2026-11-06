@@ -71,16 +71,29 @@ export type Theme = {
 
 const PS = "PressStart2P_400Regular"
 const VT = "VT323_400Regular"
-const SG = "SpaceGrotesk_400Regular"
 const SGM = "SpaceGrotesk_500Medium"
-const SGB = "SpaceGrotesk_700Bold"
 const PX = "PixelifySans_500Medium"
 const PXB = "PixelifySans_700Bold"
-const SO = "Sora_400Regular"
-const SOS = "Sora_600SemiBold"
-const SOB = "Sora_700Bold"
-const SOX = "Sora_800ExtraBold"
 const SK = "Silkscreen_400Regular"
+// Each theme has a type pairing of its own, so no two look alike
+const MARKER = "PermanentMarker_400Regular"
+const MONO = "SpaceMono_400Regular"
+const MONOB = "SpaceMono_700Bold"
+const OUT = "Outfit_400Regular"
+const OUTM = "Outfit_500Medium"
+const OUTS = "Outfit_600SemiBold"
+const ORB = "Orbitron_800ExtraBold"
+const ORBM = "Orbitron_600SemiBold"
+const EXO = "Exo2_400Regular"
+const EXOS = "Exo2_600SemiBold"
+const BEBAS = "BebasNeue_400Regular"
+const BAR = "Barlow_400Regular"
+const BARC = "BarlowCondensed_600SemiBold"
+const BARCM = "BarlowCondensed_500Medium"
+const SERIF = "DMSerifDisplay_400Regular"
+const FR = "Fraunces_400Regular"
+const FRS = "Fraunces_600SemiBold"
+const STM = "ShareTechMono_400Regular"
 
 export const THEMES: Theme[] = [
   {
@@ -219,12 +232,13 @@ export const THEMES: Theme[] = [
       lyricsDim: "#6b5f50",
     },
     type: {
-      display: { family: SGB, size: 28, line: 32 },
-      title: { family: SGB, size: 18, line: 24 },
-      body: { family: SG, size: 16, line: 22 },
-      label: { family: PX, size: 12, line: 16, upper: true, spacing: 2 },
-      caption: { family: SGM, size: 13, line: 18 },
-      number: { family: PX, size: 13, line: 16 },
+      // A cassette label written with a marker, and the typewriter of its J-card
+      display: { family: MARKER, size: 28, line: 36 },
+      title: { family: MONOB, size: 16, line: 22 },
+      body: { family: MONO, size: 14, line: 21 },
+      label: { family: MONOB, size: 11, line: 16, upper: true, spacing: 2 },
+      caption: { family: MONO, size: 12, line: 18 },
+      number: { family: MONO, size: 12, line: 16 },
     },
     radius: { sm: 8, md: 14, lg: 20, cover: 14 },
     border: 1.5,
@@ -272,11 +286,12 @@ export const THEMES: Theme[] = [
       lyricsDim: "#f0b8b3",
     },
     type: {
-      display: { size: 24, line: 30, weight: "500" },
-      title: { size: 17, line: 22, weight: "500" },
-      body: { size: 15, line: 22, weight: "400" },
+      // A rounded geometric sans in the spirit of Material You
+      display: { family: OUTS, size: 26, line: 32 },
+      title: { family: OUTM, size: 17, line: 22 },
+      body: { family: OUT, size: 15, line: 22 },
       label: { family: PX, size: 12, line: 16, upper: true, spacing: 2 },
-      caption: { size: 13, line: 18, weight: "400" },
+      caption: { family: OUT, size: 13, line: 18 },
       number: { family: PX, size: 13, line: 16 },
     },
     radius: { sm: 8, md: 16, lg: 28, cover: 0 },
@@ -325,12 +340,13 @@ export const THEMES: Theme[] = [
       lyricsDim: "#aeabcf",
     },
     type: {
-      display: { family: SOX, size: 26, line: 32 },
-      title: { family: SOB, size: 17, line: 22 },
-      body: { family: SO, size: 15, line: 22 },
-      label: { family: SK, size: 11, line: 14, upper: true, spacing: 2 },
-      caption: { family: SO, size: 13, line: 18 },
-      number: { family: SK, size: 11, line: 14 },
+      // A wide futuristic display over a techno sans
+      display: { family: ORB, size: 22, line: 30 },
+      title: { family: EXOS, size: 17, line: 22 },
+      body: { family: EXO, size: 15, line: 22 },
+      label: { family: ORBM, size: 10, line: 14, upper: true, spacing: 2 },
+      caption: { family: EXO, size: 13, line: 18 },
+      number: { family: ORBM, size: 11, line: 14 },
     },
     radius: { sm: 10, md: 16, lg: 24, cover: 24 },
     border: 1,
@@ -378,12 +394,13 @@ export const THEMES: Theme[] = [
       lyricsDim: "#8a8478",
     },
     type: {
-      display: { family: SOX, size: 28, line: 34 },
-      title: { family: SOB, size: 17, line: 22 },
-      body: { family: SO, size: 15, line: 22 },
-      label: { family: SOS, size: 11, line: 14, upper: true, spacing: 1.5 },
-      caption: { family: SO, size: 13, line: 18 },
-      number: { family: SOS, size: 12, line: 16 },
+      // The condensed lettering printed on studio gear
+      display: { family: BEBAS, size: 36, line: 38, spacing: 1 },
+      title: { family: BARC, size: 19, line: 23 },
+      body: { family: BAR, size: 15, line: 22 },
+      label: { family: BARCM, size: 13, line: 16, upper: true, spacing: 1.5 },
+      caption: { family: BAR, size: 13, line: 18 },
+      number: { family: BARCM, size: 14, line: 16 },
     },
     radius: { sm: 10, md: 16, lg: 22, cover: 22 },
     border: 0,
@@ -432,11 +449,12 @@ export const THEMES: Theme[] = [
       lyricsDim: "rgba(242,232,213,0.45)",
     },
     type: {
-      display: { family: SOX, size: 28, line: 34 },
-      title: { family: SOB, size: 17, line: 22 },
-      body: { family: SO, size: 15, line: 22 },
+      // The warm serif of a record sleeve
+      display: { family: SERIF, size: 30, line: 36 },
+      title: { family: FRS, size: 17, line: 23 },
+      body: { family: FR, size: 15, line: 22 },
       label: { family: SGM, size: 12, line: 16, upper: true, spacing: 2 },
-      caption: { family: SGM, size: 13, line: 18 },
+      caption: { family: FR, size: 13, line: 18 },
       number: { family: SGM, size: 12, line: 16 },
     },
     radius: { sm: 10, md: 16, lg: 24, cover: 24 },
@@ -488,9 +506,10 @@ export const THEMES: Theme[] = [
     type: {
       display: { family: VT, size: 40, line: 40, upper: true },
       title: { family: VT, size: 26, line: 28 },
-      body: { family: VT, size: 22, line: 26 },
+      // VT323 for headings; a clearer monospace for what is read at length (lists, lyrics)
+      body: { family: STM, size: 15, line: 22 },
       label: { family: VT, size: 18, line: 20, upper: true, spacing: 1 },
-      caption: { family: VT, size: 18, line: 22 },
+      caption: { family: STM, size: 13, line: 18 },
       number: { family: VT, size: 20, line: 22 },
     },
     radius: { sm: 0, md: 0, lg: 0, cover: 0 },

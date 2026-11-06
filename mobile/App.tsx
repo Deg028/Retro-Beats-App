@@ -5,10 +5,20 @@ import { StatusBar } from "expo-status-bar"
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"
 import { PressStart2P_400Regular } from "@expo-google-fonts/press-start-2p"
 import { VT323_400Regular } from "@expo-google-fonts/vt323"
-import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk"
+import { SpaceGrotesk_500Medium } from "@expo-google-fonts/space-grotesk"
 import { PixelifySans_500Medium, PixelifySans_700Bold } from "@expo-google-fonts/pixelify-sans"
-import { Sora_400Regular, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold } from "@expo-google-fonts/sora"
 import { Silkscreen_400Regular } from "@expo-google-fonts/silkscreen"
+import { PermanentMarker_400Regular } from "@expo-google-fonts/permanent-marker"
+import { SpaceMono_400Regular, SpaceMono_700Bold } from "@expo-google-fonts/space-mono"
+import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from "@expo-google-fonts/outfit"
+import { Orbitron_600SemiBold, Orbitron_800ExtraBold } from "@expo-google-fonts/orbitron"
+import { Exo2_400Regular, Exo2_600SemiBold } from "@expo-google-fonts/exo-2"
+import { BebasNeue_400Regular } from "@expo-google-fonts/bebas-neue"
+import { Barlow_400Regular } from "@expo-google-fonts/barlow"
+import { BarlowCondensed_500Medium, BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed"
+import { DMSerifDisplay_400Regular } from "@expo-google-fonts/dm-serif-display"
+import { Fraunces_400Regular, Fraunces_600SemiBold } from "@expo-google-fonts/fraunces"
+import { ShareTechMono_400Regular } from "@expo-google-fonts/share-tech-mono"
 import { useFonts } from "expo-font"
 import { MiniPlayer, Screen, TabBar } from "./src/components/Chrome"
 import { Drawer } from "./src/components/Drawer"
@@ -350,16 +360,28 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     PressStart2P_400Regular,
     VT323_400Regular,
-    SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
-    SpaceGrotesk_700Bold,
     PixelifySans_500Medium,
     PixelifySans_700Bold,
-    Sora_400Regular,
-    Sora_600SemiBold,
-    Sora_700Bold,
-    Sora_800ExtraBold,
     Silkscreen_400Regular,
+    PermanentMarker_400Regular,
+    SpaceMono_400Regular,
+    SpaceMono_700Bold,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Orbitron_600SemiBold,
+    Orbitron_800ExtraBold,
+    Exo2_400Regular,
+    Exo2_600SemiBold,
+    BebasNeue_400Regular,
+    Barlow_400Regular,
+    BarlowCondensed_500Medium,
+    BarlowCondensed_600SemiBold,
+    DMSerifDisplay_400Regular,
+    Fraunces_400Regular,
+    Fraunces_600SemiBold,
+    ShareTechMono_400Regular,
   })
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.ink }} />
   return (
