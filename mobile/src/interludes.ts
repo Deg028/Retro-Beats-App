@@ -1,4 +1,3 @@
-import type { ImageSourcePropType } from "react-native"
 import type { LyricLine } from "./data"
 
 /**
@@ -7,14 +6,15 @@ import type { LyricLine } from "./data"
  * get one. A song is recognised by a piece of its title (any of `title`, compared without case), so a renamed file
  * or a title fixed in «Datos» still matches as long as that piece stays.
  */
-type Interlude = { title: string[]; ranges: { start: number; end: number; image: ImageSourcePropType }[] }
+type Interlude = { title: string[]; ranges: { start: number; end: number; image: number }[] }
 
 const INTERLUDES: Interlude[] = [
   // Creepy Nuts - オトノケ (Otonoke), the music video version in SnapTube Audio (3:17)
   { title: ["オトノケ", "otonoke"], ranges: [{ start: 165, end: 175, image: require("../assets/interludes/otonoke.gif") }] },
 ]
 
-export type InterludeLine = LyricLine & { image?: ImageSourcePropType }
+/** `image` is a bundled picture (`require`) */
+export type InterludeLine = LyricLine & { image?: number }
 
 const forSong = (title: string) => {
   const name = title.toLowerCase()

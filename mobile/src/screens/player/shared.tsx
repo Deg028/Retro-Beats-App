@@ -1,4 +1,5 @@
 import { File, Paths } from "expo-file-system"
+import { Image } from "expo-image"
 import * as Sharing from "expo-sharing"
 import { memo, ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import {
@@ -6,7 +7,6 @@ import {
   Easing,
   FlatList,
   GestureResponderEvent,
-  Image,
   Keyboard,
   LayoutChangeEvent,
   Modal,
@@ -179,7 +179,8 @@ const LyricRow = memo(function LyricRow({ index, line, reading, active, lineStyl
     // A song's part without singing (`interludes.ts`): its animated picture, in the middle, as one more line
     return (
       <Pressable onLayout={(e) => onBox(index, e.nativeEvent.layout.y, e.nativeEvent.layout.height)} onPress={() => onSeek(line.t)} style={{ paddingVertical: 8, alignItems: "center" }}>
-        <Image source={line.image} accessibilityLabel="Imagen del interludio" style={{ width: INTERLUDE_SIZE, height: INTERLUDE_SIZE, opacity: active ? 1 : 0.5 }} />
+        {/* expo-image: React Native's own Image showed only the first frame of the GIF on Android */}
+        <Image source={line.image} autoplay contentFit="contain" accessibilityLabel="Imagen del interludio" style={{ width: INTERLUDE_SIZE, height: INTERLUDE_SIZE, opacity: active ? 1 : 0.5 }} />
       </Pressable>
     )
   return (

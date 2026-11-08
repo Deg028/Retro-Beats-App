@@ -81,7 +81,13 @@
           "imageWidth": 64
         }
       ],
-      ["./plugins/withThemeIcons", { "defaultId": "pixel" }]
+      [
+        "./plugins/withThemeIcons",
+        {
+          "defaultId": "pixel"
+        }
+      ],
+      "expo-image"
     ],
     "extra": {
       "eas": {
