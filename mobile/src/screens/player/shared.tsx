@@ -6,6 +6,7 @@ import {
   Easing,
   FlatList,
   GestureResponderEvent,
+  Image,
   Keyboard,
   LayoutChangeEvent,
   Modal,
@@ -18,7 +19,8 @@ import {
   ViewProps,
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { fmt, LyricLine, lengthSuffix, Song } from "../../data"
+import { fmt, lengthSuffix, Song } from "../../data"
+import { InterludeLine } from "../../interludes"
 import { extensionOf } from "../../library/files"
 import { Equalizer } from "../../components/Pixel"
 import { Cover, Icon, Press, T } from "../../components/ui"
@@ -131,7 +133,7 @@ export function useTimeLabels(shown: number, duration: number) {
   }
 }
 
-export const activeLine = (lines: LyricLine[], time: number) => {
+export const activeLine = (lines: InterludeLine[], time: number) => {
   let i = -1
   lines.forEach((l, j) => {
     if (time >= l.t) i = j
@@ -147,7 +149,7 @@ const LYRICS_LEAD = 0.25
  * the clock and the line is looked at ten times a second: the lyrics change on the beat instead of up to a quarter
  * of a second late. Only a change of line redraws anything.
  */
-function useActiveLine(lines: LyricLine[], time: number, playing: boolean) {
+function useActiveLine(lines: InterludeLine[], time: number, playing: boolean) {
   const base = useRef({ time, at: 0 })
   useEffect(() => {
     base.current = { time, at: Date.now() }
@@ -167,9 +169,19 @@ function useActiveLine(lines: LyricLine[], time: number, playing: boolean) {
   return idx
 }
 
-type LyricRowProps = { index: number; line: LyricLine; reading?: string; active: boolean; lineStyle: TextStyle; activeStyle: TextStyle; dimColor: string; onSeek: (s: number) => void; onBox: (i: number, y: number, h: number) => void }
+/** Side of an interlude picture: it fits the lyrics window with a little room above and below */
+const INTERLUDE_SIZE = 130
+
+type LyricRowProps = { index: number; line: InterludeLine; reading?: string; active: boolean; lineStyle: TextStyle; activeStyle: TextStyle; dimColor: string; onSeek: (s: number) => void; onBox: (i: number, y: number, h: number) => void }
 
 const LyricRow = memo(function LyricRow({ index, line, reading, active, lineStyle, activeStyle, dimColor, onSeek, onBox }: LyricRowProps) {
+  if (line.image)
+    // A song's part without singing (`interludes.ts`): its animated picture, in the middle, as one more line
+    return (
+      <Pressable onLayout={(e) => onBox(index, e.nativeEvent.layout.y, e.nativeEvent.layout.height)} onPress={() => onSeek(line.t)} style={{ paddingVertical: 8, alignItems: "center" }}>
+        <Image source={line.image} accessibilityLabel="Imagen del interludio" style={{ width: INTERLUDE_SIZE, height: INTERLUDE_SIZE, borderRadius: 6, opacity: active ? 1 : 0.5 }} />
+      </Pressable>
+    )
   return (
     <View onLayout={(e) => onBox(index, e.nativeEvent.layout.y, e.nativeEvent.layout.height)} style={{ paddingVertical: 5 }}>
       <Text onPress={() => onSeek(line.t)} style={[lineStyle, active ? activeStyle : { color: dimColor, opacity: 0.65 }]}>
@@ -202,7 +214,7 @@ export function LyricsWindow({
   dimColor,
   romaji,
 }: {
-  lines: LyricLine[]
+  lines: InterludeLine[]
   time: number
   playing: boolean
   onSeek: (s: number) => void

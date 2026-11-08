@@ -5,6 +5,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 import { Art } from "../components/Art"
 import { GameBoy } from "../components/GameBoy"
 import { LyricLine } from "../data"
+import { withInterludes } from "../interludes"
 import { Marquee } from "../components/Marquee"
 import { Equalizer } from "../components/Pixel"
 import { Action, ActionBar, Button, Cover, IconButton, PlayButton, Press, ProgressTrack, SkipButton, T, textStyle } from "../components/ui"
@@ -276,7 +277,7 @@ export default function Player({
               </View>
               {song.lyrics ? (
                 <>
-                  <SyncedLyrics player={player} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
+                  <SyncedLyrics player={player} title={song.title} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
                 </>
               ) : song.plain ? (
                 <View style={{ gap: 10 }}>
@@ -383,8 +384,10 @@ function Timeline({ player }: { player: PlayerApi }) {
 }
 
 /** The timed lyrics, which follow the running time on their own for the same reason as the timeline. */
-function SyncedLyrics({ player, lines, offset, romaji }: { player: PlayerApi; lines: LyricLine[]; offset: number; romaji?: string[] }) {
+function SyncedLyrics({ player, title, lines: sung, offset, romaji: readings }: { player: PlayerApi; title: string; lines: LyricLine[]; offset: number; romaji?: string[] }) {
   const theme = useTheme()
+  // The song's pictures for its parts without singing, if it has any (`interludes.ts`)
+  const { lines, romaji } = useMemo(() => withInterludes(title, sung, offset, readings), [title, sung, offset, readings])
   const time = usePlaybackTime(player)
   const lineStyle = useMemo<TextStyle>(
     () => ({
