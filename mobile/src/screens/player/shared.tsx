@@ -179,7 +179,7 @@ const LyricRow = memo(function LyricRow({ index, line, reading, active, lineStyl
     // A song's part without singing (`interludes.ts`): its animated picture, in the middle, as one more line
     return (
       <Pressable onLayout={(e) => onBox(index, e.nativeEvent.layout.y, e.nativeEvent.layout.height)} onPress={() => onSeek(line.t)} style={{ paddingVertical: 8, alignItems: "center" }}>
-        <Image source={line.image} accessibilityLabel="Imagen del interludio" style={{ width: INTERLUDE_SIZE, height: INTERLUDE_SIZE, borderRadius: 6, opacity: active ? 1 : 0.5 }} />
+        <Image source={line.image} accessibilityLabel="Imagen del interludio" style={{ width: INTERLUDE_SIZE, height: INTERLUDE_SIZE, opacity: active ? 1 : 0.5 }} />
       </Pressable>
     )
   return (
