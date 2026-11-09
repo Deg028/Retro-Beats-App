@@ -169,7 +169,7 @@ function useActiveLine(lines: InterludeLine[], time: number, playing: boolean) {
   return idx
 }
 
-/** Side of an interlude picture: it fits the lyrics window with a little room above and below */
+/** Side of an interlude picture unless its range gives a size: it fits the lyrics window with a little room above and below */
 const INTERLUDE_SIZE = 130
 
 type LyricRowProps = { index: number; line: InterludeLine; reading?: string; active: boolean; lineStyle: TextStyle; activeStyle: TextStyle; dimColor: string; onSeek: (s: number) => void; onBox: (i: number, y: number, h: number) => void }
@@ -180,7 +180,7 @@ const LyricRow = memo(function LyricRow({ index, line, reading, active, lineStyl
     return (
       <Pressable onLayout={(e) => onBox(index, e.nativeEvent.layout.y, e.nativeEvent.layout.height)} onPress={() => onSeek(line.t)} style={{ paddingVertical: 8, alignItems: "center" }}>
         {/* expo-image: React Native's own Image showed only the first frame of the GIF on Android */}
-        <Image source={line.image} autoplay contentFit="contain" accessibilityLabel="Imagen del interludio" style={{ width: INTERLUDE_SIZE, height: INTERLUDE_SIZE, opacity: active ? 1 : 0.5 }} />
+        <Image source={line.image} autoplay contentFit="contain" accessibilityLabel="Imagen del interludio" style={{ width: line.size?.width ?? INTERLUDE_SIZE, height: line.size?.height ?? INTERLUDE_SIZE, opacity: active ? 1 : 0.5 }} />
       </Pressable>
     )
   return (
