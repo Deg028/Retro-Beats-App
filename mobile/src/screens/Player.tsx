@@ -5,7 +5,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 import { Art } from "../components/Art"
 import { GameBoy } from "../components/GameBoy"
 import { LyricLine } from "../data"
-import { hasInterludes, interludeAt, withInterludes } from "../interludes"
+import { hasInterludes, InterludeSong, interludeAt, withInterludes } from "../interludes"
 import { Marquee } from "../components/Marquee"
 import { Equalizer } from "../components/Pixel"
 import { Action, ActionBar, Button, Cover, IconButton, PlayButton, Press, ProgressTrack, SkipButton, T, textStyle } from "../components/ui"
@@ -277,7 +277,7 @@ export default function Player({
               </View>
               {song.lyrics ? (
                 <>
-                  <SyncedLyrics player={player} title={song.title} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
+                  <SyncedLyrics player={player} song={song} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
                 </>
               ) : song.plain ? (
                 <View style={{ gap: 10 }}>
@@ -308,7 +308,7 @@ export default function Player({
                   )}
                 </View>
               ) : (
-                <InterludeOnly player={player} title={song.title} offset={song.lyricsOffset ?? 0}>
+                <InterludeOnly player={player} song={song} offset={song.lyricsOffset ?? 0}>
                   <LyricsStatus state={info.lyricsState(song)} error={info.error} onRetry={info.retry} />
                 </InterludeOnly>
               )}
@@ -389,13 +389,13 @@ function Timeline({ player }: { player: PlayerApi }) {
  * For a song with no lyrics but with a picture in `interludes.ts`: the picture while its part plays, the usual notice
  * (`children`) the rest of the time. Only this part redraws with the running time, and only for such songs.
  */
-function InterludeOnly({ player, title, offset, children }: { player: PlayerApi; title: string; offset: number; children: ReactNode }) {
-  if (!hasInterludes(title)) return <>{children}</>
-  return <InterludeAt player={player} title={title} offset={offset}>{children}</InterludeAt>
+function InterludeOnly({ player, song, offset, children }: { player: PlayerApi; song: InterludeSong; offset: number; children: ReactNode }) {
+  if (!hasInterludes(song)) return <>{children}</>
+  return <InterludeAt player={player} song={song} offset={offset}>{children}</InterludeAt>
 }
 
-function InterludeAt({ player, title, offset, children }: { player: PlayerApi; title: string; offset: number; children: ReactNode }) {
-  const hit = interludeAt(title, usePlaybackTime(player), offset)
+function InterludeAt({ player, song, offset, children }: { player: PlayerApi; song: InterludeSong; offset: number; children: ReactNode }) {
+  const hit = interludeAt(song, usePlaybackTime(player), offset)
   if (!hit) return <>{children}</>
   return (
     <View style={{ height: LYRICS_H, alignItems: "center", justifyContent: "center" }}>
@@ -405,10 +405,10 @@ function InterludeAt({ player, title, offset, children }: { player: PlayerApi; t
 }
 
 /** The timed lyrics, which follow the running time on their own for the same reason as the timeline. */
-function SyncedLyrics({ player, title, lines: sung, offset, romaji: readings }: { player: PlayerApi; title: string; lines: LyricLine[]; offset: number; romaji?: string[] }) {
+function SyncedLyrics({ player, song, lines: sung, offset, romaji: readings }: { player: PlayerApi; song: InterludeSong; lines: LyricLine[]; offset: number; romaji?: string[] }) {
   const theme = useTheme()
   // The song's pictures for its parts without singing, if it has any (`interludes.ts`)
-  const { lines, romaji } = useMemo(() => withInterludes(title, sung, offset, readings), [title, sung, offset, readings])
+  const { lines, romaji } = useMemo(() => withInterludes({ title: song.title, artist: song.artist, uri: song.uri }, sung, offset, readings), [song.title, song.artist, song.uri, sung, offset, readings])
   const time = usePlaybackTime(player)
   const lineStyle = useMemo<TextStyle>(
     () => ({
