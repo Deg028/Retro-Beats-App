@@ -25,6 +25,14 @@ const forSong = (title: string) => {
   return INTERLUDES.find((i) => i.title.some((t) => name.includes(t.toLowerCase())))
 }
 
+/** The picture for `title` at second `time`, if the song has one there (for songs with no lyrics to put it in) */
+export function interludeAt(title: string, time: number, offset = 0) {
+  return forSong(title)?.ranges.find((r) => time >= r.start + offset && time < r.end + offset)
+}
+
+/** Whether the song has any picture at all */
+export const hasInterludes = (title: string) => !!forSong(title)
+
 /**
  * The lyric lines of the song called `title` with its pictures put in at their times (`offset` is the person's lyric
  * adjustment, so the picture stays on the recording's seconds). Lines sung inside a picture's span are dropped, and

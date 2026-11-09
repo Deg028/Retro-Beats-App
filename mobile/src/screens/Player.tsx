@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, TextStyle, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 import { Art } from "../components/Art"
 import { GameBoy } from "../components/GameBoy"
 import { LyricLine } from "../data"
-import { withInterludes } from "../interludes"
+import { hasInterludes, interludeAt, withInterludes } from "../interludes"
 import { Marquee } from "../components/Marquee"
 import { Equalizer } from "../components/Pixel"
 import { Action, ActionBar, Button, Cover, IconButton, PlayButton, Press, ProgressTrack, SkipButton, T, textStyle } from "../components/ui"
@@ -16,7 +16,7 @@ import { useTheme } from "../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../usePlayer"
 import { AddToPlaylistSheet } from "./Playlists"
 import { InfoSheet } from "./player/InfoSheet"
-import { HoldSeek, LyricsWindow, QueueSheet, shareSong, useDismiss, useSeek, useSwipe, useTimeLabels } from "./player/shared"
+import { HoldSeek, InterludeImage, LyricsWindow, QueueSheet, shareSong, useDismiss, useSeek, useSwipe, useTimeLabels } from "./player/shared"
 
 /** Height of the lyrics window: room for four short lines, or two that wrap */
 const LYRICS_H = 168
@@ -308,7 +308,9 @@ export default function Player({
                   )}
                 </View>
               ) : (
-                <LyricsStatus state={info.lyricsState(song)} error={info.error} onRetry={info.retry} />
+                <InterludeOnly player={player} title={song.title} offset={song.lyricsOffset ?? 0}>
+                  <LyricsStatus state={info.lyricsState(song)} error={info.error} onRetry={info.retry} />
+                </InterludeOnly>
               )}
               {info.romajiOn && !!song.lyrics && lyricsHaveJapanese(song.lyrics) && !song.romaji && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 }}>
@@ -379,6 +381,25 @@ function Timeline({ player }: { player: PlayerApi }) {
           {labels.total}
         </T>
       </View>
+    </View>
+  )
+}
+
+/**
+ * For a song with no lyrics but with a picture in `interludes.ts`: the picture while its part plays, the usual notice
+ * (`children`) the rest of the time. Only this part redraws with the running time, and only for such songs.
+ */
+function InterludeOnly({ player, title, offset, children }: { player: PlayerApi; title: string; offset: number; children: ReactNode }) {
+  if (!hasInterludes(title)) return <>{children}</>
+  return <InterludeAt player={player} title={title} offset={offset}>{children}</InterludeAt>
+}
+
+function InterludeAt({ player, title, offset, children }: { player: PlayerApi; title: string; offset: number; children: ReactNode }) {
+  const hit = interludeAt(title, usePlaybackTime(player), offset)
+  if (!hit) return <>{children}</>
+  return (
+    <View style={{ height: LYRICS_H, alignItems: "center", justifyContent: "center" }}>
+      <InterludeImage source={hit.image} size={hit.size} />
     </View>
   )
 }
