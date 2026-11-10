@@ -1,19 +1,24 @@
 import { useEffect, useReducer, useState } from "react"
 import { ScrollView, StyleSheet, View } from "react-native"
-import { Chip, IconButton, Press, Surface, T } from "../components/ui"
+import { Button, Chip, IconButton, Press, Surface, T } from "../components/ui"
 import { formatListening, monthsWithData, Period, periodLabel, periodOf, Ranked, shiftPeriod, summarize } from "../recap"
 import { useTheme } from "../themes/ThemeContext"
 import { Listening } from "../useListening"
 import { PlayerApi } from "../usePlayer"
+import Rewind from "./Rewind"
 
 const TOP = 10
 
-/** The recap of a month or a year of listening: hours, the song, artist and album heard most, and the top list. */
-export default function Recap({ listening, player, initial }: { listening: Listening; player: PlayerApi; initial?: Period | null }) {
+/**
+ * The recap of a month or a year of listening: hours, the song, artist and album heard most, and the top list. A year
+ * also has its Rewind, opened at once when `celebrate` (the year just ended and the person came from its notice).
+ */
+export default function Recap({ listening, player, initial, celebrate }: { listening: Listening; player: PlayerApi; initial?: Period | null; celebrate?: boolean }) {
   const theme = useTheme()
   const [today] = useState(() => new Date())
   const [kind, setKind] = useState<Period["kind"]>(initial?.kind ?? "month")
   const [period, setPeriod] = useState<Period>(initial ?? periodOf("month", today))
+  const [rewind, setRewind] = useState(!!celebrate)
   // The time of the song that is playing keeps growing while this is open
   const [, refresh] = useReducer((n: number) => n + 1, 0)
   useEffect(() => {
@@ -97,11 +102,13 @@ export default function Recap({ listening, player, initial }: { listening: Liste
         <Surface style={{ padding: 18, gap: 6 }}>
           <T variant="title">Sin datos de este período</T>
           <T variant="caption" color={theme.c.textMuted}>
-            Escucha música y el tiempo se irá sumando aquí. Al terminar el mes, y al terminar el año, te avisamos con tu resumen.
+            Escucha música y el tiempo se irá sumando aquí. Al terminar el mes, y al terminar el año, te llega una notificación con tu resumen; el del año viene con tu Rewind.
           </T>
         </Surface>
       ) : (
         <>
+          {period.kind === "year" && summary.songs.length > 0 && <Button label={`Ver tu Rewind ${period.key}`} icon="play" onPress={() => setRewind(true)} />}
+          <Rewind year={period.key} summary={summary} visible={rewind && period.kind === "year" && summary.songs.length > 0} onClose={() => setRewind(false)} />
           <Surface style={{ padding: 18, gap: 4, backgroundColor: theme.c.accent }}>
             <T variant="label" color={theme.c.onAccent}>
               Tiempo escuchado

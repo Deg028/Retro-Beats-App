@@ -4,7 +4,7 @@ import type * as N from "expo-notifications"
 /*
  * expo-notifications' entry point loads its push-topic module at import time, and Expo Go on Android
  * doesn't ship that module, so importing the package crashes the app before it starts. This loads
- * only the local-notification pieces the now-playing notification uses, and only after checking
+ * only the local-notification pieces the now-playing and recap notifications use, and only after checking
  * that their native modules exist; otherwise the notification is skipped and the app keeps running.
  */
 export type LocalNotifications = {
@@ -13,7 +13,10 @@ export type LocalNotifications = {
   setNotificationCategoryAsync: typeof N.setNotificationCategoryAsync
   requestPermissionsAsync: typeof N.requestPermissionsAsync
   scheduleNotificationAsync: typeof N.scheduleNotificationAsync
+  cancelScheduledNotificationAsync: typeof N.cancelScheduledNotificationAsync
   addNotificationResponseReceivedListener: typeof N.addNotificationResponseReceivedListener
+  getLastNotificationResponse: typeof N.getLastNotificationResponse
+  clearLastNotificationResponse: typeof N.clearLastNotificationResponse
 }
 
 const NATIVE = [
@@ -40,6 +43,7 @@ export function loadNotifications(): LocalNotifications | null {
     ...require("expo-notifications/build/setNotificationCategoryAsync"),
     ...require("expo-notifications/build/NotificationPermissions"),
     ...require("expo-notifications/build/scheduleNotificationAsync"),
+    ...require("expo-notifications/build/cancelScheduledNotificationAsync"),
     ...require("expo-notifications/build/NotificationsEmitter"),
   } as LocalNotifications
   /* eslint-enable @typescript-eslint/no-require-imports */

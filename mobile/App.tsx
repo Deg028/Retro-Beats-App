@@ -44,6 +44,7 @@ import { Period, periodLabel } from "./src/recap"
 import { Listening, useListening } from "./src/useListening"
 import { PlayerApi, usePlayer } from "./src/usePlayer"
 import { useNowPlaying } from "./src/useNowPlaying"
+import { useRecapNotice } from "./src/useRecapNotice"
 import { ThemeProvider, useThemeControl } from "./src/themes/ThemeContext"
 import { colors } from "./src/theme"
 
@@ -99,6 +100,8 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   const [sleepOpen, setSleepOpen] = useState(false)
   // The month or year to open the recap on, when it was opened from the "ready" notice
   const [recapStart, setRecapStart] = useState<Period | null>(null)
+  // A new recap opened from a notice draws the screen anew, even when it is already open
+  const [recapKey, setRecapKey] = useState(0)
   // The notice that offers to bring the covers of SnapTube downloads can be dismissed for good
   const [snapDismissed, setSnapDismissed] = useState<boolean | null>(null)
   useEffect(() => {
@@ -168,6 +171,14 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
     if (close) closePlayer()
     else settlePlayer()
   }
+  /** Opens the recap of a month or year that ended (from the notice on Inicio or the system notification); a year opens its Rewind */
+  const openRecap = (period: Period) => {
+    setRecapStart(period)
+    listening.markSeen(period)
+    setRecapKey((k) => k + 1)
+    go("recap")
+  }
+  useRecapNotice(listening, openRecap)
 
   // Android back (button or edge swipe): close the menu or the player first, then return to Home, then let the OS exit
   const onBack = useEffectEvent(() => {
@@ -205,17 +216,13 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
         <Animated.View {...screenSwipe} style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [24 * dir, 0] }) }] }}>
           {tab === "home" && <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />}
           {tab === "themes" && <Themes />}
-          {tab === "recap" && <Recap listening={listening} player={player} initial={recapStart} />}
+          {tab === "recap" && <Recap key={recapKey} listening={listening} player={player} initial={recapStart} celebrate={recapStart?.kind === "year"} />}
           {tab === "playlists" && <Playlists playlists={playlists} player={player} onOpenPlayer={() => go("player")} />}
           {tab === "scan" && <Scan lib={lib} player={player} info={info} onOpenHome={() => go("home")} />}
         </Animated.View>
         {tab === "home" && listening.ready && (
           <Pressable
-            onPress={() => {
-              setRecapStart(listening.ready)
-              listening.markSeen(listening.ready!)
-              go("recap")
-            }}
+            onPress={() => openRecap(listening.ready!)}
             accessibilityRole="button"
             accessibilityLabel={`Ver tu resumen de ${periodLabel(listening.ready)}`}
             style={[styles.notice, { backgroundColor: theme.c.accent, borderRadius: theme.radius.md }]}
@@ -312,7 +319,10 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
         onShortcut={(s) => {
           setMenuOpen(false)
           if (s === "sleep") setSleepOpen(true)
-          else go(s)
+          else {
+            if (s === "recap") setRecapStart(null)
+            go(s)
+          }
         }}
         sleepLabel={sleepLabel(player.sleep)}
       />
@@ -342,6 +352,12 @@ function Main() {
   const info = useSongInfo(store, player.current)
   const playlists = usePlaylists()
   const listening = useListening(player)
+  // Once a scan has listed the phone's music, songs that are no longer there leave the playlists, so their counts
+  // match what plays. Never on an empty or unfinished scan, which would empty every list
+  const pruneLists = useEffectEvent(() => playlists.prune(new Set(player.songs.map((s) => s.id))))
+  useEffect(() => {
+    if (lib.phase === "done" && lib.tracks.length > 0 && playlists.hydrated) pruneLists()
+  }, [lib.phase, lib.tracks, playlists.hydrated])
   // Lyrics files found beside songs are read as soon as the songs are known
   const readLyricFiles = useEffectEvent(() => info.importLyricsFiles(player.library))
   // The files are found by the deep folder walk after the first list is shown, so the count of songs that have one matters too

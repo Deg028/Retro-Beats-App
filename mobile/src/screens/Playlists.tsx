@@ -105,7 +105,7 @@ export default function Playlists({ playlists, player, onOpenPlayer }: { playlis
           ListHeaderComponent={
             <View style={{ gap: 12, marginBottom: 14 }}>
               <T variant="caption" color={theme.c.textMuted}>
-                {songCount(open.songIds.length)}
+                {songCount(songs.length)}
                 {total > 0 ? ` · ${fmt(total)}` : ""}
               </T>
               {renaming ? (
@@ -246,7 +246,7 @@ function PlaylistRow({ list, songs, onOpen }: { list: Playlist; songs: Map<numbe
               {list.name}
             </T>
             <T variant="caption" color={theme.c.textMuted}>
-              {songCount(list.songIds.length)}
+              {songCount(list.songIds.filter((id) => songs.has(id)).length)}
             </T>
           </View>
           <Icon name="arrow" size={20} color={theme.c.textMuted} />
@@ -273,7 +273,7 @@ function Picker({ list, songs, playlists, onDone }: { list: Playlist; songs: Son
           <T variant="label" color={theme.c.textMuted}>
             Agregar a «{list.name}»
           </T>
-          <T variant="title">{songCount(list.songIds.length)}</T>
+          <T variant="title">{songCount(list.songIds.filter((id) => songs.some((s) => s.id === id)).length)}</T>
         </View>
         <Button label="Listo" icon="check" onPress={onDone} />
       </View>

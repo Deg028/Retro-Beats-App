@@ -52,6 +52,9 @@ export function usePlaylists() {
       if (trimmed) update(id, (l) => ({ ...l, name: trimmed }))
     },
     remove: (id: string) => setLists((all) => all.filter((l) => l.id !== id)),
+    /** Drops songs no longer on the phone (deleted, moved or removed from the app) from every list. */
+    prune: (present: Set<number>) =>
+      setLists((all) => (all.some((l) => l.songIds.some((s) => !present.has(s))) ? all.map((l) => (l.songIds.every((s) => present.has(s)) ? l : { ...l, songIds: l.songIds.filter((s) => present.has(s)) })) : all)),
     /** Adds songs at the end; the ones already in the list are skipped. */
     addSongs: (id: string, songIds: number[]) => update(id, (l) => ({ ...l, songIds: [...l.songIds, ...songIds.filter((s, i) => !l.songIds.includes(s) && songIds.indexOf(s) === i)] })),
     removeSong: (id: string, songId: number) => update(id, (l) => ({ ...l, songIds: l.songIds.filter((s) => s !== songId) })),
