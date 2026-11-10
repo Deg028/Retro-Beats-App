@@ -227,13 +227,14 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
 
   /** Lyrics files saved beside songs are read once, so they show without playing the song first. */
   const importLyricsFiles = async (songs: Song[]) => {
-    const todo = songs.filter((s) => s.lyricsUri && !entriesRef.current[s.id]?.lyrics)
+    // A file beside the song was made for this very recording (by hand, or aligned to it on a PC with Whisper), so it
+    // replaces lyrics found online, and searches never replace it
+    const todo = songs.filter((s) => s.lyricsUri && entriesRef.current[s.id]?.lyricsFile !== s.lyricsUri)
     for (const song of todo) {
       const local = await readLyricsFile(song.lyricsUri!)
       if (!local) continue
       store.saveLyrics(song.id, local)
-      // lyricsFor stays empty: once the song plays and its length is known, the internet is asked for timed lyrics too
-      store.patch(song.id, { lyrics: true, lyricsAt: Date.now() })
+      store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!local.synced, lyricsV: LYRICS_V, manualLyrics: true, offset: 0, lyricsFile: song.lyricsUri })
     }
   }
 

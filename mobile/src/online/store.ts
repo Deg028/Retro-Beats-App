@@ -43,6 +43,8 @@ export type Entry = {
   edited?: boolean
   /** The person imported the lyrics: searches never replace them */
   manualLyrics?: boolean
+  /** The lyrics file beside the song that the saved lyrics came from, so a new file is read again */
+  lyricsFile?: string
   /** Times in a row that no timed version of the lyrics was found for a song that only has plain words */
   syncFails?: number
 }
