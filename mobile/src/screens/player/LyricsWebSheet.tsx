@@ -14,14 +14,17 @@ const ENGINES: { id: Engine; label: string }[] = [
   { id: "musixmatch", label: "Musixmatch" },
   { id: "google", label: "Google" },
 ]
+// Letras.com's own search is a Google embed and Musixmatch answers its search address with a 403 inside a WebView, so both
+// are reached through Google limited to the site; the person opens the result and presses the button there
 const searchUrl = (engine: Engine, terms: string) =>
   engine === "genius"
     ? `https://genius.com/search?q=${terms}`
     : engine === "letras"
-      ? `https://www.letras.com/?q=${terms}`
+      ? `https://www.google.com/search?q=${terms}+letra+site%3Aletras.com`
       : engine === "musixmatch"
-        ? `https://www.musixmatch.com/search/${terms}`
+        ? `https://www.google.com/search?q=${terms}+lyrics+site%3Amusixmatch.com`
         : `https://www.google.com/search?q=${terms}+letra+lyrics`
+
 type WebHandle = { injectJavaScript: (script: string) => void }
 // The package's own typings do not match this React Native version's, so only the props used here are declared
 const WebView = NativeWebView as unknown as ComponentType<{
@@ -72,7 +75,8 @@ export function LyricsWebSheet({ song, visible, onClose, onText }: { song: Song;
   const onMessage = (e: WebViewMessageEvent) => {
     try {
       const { text } = JSON.parse(e.nativeEvent.data) as { text: string }
-      if (!text.trim()) {
+      // Under 4 lines is a results list or a heading the page script picked up, not a song (the check would refuse it anyway)
+      if (text.split("\n").filter((l) => l.trim()).length < 4) {
         // A results page or a page with no lyrics: try the next site of the list instead of leaving the person stuck
         const at = ENGINES.findIndex((x) => x.id === engine)
         const next = ENGINES[at + 1]
