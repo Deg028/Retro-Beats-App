@@ -136,7 +136,10 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
 
   // Swiping the screen walks through the tabs, and from Home to the left edge opens the menu; swiping up on the bar opens the player
   const swipeTab = (step: 1 | -1) => {
-    if (playerOpen || menuOpen) return
+    if (menuOpen) return
+    // «Canción» sits between Inicio and Listas in the swipe order
+    if (playerOpen) return go(step === 1 ? "playlists" : "home")
+    if ((tab === "home" && step === 1) || (tab === "playlists" && step === -1)) return go("player")
     const i = SWIPE_TABS.indexOf(tab)
     if (i === -1) return step === -1 ? showTab("home", -1) : undefined
     if (SWIPE_TABS[i + step]) showTab(SWIPE_TABS[i + step], step)
