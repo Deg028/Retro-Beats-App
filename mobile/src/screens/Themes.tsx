@@ -77,7 +77,7 @@ function ThemeCard({ t, selected, onPress }: { t: Theme; selected: boolean; onPr
               borderColor: t.c.coverBorder,
             }}
           >
-            <PixelCover seed={3} size={76} palette={t.c.cover} bg={t.c.coverBg} />
+            {t.category === "retro" ? <PixelCover seed={3} size={76} palette={t.c.cover} bg={t.c.coverBg} /> : <SoftCover size={76} palette={t.c.cover} />}
           </View>
         </View>
         <Text numberOfLines={1} style={[textStyle(t, "title"), { fontSize: Math.min(t.type.title.size, 14), lineHeight: 20 }]}>
@@ -117,6 +117,16 @@ function ThemeCard({ t, selected, onPress }: { t: Theme; selected: boolean; onPr
         {selected && <Icon name="check" size={18} color={theme.c.accent} />}
       </View>
     </Press>
+  )
+}
+
+/** A plain abstract cover in the theme's colours for the cards of the modern themes (the retro ones keep the pixel art) */
+function SoftCover({ size, palette }: { size: number; palette: [string, string, string] }) {
+  return (
+    <View style={{ width: size, height: size, backgroundColor: palette[0], overflow: "hidden" }}>
+      <View style={{ position: "absolute", width: size * 1.1, height: size * 1.1, borderRadius: size, backgroundColor: palette[1], left: -size * 0.35, top: size * 0.45 }} />
+      <View style={{ position: "absolute", width: size * 0.5, height: size * 0.5, borderRadius: size, backgroundColor: palette[2], right: size * 0.1, top: size * 0.12 }} />
+    </View>
   )
 }
 

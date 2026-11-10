@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { StyleProp, View, ViewStyle } from "react-native"
 import Svg, { Path } from "react-native-svg"
 import { colors } from "../theme"
+import { useTheme } from "../themes/ThemeContext"
 
 const PALETTE = ["#e62429", "#ff7547", "#f2c14e"]
 
@@ -135,6 +136,9 @@ export function Equalizer({
   height?: number
   color?: string
 }) {
+  const theme = useTheme()
+  // Square bars suit the retro themes; the others get thinner bars with round ends
+  const square = theme.pixelCorners || theme.motion === "stepped"
   const [tick, setTick] = useState(0)
   useEffect(() => {
     if (!playing) return
@@ -145,7 +149,7 @@ export function Equalizer({
   return (
     <View style={{ height, flexDirection: "row", alignItems: "flex-end", gap: 3 }}>
       {Array.from({ length: bars }, (_, i) => (
-        <View key={i} style={{ width: 5, height: Math.max(2, Math.round(height * (playing ? level(tick, i) : 0.2))), backgroundColor: color }} />
+        <View key={i} style={{ width: square ? 5 : 4, height: Math.max(square ? 2 : 4, Math.round(height * (playing ? level(tick, i) : 0.2))), borderRadius: square ? 0 : 2, backgroundColor: color }} />
       ))}
     </View>
   )
