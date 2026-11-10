@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { Animated, BackHandler, Easing, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { StatusBar } from "expo-status-bar"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"
 import { PressStart2P_400Regular } from "@expo-google-fonts/press-start-2p"
 import { VT323_400Regular } from "@expo-google-fonts/vt323"
@@ -386,11 +387,13 @@ export default function App() {
   })
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.ink }} />
   return (
-    <SharedTextProvider>
-      <SafeAreaProvider>
-        <Main />
-      </SafeAreaProvider>
-    </SharedTextProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SharedTextProvider>
+        <SafeAreaProvider>
+          <Main />
+        </SafeAreaProvider>
+      </SharedTextProvider>
+    </GestureHandlerRootView>
   )
 }
 

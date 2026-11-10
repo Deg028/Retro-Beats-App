@@ -1,5 +1,6 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { ReactNode, useEffect, useMemo, useState } from "react"
 import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, TextStyle, useWindowDimensions, View } from "react-native"
+import { GestureDetector, usePanGesture } from "react-native-gesture-handler"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 import { Art } from "../components/Art"
@@ -45,9 +46,22 @@ export default function Player({
   const insets = useSafeAreaInsets()
   const swipe = useSwipe(() => player.step(1), () => player.step(-1))
   const dragToClose = useDismiss(drag.y, onClose, drag.settle)
-  // Dragging down anywhere on the player closes it, as long as the content is scrolled to the top (3 dp: the ScrollView takes the drag after about 8)
-  const scrollTop = useRef(true)
-  const dragOnContent = useDismiss(drag.y, onClose, drag.settle, () => scrollTop.current, 3)
+  // Dragging down anywhere on the player closes it while the content is at the top. This is a native gesture, not a JS
+  // responder: the ScrollView takes a drag natively after about 8 dp, so a quick drag used to reach it before the JS
+  // responder could claim it and the cover only twitched. Upwards it fails at once, so scrolling is left alone.
+  const [atTop, setAtTop] = useState(true)
+  const dragOnContent = usePanGesture({
+    enabled: atTop,
+    runOnJS: true,
+    activeOffsetY: [-10000, 8],
+    failOffsetY: [-8, 10000],
+    failOffsetX: [-30, 30],
+    onUpdate: (e) => drag.y.setValue(Math.max(0, e.translationY)),
+    onDeactivate: (e) => {
+      if (e.translationY > 140 || (e.translationY > 40 && e.velocityY > 700)) onClose()
+      else drag.settle()
+    },
+  })
 
   const [spin] = useState(() => new Animated.Value(0))
   useEffect(() => {
@@ -116,11 +130,12 @@ export default function Player({
         </View>
       </View>
 
-      <View {...dragOnContent} style={{ flex: 1 }}>
+      <GestureDetector gesture={dragOnContent}>
+      <View style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         scrollEventThrottle={16}
-        onScroll={(e) => (scrollTop.current = e.nativeEvent.contentOffset.y <= 0)}
+        onScroll={(e) => setAtTop(e.nativeEvent.contentOffset.y <= 0)}
       >
         <View
           style={[
@@ -326,6 +341,7 @@ export default function Player({
         </View>
       </ScrollView>
       </View>
+      </GestureDetector>
 
       {sheet === "info" && (
         <InfoSheet
