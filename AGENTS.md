@@ -46,7 +46,7 @@ Write UI copy in Spanish. Binary assets are tracked with Git LFS (see `.gitattri
 
 ## Status (2026-10-28)
 
-- Current version: **0.2.8-alpha** (`mobile/app.json`: `version` 0.2.8, `android.versionCode` 10; EAS build bc944ab0, `apk/RetroBeats-0.2.8-alpha.apk`, not pushed yet; 0.2.7 was EAS 1a20f38f, `versionCode` 9). It holds everything marked «Unreleased» under Next steps plus a typeface of its own for each theme (`themes.ts`, fonts loaded in `App.tsx`). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
+- Current version: **0.2.8-alpha** (`mobile/app.json`: `version` 0.2.8, `android.versionCode` 10; EAS build bc944ab0, `apk/RetroBeats-0.2.8-alpha.apk`; 0.2.7 was EAS 1a20f38f, `versionCode` 9, `apk/RetroBeats-0.2.7-alpha.apk`; all APKs from 0.1.0 to 0.2.8 are in the repository). It holds everything marked «Unreleased» under Next steps plus a typeface of its own for each theme (`themes.ts`, fonts loaded in `App.tsx`). Bump both for every APK, or Android won't treat it as an update. The `User-Agent` in `mobile/src/online/http.ts` carries the version too.
 - APKs live in `apk/` as `RetroBeats-<version>-alpha.apk` (Git LFS). `RetroBeats-0.1.0-alpha.apk` is only an LFS pointer to an older 24 MB build; 0.2.0 to 0.2.6 are real EAS builds (~88 MB).
 - Done and checked on the phone (TECNO LH7n, Android 14, 186 songs, mostly SnapTube and Telegram downloads):
   - Telegram files named only with digits show their real title, read from the ID3 tag.
