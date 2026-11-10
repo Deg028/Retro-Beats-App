@@ -109,6 +109,9 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   // Tab screens fade and slide in; the player is a layer that slides up over them
   const [enter] = useState(() => new Animated.Value(1))
   const [layerY] = useState(() => new Animated.Value(height))
+  // How far the finger has pulled the player down: fed by the gesture on the native side, so it follows the finger at once
+  const [dragY] = useState(() => new Animated.Value(0))
+  const [layerPos] = useState(() => Animated.add(layerY, dragY.interpolate({ inputRange: [0, 10000], outputRange: [0, 10000], extrapolateLeft: "clamp" })))
 
   useNowPlaying(player, theme)
   useThemeIcon(themeId)
@@ -155,6 +158,13 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
     out.start(({ finished }) => finished && setPlayerOpen(false))
   }
   const settlePlayer = () => motion(theme, layerY, 0, 200).start()
+  // The finger let go: the pull moves from `dragY` to `layerY`, which then animates to closed or back to open
+  const releasePlayer = (dy: number, close: boolean) => {
+    layerY.setValue(dy)
+    dragY.setValue(0)
+    if (close) closePlayer()
+    else settlePlayer()
+  }
 
   // Android back (button or edge swipe): close the menu or the player first, then return to Home, then let the OS exit
   const onBack = useEffectEvent(() => {
@@ -263,12 +273,12 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
         <>
           <Animated.View
             pointerEvents="none"
-            style={[StyleSheet.absoluteFill, { bottom: barHeight, backgroundColor: "#000", opacity: layerY.interpolate({ inputRange: [0, height], outputRange: [0.5, 0], extrapolate: "clamp" }) }]}
+            style={[StyleSheet.absoluteFill, { bottom: barHeight, backgroundColor: "#000", opacity: layerPos.interpolate({ inputRange: [0, height], outputRange: [0.5, 0], extrapolate: "clamp" }) }]}
           />
           {/* The player stops above the tab bar, which stays in reach; the clip keeps the slide from covering the bar */}
           <View pointerEvents="box-none" style={[styles.layer, { top: insets.top, bottom: barHeight, overflow: "hidden" }]}>
-            <Animated.View style={{ flex: 1, backgroundColor: theme.c.bg, transform: [{ translateY: layerY }] }}>
-              <Player player={player} info={info} playlists={playlists} onClose={closePlayer} drag={{ y: layerY, settle: settlePlayer }} />
+            <Animated.View style={{ flex: 1, backgroundColor: theme.c.bg, transform: [{ translateY: layerPos }] }}>
+              <Player player={player} info={info} playlists={playlists} onClose={closePlayer} drag={{ y: dragY, release: releasePlayer }} />
             </Animated.View>
           </View>
         </>

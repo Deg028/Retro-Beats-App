@@ -34,8 +34,8 @@ export default function Player({
   info: SongInfo
   playlists: PlaylistsApi
   onClose: () => void
-  /** Offset of the player layer, moved by the drag-to-close bar; `settle` springs it back */
-  drag: { y: Animated.Value; settle: () => void }
+  /** How far the finger has pulled the player layer down (`y`, fed natively by the gesture) and what to do when it lets go */
+  drag: { y: Animated.Value; release: (dy: number, close: boolean) => void }
 }) {
   const theme = useTheme()
   const { current: song, playing, shuffle, repeat } = player
@@ -45,22 +45,19 @@ export default function Player({
   const { width, height } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const swipe = useSwipe(() => player.step(1), () => player.step(-1))
-  const dragToClose = useDismiss(drag.y, onClose, drag.settle)
+  const dragToClose = useDismiss(drag.y, drag.release)
   // Dragging down anywhere on the player closes it while the content is at the top. This is a native gesture, not a JS
   // responder: the ScrollView takes a drag natively after about 8 dp, so a quick drag used to reach it before the JS
   // responder could claim it and the cover only twitched. Upwards it fails at once, so scrolling is left alone.
   const [atTop, setAtTop] = useState(true)
   const dragOnContent = usePanGesture({
     enabled: atTop,
-    runOnJS: true,
-    activeOffsetY: [-10000, 8],
+    activeOffsetY: [-10000, 5],
     failOffsetY: [-8, 10000],
     failOffsetX: [-30, 30],
-    onUpdate: (e) => drag.y.setValue(Math.max(0, e.translationY)),
-    onDeactivate: (e) => {
-      if (e.translationY > 140 || (e.translationY > 40 && e.velocityY > 700)) onClose()
-      else drag.settle()
-    },
+    // Native-driven: the pull reaches the screen without going through JavaScript
+    onUpdate: Animated.event([{ nativeEvent: { handlerData: { translationY: drag.y } } }], { useNativeDriver: true }),
+    onDeactivate: (e) => drag.release(Math.max(0, e.translationY), e.translationY > 140 || (e.translationY > 40 && e.velocityY > 700)),
   })
 
   const [spin] = useState(() => new Animated.Value(0))

@@ -101,24 +101,22 @@ export function useSwipe(onNext: () => void, onPrev: () => void) {
  * Drag down to dismiss: moves `y` with the finger and closes past a distance or on a fast flick.
  * Captures vertical drags from the buttons inside, so attach it to a bar outside any ScrollView.
  */
-export function useDismiss(y: Animated.Value, onClose: () => void, onSettle: () => void, canStart: () => boolean = () => true, slop = 10) {
+export function useDismiss(y: Animated.Value, onRelease: (dy: number, close: boolean) => void) {
   const start = useRef({ x: 0, y: 0, t: 0 })
   const dy = (e: GestureResponderEvent) => e.nativeEvent.pageY - start.current.y
   const panHandlers: ViewProps = {
     onTouchStart: (e) => {
       start.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, t: Date.now() }
     },
-    // canStart: over scrolling content, only when it is already at the top
-    onMoveShouldSetResponderCapture: (e) => canStart() && dy(e) > slop && dy(e) > Math.abs(e.nativeEvent.pageX - start.current.x) * 1.2,
+    onMoveShouldSetResponderCapture: (e) => dy(e) > 10 && dy(e) > Math.abs(e.nativeEvent.pageX - start.current.x) * 1.2,
     onResponderTerminationRequest: () => false,
     onResponderMove: (e) => y.setValue(Math.max(0, dy(e))),
     onResponderRelease: (e) => {
       const d = dy(e)
       const speed = d / Math.max(1, Date.now() - start.current.t)
-      if (d > 140 || (d > 40 && speed > 0.7)) onClose()
-      else onSettle()
+      onRelease(Math.max(0, d), d > 140 || (d > 40 && speed > 0.7))
     },
-    onResponderTerminate: onSettle,
+    onResponderTerminate: () => onRelease(0, false),
   }
   return panHandlers
 }
