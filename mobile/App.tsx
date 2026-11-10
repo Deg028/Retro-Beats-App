@@ -281,7 +281,8 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
           />
           {/* The player stops above the tab bar, which stays in reach; the clip keeps the slide from covering the bar */}
           <View pointerEvents="box-none" style={[styles.layer, { top: insets.top, bottom: barHeight, overflow: "hidden" }]}>
-            <Animated.View style={{ flex: 1, backgroundColor: theme.c.bg, transform: [{ translateY: layerPos }] }}>
+            {/* Outside the cover (which changes song) and the controls, a sideways swipe changes tab */}
+            <Animated.View {...screenSwipe} style={{ flex: 1, backgroundColor: theme.c.bg, transform: [{ translateY: layerPos }] }}>
               <Player player={player} info={info} playlists={playlists} onClose={closePlayer} drag={{ y: dragY, release: releasePlayer }} />
             </Animated.View>
           </View>
