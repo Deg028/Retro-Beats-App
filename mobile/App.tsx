@@ -260,9 +260,10 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
           </View>
         )}
         <View>
-          <View {...barSwipe}>
+          {/* The mini player slides with the screen, so the song playing is not left out of the swipe */}
+          <Animated.View {...barSwipe} style={{ opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [24 * dir, 0] }) }] }}>
             <MiniPlayer player={player} onOpen={() => go("player")} />
-          </View>
+          </Animated.View>
           <View onLayout={(e) => setBarHeight(e.nativeEvent.layout.height)}>
             <TabBar screen={playerOpen ? "player" : tab} onChange={go} bottom={insets.bottom} onSwipeUp={() => !playerOpen && !menuOpen && go("player")} />
           </View>
