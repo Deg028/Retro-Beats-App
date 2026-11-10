@@ -13,9 +13,9 @@ type Interlude = { match: string[]; ranges: { start: number; end: number; image:
 const INTERLUDES: Interlude[] = [
   // Creepy Nuts - オトノケ (Otonoke), the music video version in SnapTube Audio (3:17)
   { match: ["オトノケ", "otonoke"], ranges: [{ start: 165, end: 175, image: require("../assets/interludes/otonoke.gif") }] },
-  // Ultimate Battle - Dragon Ball Super | Epic Reforged Power Metal Cover, the SnapTube file. Pixel-art sprite (580x354,
-  // art pixels of 2x2) shown at 222x135 dp: 2 device pixels per art pixel on a phone of density 2.6.
-  { match: ["epic reforged power metal"], ranges: [{ start: 139, end: 161, image: require("../assets/interludes/ultima-batalla.gif"), size: { width: 222, height: 135 } }] },
+  // Adrián Barba - La Última Batalla (Ver. Full), the SnapTube file. Pixel-art sprite (580x354, art pixels of 2x2) shown
+  // at 222x135 dp: 2 device pixels per art pixel on a phone of density 2.6.
+  { match: ["la última batalla", "la ultima batalla"], ranges: [{ start: 139, end: 161, image: require("../assets/interludes/ultima-batalla.gif"), size: { width: 222, height: 135 } }] },
 ]
 
 /** `image` is a bundled picture (`require`) */
