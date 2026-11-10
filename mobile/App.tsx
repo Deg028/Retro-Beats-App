@@ -119,8 +119,9 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   const showTab = (next: Tab, direction = 1) => {
     setDir(direction)
     setTab(next)
-    enter.setValue(0)
-    motion(theme, enter, 1, 260).start()
+    // Starts half visible and moves only a little, so the new screen is readable from the first frame
+    enter.setValue(0.5)
+    motion(theme, enter, 1, 170).start()
   }
 
   const go = (next: Screen) => {
@@ -140,7 +141,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   const screenSwipe = useSwipe({ left: () => swipeTab(1), right: () => swipeTab(-1) })
   const barSwipe = useSwipe({ left: () => swipeTab(1), right: () => swipeTab(-1), up: () => !playerOpen && !menuOpen && go("player") })
 
-  const slideIn = useEffectEvent(() => motion(theme, layerY, 0, 330).start())
+  const slideIn = useEffectEvent(() => motion(theme, layerY, 0, 260).start())
   useEffect(() => {
     if (playerOpen) slideIn()
   }, [playerOpen])
@@ -149,7 +150,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
     const out =
       theme.motion === "stepped"
         ? motion(theme, layerY, height, 280)
-        : Animated.timing(layerY, { toValue: height, duration: 240, easing: Easing.in(Easing.cubic), useNativeDriver: true })
+        : Animated.timing(layerY, { toValue: height, duration: 200, easing: Easing.in(Easing.cubic), useNativeDriver: true })
     out.start(({ finished }) => finished && setPlayerOpen(false))
   }
   const settlePlayer = () => motion(theme, layerY, 0, 200).start()
@@ -187,7 +188,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
     <View style={[styles.root, { backgroundColor: theme.c.bg }]}>
       <StatusBar style={theme.dark ? "light" : "dark"} />
       <View style={{ flex: 1, paddingTop: insets.top }}>
-        <Animated.View {...screenSwipe} style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28 * dir, 0] }) }] }}>
+        <Animated.View {...screenSwipe} style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [24 * dir, 0] }) }] }}>
           {tab === "home" && <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />}
           {tab === "themes" && <Themes />}
           {tab === "recap" && <Recap listening={listening} player={player} initial={recapStart} />}
