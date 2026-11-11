@@ -101,7 +101,8 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
         if (lyrics?.synced) store.patch(song.id, { syncFails: 0 })
         else {
           const plain = lyrics?.plain ?? song.plain
-          const alreadyTimed = !lyrics && entry?.lyricsSynced
+          // Timed lyrics saved before (even real ones the person imported) are never replaced by guessed times
+          const alreadyTimed = entry?.lyricsSynced === true || entry?.manualLyrics === true
           if (plain && !alreadyTimed) {
             const fails = (entry?.syncFails ?? 0) + 1
             store.patch(song.id, { syncFails: fails })
