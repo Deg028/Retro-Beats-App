@@ -347,9 +347,10 @@ export default function Player({
           visible
           onClose={() => setSheet(null)}
           onDelete={async (fromPhone) => {
-            const ok = await player.deleteSong(song.id, fromPhone)
-            if (ok) onClose()
-            return ok
+            const result = await player.deleteSong(song.id, fromPhone)
+            // The player stays open on the next song of the list; it only closes when nothing is left to play
+            if (result === "empty") onClose()
+            return !!result
           }}
         />
       )}

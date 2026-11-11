@@ -437,8 +437,12 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
       .catch(() => {})
   }, [])
 
-  /** Takes a song out of the app, and with `fromPhone` also deletes its file (Android asks the person to confirm). Returns false if the file could not be deleted. */
-  const deleteSong = async (id: number, fromPhone: boolean) => {
+  /**
+   * Takes a song out of the app, and with `fromPhone` also deletes its file (Android asks the person to confirm).
+   * Returns false if the file could not be deleted; otherwise "next" when the song that was open handed over to the
+   * one after it in the list (still playing if it was, loaded and paused if not), or "empty" when nothing is left to play.
+   */
+  const deleteSong = async (id: number, fromPhone: boolean): Promise<false | "next" | "empty"> => {
     const song = byId.get(id)
     if (!song) return false
     if (fromPhone) {
@@ -450,11 +454,33 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
         return false
       }
     }
-    AsyncStorage.removeItem(LAST_KEY).catch(() => {})
+    let result: "next" | "empty" = "empty"
     if (currentId === id) {
-      audio.pause()
-      setCurrentId(null)
-      setPlaying(false)
+      // The one after it, or the first of the list when it was the last, so the cycle goes on
+      const at = order.indexOf(id)
+      const rest = order.filter((x) => x !== id)
+      const nextId = at === -1 ? rest[0] : (order[at + 1] ?? rest[0])
+      const nextUri = nextId === undefined ? undefined : byId.get(nextId)?.uri
+      const wasPlaying = playing
+      if (nextId !== undefined && nextUri) {
+        result = "next"
+        pendingSeek.current = null
+        failedFor.current = null
+        setLoadedDuration(0)
+        setCurrentId(nextId)
+        try {
+          audio.replace({ uri: nextUri })
+          if (wasPlaying) audio.play()
+          else audio.pause()
+        } catch {
+          // A file that cannot open is handled by the playback status, like any other
+        }
+      } else {
+        audio.pause()
+        setCurrentId(null)
+        setPlaying(false)
+        AsyncStorage.removeItem(LAST_KEY).catch(() => {})
+      }
     }
     setHidden((h) => {
       const next = h.includes(id) ? h : [...h, id]
@@ -462,9 +488,46 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
       return next
     })
     showToast(fromPhone ? `«${song.title}» borrada del teléfono.` : `«${song.title}» quitada de la app.`)
-    return true
+    return result
   }
 
+
+  // The file of the open song went away outside the app (deleted from another app or a file manager, found missing by a
+  // scan): the list goes on with the song after it instead of stopping with an empty player
+  const lastOrder = useRef<number[]>([])
+  useEffect(() => {
+    if (currentId !== null && byId.has(currentId)) lastOrder.current = order
+  }, [order, currentId, byId])
+  const onVanished = useEffectEvent(() => {
+    if (currentId === null) return
+    const at = lastOrder.current.indexOf(currentId)
+    const after = at === -1 ? [] : lastOrder.current.slice(at + 1)
+    const nextId = after.find((x) => order.includes(x)) ?? order[0]
+    const nextUri = nextId === undefined ? undefined : byId.get(nextId)?.uri
+    const wasPlaying = playing
+    pendingSeek.current = null
+    failedFor.current = null
+    setLoadedDuration(0)
+    if (nextId === undefined || !nextUri) {
+      audio.pause()
+      setCurrentId(null)
+      setPlaying(false)
+      return
+    }
+    setCurrentId(nextId)
+    try {
+      audio.replace({ uri: nextUri })
+      if (wasPlaying) audio.play()
+      else audio.pause()
+    } catch {
+      // A file that cannot open is handled by the playback status
+    }
+  })
+  useEffect(() => {
+    // Not while the list is still loading
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reacts to the file going away, an outside event
+    if (currentId !== null && songs.length > 0 && !byId.has(currentId)) onVanished()
+  }, [byId, currentId, songs.length])
 
   const toggleLibrary = (id: number) => {
     const song = songs.find((s) => s.id === id)
