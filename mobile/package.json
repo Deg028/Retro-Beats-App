@@ -50,6 +50,7 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
     "patch-package": "^8.0.1",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -57,11 +58,13 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:apk": "eas build --platform android --profile preview",
+    "build:apk": "npm run test:lyrics && eas build --platform android --profile preview",
     "lint": "expo lint",
     "generate:audio": "node scripts/generate-tracks.mjs",
     "generate:icons": "node scripts/generate-icons.mjs",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "test:lyrics": "tsx scripts/test-lyrics.ts",
+    "eas-build-post-install": "npm run test:lyrics"
   },
   "private": true,
   "expo": {

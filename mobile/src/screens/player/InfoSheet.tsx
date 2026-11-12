@@ -113,6 +113,14 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
             if (ok) setLyrics("")
           }}
         />
+        {info.hasPreviousLyrics(song.id) && (
+          <Button
+            label="Restaurar la letra anterior"
+            variant="secondary"
+            icon="repeat"
+            onPress={async () => setMessage((await info.restorePreviousLyrics(song.id)) ? "Letra anterior restaurada." : "No se pudo restaurar la letra anterior.")}
+          />
+        )}
 
         <T variant="label" color={theme.c.textMuted} style={{ marginTop: 8 }}>
           Eliminar

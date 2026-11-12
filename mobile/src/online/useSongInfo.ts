@@ -11,37 +11,13 @@ import { lookup, saveCover } from "./lookup"
 import { estimateTimes, splitLyrics } from "./lrclib"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
 import { Entry, InfoStore } from "./store"
+import { isSnaptubeFile, LYRICS_V, LyricsSource, reviewLyrics, SOURCES_V, Review, wanted } from "./lyricsPolicy"
 
-const WEEK = 7 * 24 * 3600 * 1000
-// Bumped when lyrics are prepared differently (2: files with the original, romanisation and translation keep the original)
-const LYRICS_V = 2
-// Bumped when a new source is added (2: Deezer covers, lyrics.ovh, the title alone; 3: artists read from the whole tag; 4: NetEase lyrics),
-// so earlier misses are tried again at once
-const SOURCES_V = 4
 const SNAPTUBE_KEY = "retro-beats:snaptube-folder"
 const ROMAJI_KEY = "retro-beats:romaji"
 
-/**
- * What to look up for a song. Lyrics wait until the song's length is known: timings only fit the recording
- * they were made for, and the length is how the right one is told from a live or extended version.
- */
-function wanted(song: Song, entry: Entry | undefined, force = false) {
-  const redo = entry?.lyrics === true && !entry.lyricsFor
-  // Only plain words were found: a timed version may have been added since, so it is looked for again now and then
-  const upgrade = entry?.lyrics === true && entry.lyricsSynced === false && (!entry.syncTriedAt || Date.now() - entry.syncTriedAt > WEEK)
-  const stale = entry?.lyrics === true && (entry.lyricsV ?? 1) < LYRICS_V
-  // Lyrics the person imported are never searched again
-  if (entry?.manualLyrics) return { lyrics: false, cover: !force && typeof entry.thumb !== "string" && typeof entry.embedded !== "string" && needs(entry, "cover") }
-  return { lyrics: song.duration > 0 && (force || needs(entry, "lyrics") || redo || upgrade || stale), // A downloader's thumbnail is already the cover: no search for another one
-    cover: !force && typeof entry?.thumb !== "string" && typeof entry?.embedded !== "string" && needs(entry, "cover") }
-}
-
-/** A part is looked up if it never was, or if it was and came back empty more than a week ago. Whatever was found stays. */
-function needs(entry: Entry | undefined, part: "lyrics" | "cover") {
-  const at = part === "lyrics" ? entry?.lyricsAt : entry?.coverAt
-  const found = part === "lyrics" ? entry?.lyrics === true : typeof entry?.cover === "string"
-  return !at || (!found && (Date.now() - at > WEEK || (entry?.srcV ?? 1) < SOURCES_V))
-}
+export type AuditRow = Review & { id: number; name: string }
+export type AuditReport = { total: number; ok: number; none: number; plain: number; estimated: number; suspect: AuditRow[]; /** songs worth looking up again: doubtful, untimed or with guessed times */ redo: number[]; at: number }
 
 export type LyricsState = "off" | "loading" | "found" | "none" | "error"
 
@@ -78,36 +54,39 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     try {
       const found = await lookup(song, want)
       error = found.error
-      // A lyrics file beside the song fills in where the internet had nothing, or only untimed words
+      // A SnapTube lyrics file beside the song fills in where the internet had nothing, or only untimed words
       let lyrics = found.lyrics
+      let source: LyricsSource = "web"
       if (want.lyrics && song.lyricsUri && !lyrics?.synced) {
         const local = await readLyricsFile(song.lyricsUri)
-        if (local && (local.synced || !lyrics)) lyrics = local
+        if (local && (local.synced || !lyrics)) {
+          lyrics = local
+          source = isSnaptubeFile(song.lyricsUri) ? "snaptube" : "file"
+        }
       }
       const now = Date.now()
       if (want.lyrics && lyrics !== undefined) {
-        // A second look that finds nothing must not throw away lyrics that were saved before
-        if (lyrics || !entry?.lyrics) {
-          // Words without timing never replace timed lyrics that were saved before
-          if (lyrics?.synced || !entry?.lyricsSynced) {
-            store.saveLyrics(song.id, lyrics)
-            store.patch(song.id, { lyrics: !!lyrics, lyricsAt: now, lyricsFor: song.duration, lyricsSynced: !!lyrics?.synced, syncTriedAt: now, lyricsV: LYRICS_V, srcV: SOURCES_V })
-          } else store.patch(song.id, { syncTriedAt: now, lyricsV: LYRICS_V })
+        const looked = { lyricsAt: now, lyricsFor: song.duration, syncTriedAt: now, lyricsV: LYRICS_V, srcV: SOURCES_V }
+        if (lyrics) {
+          // `canReplace` (lyricsPolicy.ts) decides whether this may take the place of what is saved: timed lyrics never lose to untimed ones
+          const saved = await store.applyLyrics(song.id, lyrics, source, looked, force)
+          if (!saved) store.patch(song.id, { syncTriedAt: now, lyricsV: LYRICS_V })
+        } else if (!entry?.lyrics) {
+          store.saveLyrics(song.id, null)
+          store.patch(song.id, { lyrics: false, lyricsSynced: false, ...looked })
         } else store.patch(song.id, { lyricsAt: now, lyricsFor: song.duration, syncTriedAt: now, lyricsV: LYRICS_V, srcV: SOURCES_V })
       }
       // No timed lyrics again (the second time in a row): the plain lines are spread over the song so the lyrics still
-      // follow it roughly, and the person corrects them with the adjustment
+      // follow it roughly, and the person corrects them with the adjustment. They only ever fill in untimed words
       if (want.lyrics && lyrics !== undefined && !found.error) {
         if (lyrics?.synced) store.patch(song.id, { syncFails: 0 })
         else {
           const plain = lyrics?.plain ?? song.plain
-          // Timed lyrics saved before (even real ones the person imported) are never replaced by guessed times
-          const alreadyTimed = entry?.lyricsSynced === true || entry?.manualLyrics === true
-          if (plain && !alreadyTimed) {
+          if (plain) {
             const fails = (entry?.syncFails ?? 0) + 1
             store.patch(song.id, { syncFails: fails })
             const estimate = fails >= 2 && song.duration > 0 ? estimateTimes(plain, song.duration) : []
-            if (estimate.length) store.saveLyrics(song.id, { synced: estimate, plain, duration: song.duration, estimated: true })
+            if (estimate.length) await store.applyLyrics(song.id, { synced: estimate, plain, duration: song.duration, estimated: true }, "estimated")
           }
         }
       }
@@ -153,8 +132,8 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
   const importLyrics = (song: Song, text: string) => {
     const { synced, plain } = splitLyrics(text)
     if (!synced && !plain) return false
-    store.saveLyrics(song.id, { synced, plain: plain || null, duration: song.duration || undefined })
-    store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!synced, syncTriedAt: Date.now(), lyricsV: LYRICS_V, manualLyrics: true, offset: 0 })
+    // The person's own lyrics win over everything; the timed ones they had are kept for «Restaurar la letra anterior»
+    void store.applyLyrics(song.id, { synced, plain: plain || null, duration: song.duration || undefined }, "manual", { lyricsAt: Date.now(), lyricsFor: song.duration, syncTriedAt: Date.now(), lyricsV: LYRICS_V, offset: 0 })
     return true
   }
 
@@ -171,7 +150,7 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
       if (text && (synced || plain.replace(/\s+/g, "").length >= 40)) {
         store.saveLyrics(song.id, { synced, plain: plain || null })
         // lyricsFor stays empty: once the song plays and its length is known, the internet is asked for timed lyrics too
-        found[song.id] = { lyrics: true, lyricsAt: now, lyricsSynced: !!synced, embeddedLyricsAt: now }
+        found[song.id] = { lyrics: true, lyricsAt: now, lyricsSynced: !!synced, embeddedLyricsAt: now, lyricsSource: "embedded" }
       } else found[song.id] = { embeddedLyricsAt: now }
     }
     if (Object.keys(found).length) store.patchMany(found)
@@ -228,31 +207,33 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
 
   /** Lyrics files saved beside songs are read once, so they show without playing the song first. */
   const importLyricsFiles = async (songs: Song[]) => {
-    // A file beside the song was made for this very recording (by hand, or aligned to it on a PC with Whisper), so it
-    // replaces lyrics found online, and searches never replace it
-    const todo = songs.filter((s) => s.lyricsUri && entriesRef.current[s.id]?.lyricsFile !== s.lyricsUri)
-    for (const song of todo) {
-      const uri = song.lyricsUri!
+    for (const song of songs) {
+      const uri = song.lyricsUri
+      if (!uri) continue
       const entry = entriesRef.current[song.id]
-      // SnapTube saves its own `_private.lrc` (often plain words, or YouTube's automatic captions) beside many songs. That
-      // is not the person's file: it only fills in a song that has nothing, and never blocks the search for timed lyrics
-      if (/_private\.lrc$/i.test(uri)) {
-        if (!entry?.lyrics && !entry?.manualLyrics) {
-          const local = await readLyricsFile(uri)
-          if (local) {
-            store.saveLyrics(song.id, local)
-            store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!local.synced, lyricsV: LYRICS_V, lyricsFile: uri })
-            continue
-          }
+      // SnapTube saves its own `_private.lrc` (plain words, or YouTube's automatic captions) beside many songs. It is not the
+      // person's file: it only fills in a song that has nothing, and never blocks the search for timed lyrics
+      if (isSnaptubeFile(uri)) {
+        // An earlier build saved these as the person's own lyrics, which replaced the timed ones found online and stopped every search: undo that
+        if (entry?.lyricsFile === uri && entry.manualLyrics && entry.lyricsSource !== "manual") {
+          store.patch(song.id, { manualLyrics: false, lyricsSource: "snaptube", lyricsFor: undefined, syncTriedAt: undefined })
         }
-        // Undo what an earlier build did with it: lyrics from the file saved as the person's own, which blocked every search
-        store.patch(song.id, entry?.lyricsFile ? { lyricsFile: uri, manualLyrics: false, lyricsFor: undefined, syncTriedAt: undefined } : { lyricsFile: uri })
+        if (entry?.lyricsFile === uri || entry?.lyrics || entry?.manualLyrics) {
+          if (entry?.lyricsFile !== uri) store.patch(song.id, { lyricsFile: uri })
+          continue
+        }
+        const local = await readLyricsFile(uri)
+        if (local) {
+          store.saveLyrics(song.id, local)
+          store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!local.synced, lyricsV: LYRICS_V, lyricsSource: "snaptube", lyricsFile: uri })
+        } else store.patch(song.id, { lyricsFile: uri })
         continue
       }
+      if (entry?.lyricsFile === uri) continue
+      // A file with another name was made for this very recording (by hand, or aligned to it on a PC with Whisper): it replaces lyrics found online
       const local = await readLyricsFile(uri)
       if (!local) continue
-      store.saveLyrics(song.id, local)
-      store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!local.synced, lyricsV: LYRICS_V, manualLyrics: true, offset: 0, lyricsFile: uri })
+      await store.applyLyrics(song.id, local, "file", { lyricsAt: Date.now(), lyricsFor: song.duration, lyricsV: LYRICS_V, offset: 0, lyricsFile: uri })
     }
   }
 
@@ -402,6 +383,26 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     }
   }
 
+  /** Reads every saved lyric and says which can be trusted to follow its song (see `reviewLyrics`). */
+  const auditLyrics = async (songs: Song[]): Promise<AuditReport> => {
+    const rows: AuditRow[] = []
+    for (const song of songs) {
+      const entry = store.entries[song.id]
+      const stored = entry?.lyrics ? await store.readStored(song.id) : null
+      const review = reviewLyrics(entry, stored, song.duration, entry?.lyricsSource)
+      rows.push({ id: song.id, name: `${song.artist} - ${song.title}`, ...review })
+    }
+    const count = (v: Review["verdict"]) => rows.filter((r) => r.verdict === v).length
+    return { total: rows.length, ok: count("ok"), none: count("none"), plain: count("plain"), estimated: count("estimated"), suspect: rows.filter((r) => r.verdict === "suspect"), redo: rows.filter((r) => r.verdict === "suspect" || r.verdict === "plain" || r.verdict === "estimated").map((r) => r.id), at: Date.now() }
+  }
+
+  /** Makes the songs with doubtful lyrics be looked up again on the next run (the person's own lyrics are left alone). */
+  const recheckLyrics = (ids: number[]) => {
+    const parts: Record<number, Partial<Entry>> = {}
+    for (const id of ids) if (!store.entries[id]?.manualLyrics) parts[id] = { lyricsFor: undefined, syncTriedAt: undefined, lyricsAt: undefined, srcV: undefined }
+    store.patchMany(parts)
+  }
+
   const entries = Object.values(store.entries)
   return {
     enabled: store.enabled,
@@ -428,6 +429,11 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     bulkError,
     enrichAll,
     importLyricsFiles,
+    /** A copy of the timed lyrics this song had before they were replaced exists */
+    hasPreviousLyrics: (id: number) => !!store.entries[id]?.hasPrev,
+    restorePreviousLyrics: (id: number) => store.restorePrevious(id),
+    auditLyrics,
+    recheckLyrics,
     importEmbedded,
     forgetMissingFiles,
     importThumbnails,

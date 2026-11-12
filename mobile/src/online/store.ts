@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { LyricLine } from "../data"
 import { Lyrics, tidyLyrics } from "./lrclib"
+import { canReplace, inferSource, isOwn, LyricsSource, Quality, worthBackingUp } from "./lyricsPolicy"
 
 const INDEX_KEY = "retro-beats:online:v2"
 const ON_KEY = "retro-beats:online-on"
 // Lyrics live under one key per song: all of them together would be too big for a single stored value
 const LYRICS_KEY = "retro-beats:lyrics:"
+// The timed lyrics a song had before they were replaced, kept so the person can go back
+const PREV_KEY = "retro-beats:lyrics-prev:"
 
 /** What is known online about one song. A part with no timestamp was never looked up. */
 export type Entry = {
@@ -45,6 +48,10 @@ export type Entry = {
   manualLyrics?: boolean
   /** The lyrics file beside the song that the saved lyrics came from, so a new file is read again */
   lyricsFile?: string
+  /** Where the saved lyrics came from (see `lyricsPolicy.ts`); missing in entries saved by older builds, which infer it */
+  lyricsSource?: LyricsSource
+  /** A copy of the timed lyrics this song had before they were replaced is kept, for «Restaurar la letra anterior» */
+  hasPrev?: boolean
   /** Times in a row that no timed version of the lyrics was found for a song that only has plain words */
   syncFails?: number
 }
@@ -136,6 +143,57 @@ export function useInfoStore() {
     setLyrics((prev) => ({ ...prev, [id]: found }))
   }
 
+  /** What is saved for a song, read from the phone (the source of truth: memory only holds the songs played) */
+  const readStored = async (id: number): Promise<Lyrics | null> => {
+    try {
+      const raw = await AsyncStorage.getItem(LYRICS_KEY + id)
+      if (raw) return JSON.parse(raw) as Lyrics
+    } catch {
+      // fall back to memory
+    }
+    return lyricsRef.current[id] ?? null
+  }
+
+  /**
+   * The only way lyrics get saved over other lyrics. `lyricsPolicy.canReplace` decides whether they may take the place of
+   * what is there; timed lyrics that are replaced are copied aside first. Returns whether they were saved.
+   */
+  const applyLyrics = async (id: number, incoming: Lyrics, source: LyricsSource, extra: Partial<Entry> = {}, explicit = false): Promise<boolean> => {
+    const entry = entriesRef.current[id]
+    const stored = entry?.lyrics ? await readStored(id) : null
+    const current: Quality | null = stored ? { source: entry?.lyricsSource ?? inferSource(entry, stored), synced: !!stored.synced?.length } : null
+    const next: Quality = { source, synced: !!incoming.synced?.length }
+    if (!canReplace(current, next, explicit)) return false
+    let backup: Partial<Entry> = {}
+    if (stored && worthBackingUp(current) && JSON.stringify(stored.synced) !== JSON.stringify(incoming.synced)) {
+      await AsyncStorage.setItem(PREV_KEY + id, JSON.stringify(stored)).catch(() => {})
+      backup = { hasPrev: true }
+    }
+    await AsyncStorage.setItem(LYRICS_KEY + id, JSON.stringify(incoming)).catch(() => {})
+    setLyrics((prev) => ({ ...prev, [id]: incoming }))
+    patch(id, { lyrics: true, lyricsSource: source, lyricsSynced: next.synced, manualLyrics: isOwn(source), ...backup, ...extra })
+    return true
+  }
+
+  /** Goes back to the timed lyrics a song had before they were replaced; what is there now becomes the copy. */
+  const restorePrevious = async (id: number): Promise<boolean> => {
+    try {
+      const raw = await AsyncStorage.getItem(PREV_KEY + id)
+      if (!raw) return false
+      const prev = JSON.parse(raw) as Lyrics
+      const now = await readStored(id)
+      if (now) await AsyncStorage.setItem(PREV_KEY + id, JSON.stringify(now))
+      else await AsyncStorage.removeItem(PREV_KEY + id)
+      await AsyncStorage.setItem(LYRICS_KEY + id, raw)
+      setLyrics((p) => ({ ...p, [id]: tidyLyrics(prev) }))
+      // The person chose these: searches never replace them
+      patch(id, { lyrics: true, lyricsSource: "manual", lyricsSynced: !!prev.synced?.length, manualLyrics: true, hasPrev: !!now })
+      return true
+    } catch {
+      return false
+    }
+  }
+
   /** Adds to lyrics already saved for a song (the romanised reading, found after the lyrics were). */
   const patchLyrics = (id: number, part: Partial<Lyrics>) => {
     const current = lyricsRef.current[id]
@@ -178,5 +236,5 @@ export function useInfoStore() {
     return out
   }, [entries, lyrics])
 
-  return { entries, enabled, hydrated, meta, setEnabled, patch, patchMany, saveLyrics, patchLyrics, loadLyrics }
+  return { entries, enabled, hydrated, meta, setEnabled, patch, patchMany, saveLyrics, applyLyrics, restorePrevious, readStored, patchLyrics, loadLyrics }
 }

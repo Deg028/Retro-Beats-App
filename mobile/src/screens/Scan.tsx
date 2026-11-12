@@ -6,7 +6,7 @@ import { SKIP_LABEL, SkipReason } from "../library/files"
 import { startActivityAsync } from "expo-intent-launcher"
 import { folderLabel, pathLabel } from "../library/scan"
 import { DEFAULT_MIN_SECONDS, DeviceLibrary } from "../library/useDeviceLibrary"
-import { SongInfo } from "../online/useSongInfo"
+import { AuditReport, SongInfo } from "../online/useSongInfo"
 import { PlayerApi } from "../usePlayer"
 
 const REASONS: SkipReason[] = ["format", "empty", "short"]
@@ -30,6 +30,8 @@ const clock = (t: number) => new Date(t).toLocaleTimeString("es", { hour: "2-dig
 export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLibrary; player: PlayerApi; info: SongInfo; onOpenHome: () => void }) {
   const theme = useTheme()
   const [open, setOpen] = useState<SkipReason | "broken" | null>(null)
+  const [report, setReport] = useState<AuditReport | null>(null)
+  const [auditing, setAuditing] = useState(false)
   const { access, phase, tracks, skipped } = lib
   const byFolder = lib.mode === "folders"
   const scanning = phase === "scanning"
@@ -252,6 +254,60 @@ export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLib
               <T variant="caption" color={theme.c.danger}>
                 {info.bulkError}
               </T>
+            )}
+          </Surface>
+        </View>
+      )}
+
+      {tracks.length > 0 && (
+        <View style={{ gap: 10 }}>
+          <T variant="title">Revisión de letras</T>
+          <Surface style={{ padding: 12, gap: 8 }}>
+            <T variant="caption" color={theme.c.textMuted}>
+              Mira las letras guardadas en el teléfono y avisa de las que no siguen bien a su canción: sin tiempos, con tiempos inventados, subtítulos automáticos de YouTube, o hechas para una versión de otra duración. No cambia nada por sí sola.
+            </T>
+            <Button
+              label={auditing ? "Revisando…" : "Revisar las letras"}
+              icon="check"
+              disabled={auditing}
+              onPress={async () => {
+                setAuditing(true)
+                try {
+                  setReport(await info.auditLyrics(player.library))
+                } finally {
+                  setAuditing(false)
+                }
+              }}
+            />
+            {report && (
+              <View style={{ gap: 6 }}>
+                <T variant="caption" color={theme.c.highlight}>
+                  {report.ok} con tiempos que encajan · {report.suspect.length} dudosas · {report.plain} sin tiempos · {report.estimated} con tiempos aproximados · {report.none} sin letra (de {report.total})
+                </T>
+                {report.suspect.slice(0, SHOWN).map((r) => (
+                  <T key={r.id} variant="caption" numberOfLines={2} color={theme.c.text} style={{ textTransform: "none" }}>
+                    {r.name}: {r.reasons.join("; ")}
+                  </T>
+                ))}
+                {report.suspect.length > SHOWN && (
+                  <T variant="caption" color={theme.c.textMuted}>
+                    y {report.suspect.length - SHOWN} más
+                  </T>
+                )}
+                {report.redo.length > 0 && (
+                  <Button
+                    label={`Buscar de nuevo ${report.redo.length} letras`}
+                    variant="secondary"
+                    icon="repeat"
+                    disabled={!info.enabled || !!info.bulk}
+                    onPress={() => {
+                      // Whatever is better than what they have replaces it; timed lyrics never lose to untimed ones, and the person's own are left alone
+                      info.recheckLyrics(report.redo)
+                      setTimeout(() => info.enrichAll(player.library), 300)
+                    }}
+                  />
+                )}
+              </View>
             )}
           </Surface>
         </View>
