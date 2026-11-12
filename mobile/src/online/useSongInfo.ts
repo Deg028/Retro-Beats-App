@@ -232,10 +232,27 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     // replaces lyrics found online, and searches never replace it
     const todo = songs.filter((s) => s.lyricsUri && entriesRef.current[s.id]?.lyricsFile !== s.lyricsUri)
     for (const song of todo) {
-      const local = await readLyricsFile(song.lyricsUri!)
+      const uri = song.lyricsUri!
+      const entry = entriesRef.current[song.id]
+      // SnapTube saves its own `_private.lrc` (often plain words, or YouTube's automatic captions) beside many songs. That
+      // is not the person's file: it only fills in a song that has nothing, and never blocks the search for timed lyrics
+      if (/_private\.lrc$/i.test(uri)) {
+        if (!entry?.lyrics && !entry?.manualLyrics) {
+          const local = await readLyricsFile(uri)
+          if (local) {
+            store.saveLyrics(song.id, local)
+            store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!local.synced, lyricsV: LYRICS_V, lyricsFile: uri })
+            continue
+          }
+        }
+        // Undo what an earlier build did with it: lyrics from the file saved as the person's own, which blocked every search
+        store.patch(song.id, entry?.lyricsFile ? { lyricsFile: uri, manualLyrics: false, lyricsFor: undefined, syncTriedAt: undefined } : { lyricsFile: uri })
+        continue
+      }
+      const local = await readLyricsFile(uri)
       if (!local) continue
       store.saveLyrics(song.id, local)
-      store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!local.synced, lyricsV: LYRICS_V, manualLyrics: true, offset: 0, lyricsFile: song.lyricsUri })
+      store.patch(song.id, { lyrics: true, lyricsAt: Date.now(), lyricsFor: song.duration, lyricsSynced: !!local.synced, lyricsV: LYRICS_V, manualLyrics: true, offset: 0, lyricsFile: uri })
     }
   }
 
