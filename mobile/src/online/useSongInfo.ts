@@ -388,12 +388,17 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
   /** Reads every saved lyric and says which can be trusted to follow its song (see `reviewLyrics`). */
   const auditLyrics = async (songs: Song[]): Promise<AuditReport> => {
     const rows: AuditRow[] = []
+    const hidden: Record<number, Partial<Entry>> = {}
     for (const song of songs) {
       const entry = store.entries[song.id]
-      const stored = entry?.lyrics ? await store.readStored(song.id) : null
+      const raw = entry?.lyrics ? await store.readStored(song.id) : null
+      const stored = raw && tidyLyrics(raw)
+      // YouTube's captions of an instrumental come out empty: the song has no lyrics, and may be looked up again later
+      if (stored && !stored.synced?.length && !stored.plain) hidden[song.id] = { lyrics: false }
       const review = reviewLyrics(entry, stored, song.duration, entry?.lyricsSource)
       rows.push({ id: song.id, name: `${song.artist} - ${song.title}`, ...review })
     }
+    if (Object.keys(hidden).length) store.patchMany(hidden)
     const count = (v: Review["verdict"]) => rows.filter((r) => r.verdict === v).length
     return { total: rows.length, ok: count("ok"), none: count("none"), plain: count("plain"), estimated: count("estimated"), suspect: rows.filter((r) => r.verdict === "suspect"), redo: rows.filter((r) => r.verdict === "suspect" || r.verdict === "plain" || r.verdict === "estimated").map((r) => r.id), at: Date.now() }
   }

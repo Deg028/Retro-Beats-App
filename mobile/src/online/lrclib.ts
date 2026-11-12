@@ -203,11 +203,31 @@ export function plainWithoutSectionLabels(plain: string): string {
     .trim()
 }
 
+// What YouTube's automatic captions write when nothing is sung, and the notice some uploads add
+const FILLER = /^[\s♪♫\[\]()]*(?:music|musica|música|applause|aplausos|so|heat|oh|ah|yeah|instrumental|este es contenido generado.*)[\s.!♪♫\[\]()]*$/i
+
+/** A line of filler: "[Music]", "so", "Heat.", "♪♪"… */
+export const isFiller = (text: string) => FILLER.test(text.trim())
+
+/**
+ * YouTube's automatic captions of a song with no singing (an instrumental, a game theme): mostly filler, or nothing left
+ * once the filler and the headings are taken out. Such "lyrics" are hidden, so the song shows as having none.
+ */
+export function isCaptionJunk(l: Lyrics): boolean {
+  const all = (l.synced?.map((x) => x.text) ?? (l.plain ?? "").split(/\r?\n/)).map((t) => t.trim()).filter(Boolean)
+  // Headings ("[Verse 1]", and the captions' "[Music]") are taken out anyway; the rest is what would show
+  const lines = all.filter((t) => !isSectionLabel(t))
+  if (!lines.length) return all.length > 0
+  return lines.filter(isFiller).length / lines.length > 0.4
+}
+
 /**
  * Applies the clean-ups to lyrics from any source (and to lyrics saved by an older version of the app): one language,
- * choruses written out where they were only labelled, and no headings of the parts of the song. Safe to run again.
+ * choruses written out where they were only labelled, and no headings of the parts of the song. Captions of a song
+ * with no singing come out empty. Safe to run again.
  */
 export function tidyLyrics(l: Lyrics): Lyrics {
+  if (isCaptionJunk(l)) return { ...l, synced: null, plain: null, romaji: undefined }
   const expanded = l.synced ? expandChorus(singleLanguage(l.synced), l.plain) : null
   const synced = expanded ? withoutSectionLabels(expanded) : null
   // The reading goes line by line with the lyrics: when it was made for these lines, each line that stays keeps its own

@@ -185,4 +185,16 @@ test("lyrics keep only what is sung, timed or not, and timings stay", () => {
   assert.equal(JSON.stringify(tidyLyrics(timed)), JSON.stringify(timed))
 })
 
+test("YouTube's captions of an instrumental are hidden; real lyrics with a few «oh» stay", () => {
+  const timed = (texts: string[]) => ({ synced: texts.map((text, i) => ({ t: 5 + i * 20, text })), plain: null })
+  const captions = tidyLyrics(timed(["[Music]", "so", "[Music]", "Heat.", "[Applause]", "[Music]", "Dr. Wily Stage"]))
+  assert.equal(captions.synced, null)
+  assert.equal(captions.plain, null)
+  assert.equal(tidyLyrics({ synced: null, plain: "[Música]\nEste es contenido generado por inteligencia artificial\n[Música]" }).plain, null)
+  // the review then counts it as a song with no lyrics
+  assert.equal(reviewLyrics({ lyrics: true }, captions, 200).verdict, "none")
+  const sung = tidyLyrics(timed(["Oh", "Corre sin mirar atrás", "La noche es nuestra", "Yeah", "Nunca vamos a parar", "Hasta el final"]))
+  assert.equal(sung.synced?.length, 6)
+})
+
 console.log(`${passed} pruebas de letras correctas`)

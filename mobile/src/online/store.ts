@@ -211,7 +211,13 @@ export function useInfoStore() {
   const loadLyrics = (id: number) => {
     if (lyrics[id] || !entries[id]?.lyrics) return
     AsyncStorage.getItem(LYRICS_KEY + id)
-      .then((raw) => raw && setLyrics((prev) => ({ ...prev, [id]: tidyLyrics(JSON.parse(raw)) })))
+      .then((raw) => {
+        if (!raw) return
+        const found = tidyLyrics(JSON.parse(raw))
+        // Only YouTube's captions of an instrumental: the song has no lyrics after all
+        if (!found.synced?.length && !found.plain) return patch(id, { lyrics: false })
+        setLyrics((prev) => ({ ...prev, [id]: found }))
+      })
       .catch(() => {})
   }
 

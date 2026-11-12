@@ -1,4 +1,4 @@
-import type { Lyrics } from "./lrclib"
+import { isFiller, type Lyrics } from "./lrclib"
 
 /**
  * The one place that decides which lyrics win. Every way of saving lyrics goes through `canReplace`, so a change
@@ -119,18 +119,15 @@ export function wanted(song: { duration: number }, entry: Looked | undefined, fo
 export type Verdict = "ok" | "none" | "plain" | "estimated" | "suspect"
 export type Review = { verdict: Verdict; reasons: string[] }
 
-// What YouTube's automatic captions write when nothing is sung, and credits that are not lyrics
-const FILLER = /^[\s♪♫\[\]()]*(?:music|musica|música|applause|aplausos|so|heat|oh|ah|yeah|instrumental|este es contenido generado.*)[\s.!♪♫\[\]()]*$/i
-
-/** Looks at saved lyrics and says whether they can be trusted to follow the song. */
+/** Looks at saved lyrics (already through `tidyLyrics`) and says whether they can be trusted to follow the song. */
 export function reviewLyrics(entry: { lyrics?: boolean } | undefined, lyrics: Lyrics | null | undefined, songSeconds: number, source?: LyricsSource): Review {
-  if (!entry?.lyrics || !lyrics) return { verdict: "none", reasons: [] }
+  if (!entry?.lyrics || !lyrics || (!lyrics.synced?.length && !lyrics.plain)) return { verdict: "none", reasons: [] }
   if (lyrics.estimated || source === "estimated") return { verdict: "estimated", reasons: ["Los tiempos son aproximados"] }
   const lines = lyrics.synced ?? []
   if (!lines.length) return { verdict: "plain", reasons: ["Sin tiempos"] }
   const reasons: string[] = []
   const text = lines.map((l) => l.text.trim()).filter(Boolean)
-  if (text.length && text.filter((t) => FILLER.test(t)).length / text.length > 0.4) reasons.push("Subtítulos automáticos de YouTube o relleno")
+  if (text.length && text.filter(isFiller).length / text.length > 0.4) reasons.push("Subtítulos automáticos de YouTube o relleno")
   if (new Set(text.map((t) => t.toLowerCase())).size <= 3) reasons.push("Casi no tiene líneas distintas")
   if (songSeconds > 0) {
     const last = lines[lines.length - 1].t
