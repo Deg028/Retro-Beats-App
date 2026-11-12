@@ -97,24 +97,40 @@ async function readOnline(text: string): Promise<string> {
   return reading.replace(/\s+/g, " ").trim()
 }
 
-// Fewer lines at once: Google answers 409/429 when asked too much too fast
-const PARALLEL = 2
+// Lines go to Google joined by " | ", which comes back as "|" between the readings. One request per line (40 for a
+// song) got 429 and 409 on the person's mobile data (Claro shares one address among many phones); a few requests do not
+const SEP = " | "
+const CHUNK_CHARS = 400
+
+/** Lines in groups short enough for one address (a Japanese character takes 9 bytes once encoded) */
+function chunks(texts: string[]): number[][] {
+  const out: number[][] = []
+  let size = 0
+  texts.forEach((t, i) => {
+    if (!out.length || size + t.length > CHUNK_CHARS) {
+      out.push([])
+      size = 0
+    }
+    out[out.length - 1].push(i)
+    size += t.length + SEP.length
+  })
+  return out
+}
 
 /**
  * The romanised reading of each synced line, in order. Lines with only kana are done on the phone; lines with
- * kanji are sent one by one. Throws NetworkError if the service can't be reached, so nothing half-done is saved.
+ * kanji are sent in a few groups. Throws NetworkError if the service can't be reached, so nothing half-done is saved.
  */
 export async function romanise(lines: LyricLine[]): Promise<string[]> {
   const out: string[] = lines.map((l) => (hasJapanese(l.text) && !hasKanji(l.text) ? kanaToRomaji(l.text) : ""))
   const todo = lines.map((l, i) => i).filter((i) => hasKanji(lines[i].text))
-  let next = 0
-  await Promise.all(
-    Array.from({ length: PARALLEL }, async () => {
-      while (next < todo.length) {
-        const i = todo[next++]
-        out[i] = await readOnline(lines[i].text)
-      }
-    }),
-  )
+  // A "|" inside a line would split its reading in two
+  const texts = todo.map((i) => lines[i].text.replace(/\|/g, " "))
+  for (const group of chunks(texts)) {
+    const parts = (await readOnline(group.map((k) => texts[k]).join(SEP))).split("|").map((p) => p.trim())
+    if (parts.length === group.length) group.forEach((k, j) => (out[todo[k]] = parts[j]))
+    // The readings did not come back one per line: those lines are asked for one by one
+    else for (const k of group) out[todo[k]] = await readOnline(texts[k])
+  }
   return out
 }
