@@ -7,8 +7,9 @@ import { Button, Press, T } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../../usePlayer"
 
-// A finger lands a little after the singer starts: each mark is moved this much earlier
-const REACTION = 0.2
+// A finger lands a little after the singer starts: each mark is moved this much earlier, so the line lights up just
+// before it is sung (1 s, chosen by the person so it feels natural)
+const REACTION = 1
 
 
 /**
