@@ -264,7 +264,9 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
       store.patchLyrics(song.id, { romaji: await romanise(song.lyrics) })
     } catch (e) {
       setRomajiFailed((f) => [...f, song.id])
-      setRomajiError(e instanceof Error ? e.message : "No se pudo convertir la letra")
+      const message = e instanceof Error ? e.message : "No se pudo convertir la letra"
+      // A refusal from Google's reading service is usually passing: say so instead of only the code
+      setRomajiError(/respondió (409|429|503)/.test(message) ? `Google no quiso convertir la letra ahora (${message.replace(/\D/g, "")}). Prueba de nuevo en unos minutos` : message)
     } finally {
       setRomajiBusy((b) => (b === song.id ? null : b))
     }

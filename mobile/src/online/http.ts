@@ -34,8 +34,9 @@ export async function request(url: string, method: "GET" | "HEAD" = "GET"): Prom
     }
     if (res.ok) return res
     if (res.status === 404) return null
-    // Busy, rate limited or briefly failing: wait a little longer each time
-    if ([429, 500, 502, 503, 504].includes(res.status) && attempt < TRIES - 1) {
+    // Busy, rate limited or briefly failing: wait a little longer each time. The person's phone got a 409 while
+    // converting lyrics to romaji (Google's reading service; it did not happen from the PC), so it is tried again too
+    if ([409, 429, 500, 502, 503, 504].includes(res.status) && attempt < TRIES - 1) {
       await sleep(1500 * (attempt + 1))
       continue
     }

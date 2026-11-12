@@ -97,7 +97,8 @@ async function readOnline(text: string): Promise<string> {
   return reading.replace(/\s+/g, " ").trim()
 }
 
-const PARALLEL = 3
+// Fewer lines at once: Google answers 409/429 when asked too much too fast
+const PARALLEL = 2
 
 /**
  * The romanised reading of each synced line, in order. Lines with only kana are done on the phone; lines with
