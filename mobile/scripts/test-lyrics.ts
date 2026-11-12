@@ -3,7 +3,7 @@
  * (`eas-build-post-install`), so a change that lets worse lyrics replace better ones stops the build.
  * Each case is a mistake that really happened, or one that must never happen.
  */
-import { parseLrc } from "../src/online/lrclib"
+import { isSectionLabel, parseLrc, tidyLyrics } from "../src/online/lrclib"
 import { canReplace, inferSource, isSnaptubeFile, LyricsSource, Quality, rank, reviewLyrics, wanted, worthBackingUp } from "../src/online/lyricsPolicy"
 
 // No Node typings in this project: a minimal assert and the exit code
@@ -151,6 +151,38 @@ test("review of saved lyrics", () => {
   assert.equal(reviewLyrics(has, junk, 200).verdict, "suspect")
   // a song that only covers a small part of the recording
   assert.equal(reviewLyrics(has, lyrics([10, 12, 14, 16, 18, 20]), 200).verdict, "suspect")
+})
+
+test("headings of the parts of a song are not lyrics", () => {
+  for (const label of ["[Verse 1]", "[Chorus: Kasane Teto]", "[Pre-Chorus]", "Coro:", "(Coro)", "Estribillo", "Verso 2:", "Chorus x2", "(x2)", "[Instrumental]", "[Music]", "Puente", "Outro:", "Intro", "Hook", "【Chorus】"])
+    assert.equal(isSectionLabel(label), true)
+  // sung lines that only start with such a word stay
+  for (const line of ["Hook, line and sinker", "Intro de mi vida", "Solo tú y yo", "Break my heart again", "Coro de ángeles cantando", "verso a verso te escribo", "「おい」", "(oh oh oh)", "Chorus of angels in my head tonight"])
+    assert.equal(isSectionLabel(line), false)
+})
+
+test("lyrics keep only what is sung, timed or not, and timings stay", () => {
+  const timed = tidyLyrics({
+    synced: [
+      { t: 1, text: "[Verse 1]" },
+      { t: 2, text: "Primera línea" },
+      { t: 6, text: "Coro:" },
+      { t: 7, text: "Esto se canta (x2)" },
+      { t: 12, text: "[Outro]" },
+    ],
+    plain: "[Verse 1]\nPrimera línea\n\nCoro:\nEsto se canta (x2)\n[Outro]",
+  })
+  assert.equal(JSON.stringify(timed.synced), JSON.stringify([{ t: 2, text: "Primera línea" }, { t: 7, text: "Esto se canta" }]))
+  assert.equal(timed.plain, "Primera línea\n\nEsto se canta")
+  // a reading made for those lines follows the ones that stay
+  const read = tidyLyrics({ synced: [{ t: 1, text: "[Chorus]" }, { t: 2, text: "おい" }], plain: null, romaji: ["", "oi"] })
+  assert.equal(JSON.stringify(read.romaji), JSON.stringify(["oi"]))
+  // lyrics that were only headings are nothing
+  const empty = tidyLyrics({ synced: [{ t: 1, text: "[Instrumental]" }], plain: "[Instrumental]" })
+  assert.equal(empty.synced, null)
+  assert.equal(empty.plain, null)
+  // safe to run twice
+  assert.equal(JSON.stringify(tidyLyrics(timed)), JSON.stringify(timed))
 })
 
 console.log(`${passed} pruebas de letras correctas`)

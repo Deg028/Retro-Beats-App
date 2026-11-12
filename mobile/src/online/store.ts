@@ -137,8 +137,10 @@ export function useInfoStore() {
       return next
     })
 
-  const saveLyrics = (id: number, found: Lyrics | null) => {
-    if (!found) return void AsyncStorage.removeItem(LYRICS_KEY + id).catch(() => {})
+  const saveLyrics = (id: number, raw: Lyrics | null) => {
+    if (!raw) return void AsyncStorage.removeItem(LYRICS_KEY + id).catch(() => {})
+    // Only the sung words are kept, whatever the source: no "[Chorus]" or "Verso 2:" headings
+    const found = tidyLyrics(raw)
     AsyncStorage.setItem(LYRICS_KEY + id, JSON.stringify(found)).catch(() => {})
     setLyrics((prev) => ({ ...prev, [id]: found }))
   }
@@ -158,7 +160,10 @@ export function useInfoStore() {
    * The only way lyrics get saved over other lyrics. `lyricsPolicy.canReplace` decides whether they may take the place of
    * what is there; timed lyrics that are replaced are copied aside first. Returns whether they were saved.
    */
-  const applyLyrics = async (id: number, incoming: Lyrics, source: LyricsSource, extra: Partial<Entry> = {}, explicit = false): Promise<boolean> => {
+  const applyLyrics = async (id: number, raw: Lyrics, source: LyricsSource, extra: Partial<Entry> = {}, explicit = false): Promise<boolean> => {
+    // Only the sung words are kept, whatever the source: no "[Chorus]" or "Verso 2:" headings
+    const incoming = tidyLyrics(raw)
+    if (!incoming.synced?.length && !incoming.plain) return false
     const entry = entriesRef.current[id]
     const stored = entry?.lyrics ? await readStored(id) : null
     const current: Quality | null = stored ? { source: entry?.lyricsSource ?? inferSource(entry, stored), synced: !!stored.synced?.length } : null

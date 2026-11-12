@@ -168,13 +168,53 @@ function score(hit: Hit, terms: SearchTerms, duration: number) {
   return s
 }
 
-/** Applies the clean-ups to lyrics saved by an older version of the app. Safe to run on lyrics already cleaned. */
+// Names of the parts of a song that lyric sites write as headings: "[Verse 1]", "Coro:", "(Estribillo)", "Pre-Chorus: Name", "Bridge x2"
+const SECTION =
+  /^(?:pre[-\s]?)?(?:chorus|coro|estribillo|refr[aã]o|refrain|hook|verse|verso|estrofa|bridge|puente|intro|outro|interlude|interludio|instrumental|breakdown|post[-\s]?chorus|pre[-\s]?coro|precoro|coda|spoken|hablado)(?:\s*\d+)?(?:\s*(?:x\s*\d+|\d+\s*x))?(?:\s*[:\-–]\s*[^:]*)?$/i
+// "(x2)" or "x3" written at the end of a line that is sung several times
+const REPEAT = /\s+[(\[]?\s*[x×]\s*\d+\s*[)\]]?\s*$/i
+
+/**
+ * A heading that names a part of the song instead of being sung: any whole line in square brackets (how lyric sites mark
+ * parts, "[Verse 1: Artist]"), and the usual names of parts on their own, bare, in brackets or with a colon ("Coro:", "(Chorus)").
+ * A sung line that only starts with such a word ("Hook, line and sinker", "Intro de mi vida") is not one.
+ */
+export function isSectionLabel(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  if (/^\[[^\]]*\]$/.test(t)) return true
+  if (/^[(（【]?\s*[x×]\s*\d+\s*[)）】]?$/i.test(t)) return true
+  const inner = t.replace(/^[(（【{]\s*/, "").replace(/\s*[)）】}]$/, "").replace(/\s*:$/, "").trim()
+  return SECTION.test(inner)
+}
+
+/** The words only: headings of the parts of the song are taken out and repeat marks removed, so what is left is what is sung. */
+export function withoutSectionLabels(synced: LyricLine[]): LyricLine[] {
+  return synced.filter((l) => !isSectionLabel(l.text)).map((l) => (REPEAT.test(l.text) ? { ...l, text: l.text.replace(REPEAT, "") } : l))
+}
+
+export function plainWithoutSectionLabels(plain: string): string {
+  return plain
+    .split(/\r?\n/)
+    .filter((r) => !isSectionLabel(r))
+    .map((r) => r.replace(REPEAT, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+/**
+ * Applies the clean-ups to lyrics from any source (and to lyrics saved by an older version of the app): one language,
+ * choruses written out where they were only labelled, and no headings of the parts of the song. Safe to run again.
+ */
 export function tidyLyrics(l: Lyrics): Lyrics {
-  return {
-    ...l,
-    synced: l.synced ? expandChorus(singleLanguage(l.synced), l.plain) : null,
-    plain: l.plain ? expandPlainChorus(singleLanguagePlain(l.plain)) : null,
-  }
+  const expanded = l.synced ? expandChorus(singleLanguage(l.synced), l.plain) : null
+  const synced = expanded ? withoutSectionLabels(expanded) : null
+  // The reading goes line by line with the lyrics: when it was made for these lines, each line that stays keeps its own
+  const reading = l.synced && l.romaji?.length === l.synced.length ? new Map(l.synced.map((x, i) => [x.text.replace(REPEAT, ""), l.romaji![i]])) : null
+  const romaji = reading && synced ? synced.map((x) => reading.get(x.text) ?? "") : l.romaji
+  const plain = l.plain ? plainWithoutSectionLabels(expandPlainChorus(singleLanguagePlain(l.plain))) : null
+  return { ...l, synced: synced?.length ? synced : null, plain: plain || null, romaji }
 }
 
 export type LyricsMatch = { lyrics: Lyrics; artist: string; title: string; terms: SearchTerms }

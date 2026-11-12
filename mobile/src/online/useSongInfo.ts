@@ -8,7 +8,7 @@ import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
 import { sleep } from "./http"
 import { lookup, saveCover } from "./lookup"
-import { estimateTimes, splitLyrics } from "./lrclib"
+import { estimateTimes, splitLyrics, tidyLyrics } from "./lrclib"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
 import { Entry, InfoStore } from "./store"
 import { isSnaptubeFile, LYRICS_V, LyricsSource, reviewLyrics, SOURCES_V, Review, wanted } from "./lyricsPolicy"
@@ -64,6 +64,8 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
           source = isSnaptubeFile(song.lyricsUri) ? "snaptube" : "file"
         }
       }
+      // The sung words only, before deciding anything: headings like "[Chorus]" are neither lyrics nor worth timing
+      if (lyrics) lyrics = tidyLyrics(lyrics)
       const now = Date.now()
       if (want.lyrics && lyrics !== undefined) {
         const looked = { lyricsAt: now, lyricsFor: song.duration, syncTriedAt: now, lyricsV: LYRICS_V, srcV: SOURCES_V }
