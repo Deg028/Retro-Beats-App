@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 import { Art } from "../components/Art"
 import { GameBoy } from "../components/GameBoy"
-import { LyricLine } from "../data"
+import { LyricLine, Song } from "../data"
 import { hasInterludes, InterludeSong, interludeAt, withInterludes } from "../interludes"
 import { Marquee } from "../components/Marquee"
 import { Equalizer } from "../components/Pixel"
@@ -17,6 +17,7 @@ import { useTheme } from "../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../usePlayer"
 import { AddToPlaylistSheet } from "./Playlists"
 import { InfoSheet } from "./player/InfoSheet"
+import { TapSyncSheet } from "./player/TapSyncSheet"
 import { HoldSeek, InterludeImage, LyricsWindow, QueueSheet, shareSong, useDismiss, useSeek, useSwipe, useTimeLabels } from "./player/shared"
 
 /** Height of the lyrics window: room for four short lines, or two that wrap */
@@ -39,7 +40,7 @@ export default function Player({
 }) {
   const theme = useTheme()
   const { current: song, playing, shuffle, repeat } = player
-  const [sheet, setSheet] = useState<"queue" | "playlists" | "info" | null>(null)
+  const [sheet, setSheet] = useState<"queue" | "playlists" | "info" | "tapsync" | null>(null)
   const [lyricsOpen, setLyricsOpen] = useState(true)
   const [syncTried, setSyncTried] = useState<number | null>(null)
   const { width, height } = useWindowDimensions()
@@ -290,6 +291,14 @@ export default function Player({
               {song.lyrics ? (
                 <>
                   <SyncedLyrics player={player} song={song} lines={song.lyrics} offset={song.lyricsOffset ?? 0} romaji={info.romajiOn ? song.romaji : undefined} />
+                  {song.lyricsEstimated && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 }}>
+                      <T variant="caption" color={theme.c.lyricsDim} style={{ flex: 1, textTransform: "none" }}>
+                        Los tiempos son aproximados.
+                      </T>
+                      <Button label="Sincronizar a mano" variant="secondary" icon="lyrics" onPress={() => setSheet("tapsync")} />
+                    </View>
+                  )}
                 </>
               ) : song.plain ? (
                 <View style={{ gap: 10 }}>
@@ -318,6 +327,7 @@ export default function Player({
                       )}
                     </View>
                   )}
+                  {!info.searching && <Button label="Sincronizar a mano" variant="secondary" icon="lyrics" onPress={() => setSheet("tapsync")} />}
                 </View>
               ) : (
                 <InterludeOnly player={player} song={song} offset={song.lyricsOffset ?? 0}>
@@ -354,11 +364,28 @@ export default function Player({
           }}
         />
       )}
+      {sheet === "tapsync" && (
+        <TapSyncSheet
+          song={song}
+          lines={tapSyncLines(song)}
+          player={player}
+          visible
+          onClose={() => setSheet(null)}
+          onDone={(lrc) => {
+            info.importLyrics(song, lrc)
+            setSheet(null)
+          }}
+        />
+      )}
       <QueueSheet player={player} visible={sheet === "queue"} onClose={() => setSheet(null)} />
       <AddToPlaylistSheet visible={sheet === "playlists"} onClose={() => setSheet(null)} song={song} playlists={playlists} />
     </View>
   )
 }
+
+/** The lines to time by hand: the guessed lines, or the plain words one per line */
+const tapSyncLines = (song: Song) =>
+  (song.lyrics && song.lyricsEstimated ? song.lyrics.map((l) => l.text) : (song.plain ?? "").split(/\r?\n/)).map((t) => t.trim()).filter(Boolean)
 
 /**
  * The progress bar, the times and the skip buttons: the only part of the player that follows the running time,

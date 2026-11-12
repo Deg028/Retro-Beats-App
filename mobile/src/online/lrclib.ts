@@ -273,6 +273,15 @@ export async function findLyrics(attempts: SearchTerms[], duration: number): Pro
 }
 
 /** Pasted or shared text split in the timed lines (when it has time tags) and the plain words. */
+const stamp = (s: number) => {
+  const m = Math.floor(s / 60)
+  const rest = Math.floor((s - m * 60) * 100) / 100
+  return `[${String(m).padStart(2, "0")}:${rest.toFixed(2).padStart(5, "0")}]`
+}
+
+/** Lines and the second each one starts at (timed by hand) as an LRC text, which `splitLyrics` reads back */
+export const toLrc = (lines: string[], marks: number[]) => lines.map((line, i) => `${stamp(Math.max(0, marks[i]))} ${line}`).join("\n")
+
 export function splitLyrics(text: string) {
   const timed = parseLrc(text)
   const plain = text

@@ -3,7 +3,7 @@
  * (`eas-build-post-install`), so a change that lets worse lyrics replace better ones stops the build.
  * Each case is a mistake that really happened, or one that must never happen.
  */
-import { isSectionLabel, parseLrc, tidyLyrics } from "../src/online/lrclib"
+import { isSectionLabel, parseLrc, splitLyrics, tidyLyrics, toLrc } from "../src/online/lrclib"
 import { canReplace, inferSource, isSnaptubeFile, LyricsSource, Quality, rank, reviewLyrics, wanted, worthBackingUp } from "../src/online/lyricsPolicy"
 
 // No Node typings in this project: a minimal assert and the exit code
@@ -195,6 +195,18 @@ test("YouTube's captions of an instrumental are hidden; real lyrics with a few �
   assert.equal(reviewLyrics({ lyrics: true }, captions, 200).verdict, "none")
   const sung = tidyLyrics(timed(["Oh", "Corre sin mirar atrás", "La noche es nuestra", "Yeah", "Nunca vamos a parar", "Hasta el final"]))
   assert.equal(sung.synced?.length, 6)
+})
+
+test("lyrics timed by hand are saved as the person's timed lyrics, with the same times", () => {
+  const lines = ["Primera línea", "Segunda línea", "Tercera línea", "Cuarta línea"]
+  const lrc = toLrc(lines, [0, 12.345, 59.999, 125.5])
+  const { synced, plain } = splitLyrics(lrc)
+  assert.equal(JSON.stringify(synced?.map((l) => l.t)), JSON.stringify([0, 12.34, 59.99, 125.5]))
+  assert.equal(synced?.[3].text, "Cuarta línea")
+  assert.equal(plain, lines.join("\n"))
+  // and they win over the timed lyrics of the internet and over guesses
+  assert.equal(canReplace(q("estimated", true), q("manual", true)), true)
+  assert.equal(canReplace(q("web", true), q("manual", true)), true)
 })
 
 console.log(`${passed} pruebas de letras correctas`)
