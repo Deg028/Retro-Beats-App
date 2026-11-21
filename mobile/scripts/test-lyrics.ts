@@ -3,6 +3,7 @@
  * (`eas-build-post-install`), so a change that lets worse lyrics replace better ones stops the build.
  * Each case is a mistake that really happened, or one that must never happen.
  */
+import { japaneseSegments, looksLikeRomaji, mergeJapanese } from "../src/online/japanese"
 import { isSectionLabel, parseLrc, splitLyrics, tidyLyrics, toLrc } from "../src/online/lrclib"
 import { canReplace, inferSource, isSnaptubeFile, LyricsSource, Quality, rank, reviewLyrics, wanted, worthBackingUp } from "../src/online/lyricsPolicy"
 
@@ -207,6 +208,58 @@ test("lyrics timed by hand are saved as the person's timed lyrics, with the same
   // and they win over the timed lyrics of the internet and over guesses
   assert.equal(canReplace(q("estimated", true), q("manual", true)), true)
   assert.equal(canReplace(q("web", true), q("manual", true)), true)
+})
+
+test("lyrics that are only romaji get their Japanese back, on the person's times, with their reading kept", () => {
+  const romajiText = "massugu korogatte nani mo nai nai tsumannai ne zutto wakarikitte dakara daremo kimi ni kizukanai samishii ne kore wa dou korobu ka nante wakannai hou ga tanoshii ne sore naraba"
+  assert.equal(looksLikeRomaji(`${romajiText} ${romajiText}`.split(" ")), true)
+  // English lyrics are not romaji, and a few words are not enough to tell
+  assert.equal(looksLikeRomaji("I will always love you and the night is ours so take me home tonight we are the champions of the world tonight".split(" ")), false)
+  assert.equal(looksLikeRomaji(["massugu korogatte", "nani mo nai"]), false)
+  assert.equal(looksLikeRomaji([romajiText, "真っ直ぐ転がって"]), false)
+  // the Japanese parts of a file name are what is searched
+  assert.equal(JSON.stringify(japaneseSegments("イレギュラーマン_重音テトSV(MP3_320K).mp3")), JSON.stringify(["イレギュラーマン", "重音テトSV"]))
+  assert.equal(JSON.stringify(japaneseSegments("やる気が出ない歌 _ 初音ミク・重音テト(MP3_320K).mp3")), JSON.stringify(["やる気が出ない歌", "初音ミク・重音テト"]))
+  assert.equal(japaneseSegments("Irregular Man - Kasane Teto(MP3_320K).mp3").length, 0)
+  // the same number of lines: one to one, the person's times and reading stay
+  const romaji = [{ t: 14, text: "massugu korogatte" }, { t: 17, text: "nani mo nai nai tsumannai ne" }, { t: 19.5, text: "zutto wakarikitte" }]
+  const japanese = [{ t: 14.8, text: "真っ直ぐ転がって" }, { t: 16.9, text: "何もないない　つまんないね" }, { t: 19.5, text: "ずっと分かりきって" }]
+  const one = mergeJapanese(romaji, japanese, 180, 181)
+  assert.equal(JSON.stringify(one?.synced), JSON.stringify([{ t: 14, text: "真っ直ぐ転がって" }, { t: 17, text: "何もないない　つまんないね" }, { t: 19.5, text: "ずっと分かりきって" }]))
+  assert.equal(JSON.stringify(one?.romaji), JSON.stringify(romaji.map((l) => l.text)))
+  // a different number of lines: matched by time when it is the same recording, otherwise left alone
+  const many = Array.from({ length: 20 }, (_, i) => ({ t: 10 + i * 8, text: `日本語${i}` }))
+  const manyRomaji = Array.from({ length: 20 }, (_, i) => ({ t: 10.5 + i * 8, text: `nihongo ${i}` }))
+  assert.equal(mergeJapanese(manyRomaji.slice(0, 19), many, 180, 181)?.synced.length, 19)
+  assert.equal(mergeJapanese(manyRomaji.slice(0, 19), many, 180, 200), null)
+  assert.equal(mergeJapanese(manyRomaji.slice(0, 12), many, 180, 181), null)
+})
+
+test("Japanese and romaji written as separate lines become Japanese lines with their reading", () => {
+  const pairs = [
+    ["はーいはい もう今からやるって", "haai hai mou ima kara yarutte"],
+    ["はーいはい やればできる子だって", "haai hai yareba dekiru ko datte"],
+    ["はーいはい だからほっといてって", "haai hai dakara hottoite tte"],
+    ["今やろうと思ってたのに", "ima yarou to omotteta no ni"],
+    ["平行線 辿り焦燥", "heikousen tadori shousou"],
+  ]
+  const lyrics = { synced: pairs.flatMap(([ja, ro], i) => [{ t: i * 6, text: ja }, { t: i * 6 + 2, text: ro }]), plain: pairs.flat().join("\n") }
+  const tidy = tidyLyrics(lyrics)
+  assert.equal(JSON.stringify(tidy.synced?.map((l) => l.text)), JSON.stringify(pairs.map(([ja]) => ja)))
+  assert.equal(JSON.stringify(tidy.synced?.map((l) => l.t)), JSON.stringify([0, 6, 12, 18, 24]))
+  assert.equal(JSON.stringify(tidy.romaji), JSON.stringify(pairs.map(([, ro]) => ro)))
+  assert.equal(tidy.plain, pairs.map(([ja]) => ja).join("\n"))
+  assert.equal(JSON.stringify(tidy.plainRomaji), JSON.stringify(pairs.map(([, ro]) => ro)))
+  // safe to run twice
+  assert.equal(JSON.stringify(tidyLyrics(tidy)), JSON.stringify(tidy))
+  // the reading may also come first
+  const first = tidyLyrics({ synced: pairs.flatMap(([ja, ro], i) => [{ t: i * 6, text: ro }, { t: i * 6 + 2, text: ja }]), plain: null })
+  assert.equal(JSON.stringify(first.synced?.map((l) => l.text)), JSON.stringify(pairs.map(([ja]) => ja)))
+  assert.equal(JSON.stringify(first.romaji), JSON.stringify(pairs.map(([, ro]) => ro)))
+  // an English translation under each line is not a reading: the lyrics are left as they are
+  const english = ["The day has come", "Such a narrow world", "Poison ivy twists", "Staring through the fog", "Nothing left to lose"]
+  const translated = tidyLyrics({ synced: pairs.flatMap(([ja], i) => [{ t: i * 6, text: ja }, { t: i * 6 + 2, text: english[i] }]), plain: null })
+  assert.equal(translated.romaji, undefined)
 })
 
 console.log(`${passed} pruebas de letras correctas`)

@@ -1,3 +1,4 @@
+import type { LyricLine } from "../data"
 import { normalize, SearchTerms } from "../library/names"
 import { expandChorus, LyricsMatch, parseLrc, singleLanguage } from "./lrclib"
 import { NetworkError } from "./http"
@@ -41,6 +42,42 @@ function score(hit: Hit, terms: SearchTerms, duration: number) {
   const gap = Math.abs(hit.duration / 1000 - duration)
   if (gap > (terms.artist ? GAP : 4)) return -1
   return 10 - gap
+}
+
+// `normalize` keeps only Latin letters, so it would turn a Japanese title into nothing: compare these with width and case folded and no spaces or punctuation
+const plainTitle = (s: string) => s.normalize("NFKC").toLowerCase().replace(/[\s_\-・:!?。、,.\x27"()\[\]]+/g, "")
+
+/**
+ * The Japanese text of a song whose lyrics the person only has as romaji. NetEase lists Japanese songs by their Japanese
+ * title, so each Japanese part of the file name is searched as the title, and a result is taken when its title is the
+ * same and its length is within 15 s (the person's recording may be a cover or a re-release; only the words are used,
+ * the times stay the person's). Returns the lines with NetEase's times and its length, null when there is none, and
+ * "offline" when the service could not be reached.
+ */
+export async function findJapaneseText(segments: string[], duration: number): Promise<{ lines: LyricLine[]; duration: number } | null | "offline"> {
+  if (Date.now() < restUntil) return "offline"
+  try {
+    for (const title of segments) {
+      const found = await get<{ result?: { songs?: Hit[] } }>(`https://music.163.com/api/search/get?s=${encodeURIComponent(title)}&type=1&offset=0&limit=8`)
+      let best: { hit: Hit; gap: number } | null = null
+      for (const hit of found?.result?.songs ?? []) {
+        if (!same(plainTitle(hit.name), plainTitle(title))) continue
+        const gap = duration > 0 ? Math.abs(hit.duration / 1000 - duration) : 0
+        if (gap <= 15 && (!best || gap < best.gap)) best = { hit, gap }
+      }
+      if (!best) continue
+      const data = await get<{ lrc?: { lyric?: string } }>(`https://music.163.com/api/song/lyric?id=${best.hit.id}&lv=1&kv=1&tv=-1`)
+      const raw = data?.lrc?.lyric ?? ""
+      if (INSTRUMENTAL.test(raw)) continue
+      const lines = singleLanguage(parseLrc(raw)).filter((l) => !CREDIT.test(l.text))
+      if (lines.length >= 4) return { lines: lines.map(({ t, text }) => ({ t, text })), duration: best.hit.duration / 1000 }
+    }
+    return null
+  } catch (e) {
+    if (!(e instanceof NetworkError)) throw e
+    restUntil = Date.now() + REST_MS
+    return "offline"
+  }
 }
 
 /**

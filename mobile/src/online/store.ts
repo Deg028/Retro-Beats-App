@@ -54,6 +54,8 @@ export type Entry = {
   hasPrev?: boolean
   /** Times in a row that no timed version of the lyrics was found for a song that only has plain words */
   syncFails?: number
+  /** When the Japanese text of romaji-only lyrics was last looked for (the song is then left alone) */
+  jaTriedAt?: number
 }
 
 /** What the player shows in place of the file's own information. */

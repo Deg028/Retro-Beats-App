@@ -6,6 +6,7 @@ import { Song } from "../../data"
 import { Button, T, textStyle } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
 import { SongInfo } from "../../online/useSongInfo"
+import { looksLikeRomaji } from "../../online/japanese"
 import { LyricsWebSheet } from "./LyricsWebSheet"
 import { SharedLyricsSheet } from "./SharedLyricsSheet"
 import { Sheet, useKeyboardHeight } from "./shared"
@@ -113,6 +114,19 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
             if (ok) setLyrics("")
           }}
         />
+        {!!song.lyrics && looksLikeRomaji(song.lyrics.map((l) => l.text)) && (
+          <>
+            <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
+              Esta letra está solo en romaji. La app puede buscar el original en japonés y mostrarlo con tu romaji debajo.
+            </T>
+            <Button label={info.japaneseBusy === song.id ? "Buscando el japonés…" : "Buscar la letra en japonés"} variant="secondary" icon="lyrics" disabled={info.japaneseBusy === song.id} onPress={() => void info.addJapanese(song)} />
+            {!!info.japaneseMessage && (
+              <T variant="caption" color={theme.c.accent} style={{ textTransform: "none" }}>
+                {info.japaneseMessage}
+              </T>
+            )}
+          </>
+        )}
         {info.hasPreviousLyrics(song.id) && (
           <Button
             label="Restaurar la letra anterior"

@@ -8,7 +8,9 @@ import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
 import { sleep } from "./http"
 import { lookup, saveCover } from "./lookup"
-import { estimateTimes, splitLyrics, tidyLyrics } from "./lrclib"
+import { japaneseSegments, looksLikeRomaji, mergeJapanese } from "./japanese"
+import { estimateTimes, findJapanesePlain, splitLyrics, tidyLyrics } from "./lrclib"
+import { findJapaneseText } from "./netease"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
 import { Entry, InfoStore } from "./store"
 import { isSnaptubeFile, LYRICS_V, LyricsSource, reviewLyrics, SOURCES_V, Review, wanted } from "./lyricsPolicy"
@@ -289,6 +291,72 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     return () => clearTimeout(timer)
   }, [wantsRomaji, id, current?.lyrics, current?.plain])
 
+  // Lyrics that are only the romanised reading get their Japanese lines (see `japanese.ts`)
+  const [japaneseBusy, setJapaneseBusy] = useState<number | null>(null)
+  const [japaneseMessage, setJapaneseMessage] = useState<string | null>(null)
+  const addJapanese = async (song: Song): Promise<string> => {
+    const stored = await store.readStored(song.id)
+    const lines = stored?.synced
+    if (!stored || !lines?.length) return "Esta canción no tiene una letra con tiempos."
+    if (!looksLikeRomaji(lines.map((l) => l.text))) {
+      store.patch(song.id, { jaTriedAt: Date.now() })
+      return "Esta letra no está solo en romaji."
+    }
+    // The Japanese parts of the file name, and the title the app shows (the person may have written it in English)
+    const segments = japaneseSegments(song.file)
+    setJapaneseBusy(song.id)
+    try {
+      // LRCLIB first (it answers from any network); NetEase lists Japanese songs by their Japanese title but did not answer
+      // sensibly from the phone's mobile data, so it is only the second try
+      let ja: Awaited<ReturnType<typeof findJapaneseText>> = await findJapanesePlain([...segments, song.title], song.duration).catch(() => "offline" as const)
+      if (!ja || ja === "offline") {
+        const other = segments.length ? await findJapaneseText(segments, song.duration) : null
+        if (other && other !== "offline") ja = other
+        else if (ja === "offline" && other === "offline") ja = "offline"
+        else ja = null
+      }
+      if (ja === "offline") return "No pude conectar con el servicio de letras. Prueba de nuevo en unos minutos."
+      if (!ja) return "No encontré la letra en japonés de esta canción."
+      store.patch(song.id, { jaTriedAt: Date.now() })
+      const merged = mergeJapanese(lines, ja.lines, song.duration, ja.duration)
+      if (merged) {
+        // The person's times and reading stay; the Japanese goes on top. Their previous lyrics are kept for «Restaurar»
+        const synced = merged.synced
+        const ok = await store.applyLyrics(song.id, { synced, plain: synced.map((l) => l.text).join("\n"), romaji: merged.romaji, duration: stored.duration }, "manual")
+        return ok ? "Listo: la letra ahora está en japonés con su romaji." : "No se pudo guardar la letra."
+      }
+      // Not the same lines, but the same recording: the Japanese lyrics come with their own times and the reading is made here
+      if (Math.abs(ja.duration - song.duration) <= 4) {
+        const ok = await store.applyLyrics(song.id, { synced: ja.lines, plain: ja.lines.map((l) => l.text).join("\n"), duration: ja.duration }, "manual", { offset: 0 })
+        return ok ? "Puse la letra en japonés con sus tiempos; el romaji se genera solo. La anterior se guardó para «Restaurar la letra anterior»." : "No se pudo guardar la letra."
+      }
+      return "Encontré la letra en japonés, pero no tiene las mismas líneas que la tuya y no pude juntarlas."
+    } finally {
+      setJapaneseBusy((b) => (b === song.id ? null : b))
+    }
+  }
+  const runJapanese = async (song: Song) => setJapaneseMessage(await addJapanese(song).catch(() => "No se pudo buscar la letra en japonés."))
+  // Songs the automatic search already tried in this session: it never repeats on its own (the button does)
+  const triedByItself = useRef(new Set<number>())
+  const startJapanese = useEffectEvent(() => {
+    if (!current || triedByItself.current.has(current.id)) return
+    triedByItself.current.add(current.id)
+    void runJapanese(current)
+  })
+  const triedJapanese = store.entries[id ?? -1]?.jaTriedAt
+  // Only worked out for a song not yet tried (a few dozen short regex tests)
+  const romajiOnly = !triedJapanese && !!current?.lyrics?.length && looksLikeRomaji(current.lyrics.map((l) => l.text))
+  // By itself, when the open song's lyrics have no Japanese in them (`addJapanese` checks they are romaji); a song where
+  // nothing was found is tried once per session, and the person can ask from «Datos» at any time
+  const wantsJapanese =
+    store.enabled &&
+    romajiOnly
+  useEffect(() => {
+    if (!wantsJapanese) return
+    const timer = setTimeout(startJapanese, 1200)
+    return () => clearTimeout(timer)
+  }, [wantsJapanese, id])
+
   /**
    * Covers saved on the phone that are gone (the app's data was moved or cleaned) are forgotten, so they are found
    * again instead of showing a broken picture.
@@ -434,6 +502,10 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     /** Looks for timed lyrics again right now, for a song that only has plain words */
     retrySynced: () => current && run(current, true),
     searching: id !== undefined && busy === id,
+    /** Lyrics that are only romaji get their Japanese lines: runs by itself for the open song, and the person can ask for it */
+    japaneseBusy,
+    japaneseMessage,
+    addJapanese: runJapanese,
     romajiOn,
     setRomajiOn,
     romajiBusy,

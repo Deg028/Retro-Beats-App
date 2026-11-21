@@ -1,5 +1,6 @@
 import type { LyricLine } from "../data"
 import { normalize, SearchTerms } from "../library/names"
+import { foldRomaji } from "./japanese"
 import { getJson } from "./http"
 
 /** duration: length in seconds of the recording these lyrics were timed against */
@@ -224,19 +225,64 @@ export function isCaptionJunk(l: Lyrics): boolean {
 }
 
 /**
+ * Lyrics with the Japanese and the romaji as separate lines (one after the other) become Japanese lines with their reading:
+ * the reading is kept in `romaji` / `plainRomaji`, the way the app keeps one it makes itself, so nothing shows twice.
+ */
+function foldRomajiLines(l: Lyrics): Lyrics {
+  let out = l
+  const synced = l.synced && foldRomaji(l.synced.map((x) => x.text))
+  if (l.synced && synced) out = { ...out, synced: synced.keep.map((i) => l.synced![i]), romaji: synced.reading }
+  const rows = l.plain ? l.plain.split(/\r?\n/) : null
+  const plain = rows && foldRomaji(rows)
+  if (rows && plain) out = { ...out, plain: plain.keep.map((i) => rows[i]).join("\n"), plainRomaji: plain.reading }
+  return out
+}
+
+/**
  * Applies the clean-ups to lyrics from any source (and to lyrics saved by an older version of the app): one language,
  * choruses written out where they were only labelled, and no headings of the parts of the song. Captions of a song
  * with no singing come out empty. Safe to run again.
  */
-export function tidyLyrics(l: Lyrics): Lyrics {
-  if (isCaptionJunk(l)) return { ...l, synced: null, plain: null, romaji: undefined }
+export function tidyLyrics(input: Lyrics): Lyrics {
+  if (isCaptionJunk(input)) return { ...input, synced: null, plain: null, romaji: undefined }
+  const l = foldRomajiLines(input)
   const expanded = l.synced ? expandChorus(singleLanguage(l.synced), l.plain) : null
   const synced = expanded ? withoutSectionLabels(expanded) : null
   // The reading goes line by line with the lyrics: when it was made for these lines, each line that stays keeps its own
   const reading = l.synced && l.romaji?.length === l.synced.length ? new Map(l.synced.map((x, i) => [x.text.replace(REPEAT, ""), l.romaji![i]])) : null
   const romaji = reading && synced ? synced.map((x) => reading.get(x.text) ?? "") : l.romaji
   const plain = l.plain ? plainWithoutSectionLabels(expandPlainChorus(singleLanguagePlain(l.plain))) : null
-  return { ...l, synced: synced?.length ? synced : null, plain: plain || null, romaji }
+  // The readings of the plain lines only fit while the lines are the ones they were made for
+  const plainRomaji = plain && l.plainRomaji?.length === plain.split(/\r?\n/).length ? l.plainRomaji : undefined
+  return { ...l, synced: synced?.length ? synced : null, plain: plain || null, romaji, plainRomaji }
+}
+
+/**
+ * The Japanese text of a song, for lyrics that only exist as romaji (see `japanese.ts`). Each title is searched on LRCLIB
+ * (the Japanese parts of the file name and the title the app shows) and a result is taken when its words are Japanese,
+ * its title is the same and its length is within 15 s: only the words matter, the times stay the person's. Timed lines
+ * come with their length; plain ones have no times and length 0, so they only fit lines one to one.
+ * Throws NetworkError when LRCLIB cannot be reached.
+ */
+export async function findJapanesePlain(titles: string[], duration: number): Promise<{ lines: LyricLine[]; duration: number } | null> {
+  const fold = (s: string) => s.normalize("NFKC").toLowerCase().replace(/[\s_\-・:!?。、,.\x27"()\[\]]+/g, "")
+  const japanese = /[぀-ヿ㐀-鿿]/
+  for (const title of titles) {
+    const hits = (await getJson<Hit[]>(`https://lrclib.net/api/search?q=${encodeURIComponent(title)}`)) ?? []
+    let best: { hit: Hit; gap: number } | null = null
+    for (const hit of hits) {
+      if (hit.instrumental || !japanese.test(hit.syncedLyrics ?? hit.plainLyrics ?? "")) continue
+      if (!same(fold(hit.trackName), fold(title)) && !same(normalize(hit.trackName), normalize(title))) continue
+      const gap = duration > 0 && hit.duration > 0 ? Math.abs(hit.duration - duration) : 0
+      if (gap <= 15 && (!best || gap < best.gap)) best = { hit, gap }
+    }
+    if (!best) continue
+    const timed = parseLrc(best.hit.syncedLyrics ?? "")
+    if (timed.length >= 4 && best.hit.duration > 0) return { lines: timed, duration: best.hit.duration }
+    const plain = (best.hit.plainLyrics ?? "").split(/\r?\n/).map((x) => x.replace(/\u3000/g, " ").trim()).filter(Boolean)
+    if (plain.length >= 4) return { lines: plain.map((text) => ({ t: 0, text })), duration: 0 }
+  }
+  return null
 }
 
 export type LyricsMatch = { lyrics: Lyrics; artist: string; title: string; terms: SearchTerms }
