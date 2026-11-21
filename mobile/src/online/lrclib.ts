@@ -9,6 +9,8 @@ export type Lyrics = {
   duration?: number
   /** Romanised reading of each synced line, in the same order ("" where a line has no Japanese) */
   romaji?: string[]
+  /** Romanised reading of each line of `plain` (split on line breaks, "" where a line has no Japanese) */
+  plainRomaji?: string[]
   /** `synced` was made up by spreading the plain lines over the song (no timed version exists), not read from a timed file */
   estimated?: boolean
 }

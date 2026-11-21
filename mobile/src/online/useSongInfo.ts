@@ -239,15 +239,16 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     }
   }
 
-  // Romanised reading of Japanese lyrics, shown under each line when the person turns it on
-  const [romajiOn, setRomajiOnState] = useState(false)
+  // Romanised reading of Japanese lyrics, shown under each line. On by itself: the person turns it off with the «Romaji» chip
+  // and that choice is kept (only a saved "0" means off)
+  const [romajiOn, setRomajiOnState] = useState(true)
   const [romajiBusy, setRomajiBusy] = useState<number | null>(null)
   const [romajiError, setRomajiError] = useState<string | null>(null)
   // Songs whose reading could not be fetched; they are not tried again until the person asks
   const [romajiFailed, setRomajiFailed] = useState<number[]>([])
   useEffect(() => {
     AsyncStorage.getItem(ROMAJI_KEY)
-      .then((v) => v === "1" && setRomajiOnState(true))
+      .then((v) => v === "0" && setRomajiOnState(false))
       .catch(() => {})
   }, [])
   const setRomajiOn = (on: boolean) => {
@@ -257,11 +258,14 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     AsyncStorage.setItem(ROMAJI_KEY, on ? "1" : "0").catch(() => {})
   }
   const fillRomaji = async (song: Song) => {
-    if (!song.lyrics) return
+    // Timed lyrics are read line by line; lyrics with no times (plain words) are read the same way, line by line of the text
+    const plainLines = song.lyrics ? null : song.plain?.split(/\r?\n/)
+    if (!song.lyrics && !plainLines) return
     setRomajiBusy(song.id)
     setRomajiError(null)
     try {
-      store.patchLyrics(song.id, { romaji: await romanise(song.lyrics) })
+      if (song.lyrics) store.patchLyrics(song.id, { romaji: await romanise(song.lyrics) })
+      else store.patchLyrics(song.id, { plainRomaji: await romanise(plainLines!.map((text, t) => ({ t, text }))) })
     } catch (e) {
       setRomajiFailed((f) => [...f, song.id])
       const message = e instanceof Error ? e.message : "No se pudo convertir la letra"
@@ -272,13 +276,18 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     }
   }
   const startRomaji = useEffectEvent(() => current && fillRomaji(current))
-  const wantsRomaji = romajiOn && store.enabled && !!current?.lyrics && !current.romaji && !romajiFailed.includes(current.id) && lyricsHaveJapanese(current.lyrics)
+  const wantsRomaji =
+    romajiOn &&
+    store.enabled &&
+    !!current &&
+    !romajiFailed.includes(current.id) &&
+    (current.lyrics ? !current.romaji && lyricsHaveJapanese(current.lyrics) : !!current.plain && !current.plainRomaji && lyricsHaveJapanese([{ t: 0, text: current.plain }]))
   // A moment's wait, so skipping through songs does not send a request for each one
   useEffect(() => {
     if (!wantsRomaji) return
     const timer = setTimeout(startRomaji, 400)
     return () => clearTimeout(timer)
-  }, [wantsRomaji, id, current?.lyrics])
+  }, [wantsRomaji, id, current?.lyrics, current?.plain])
 
   /**
    * Covers saved on the phone that are gone (the app's data was moved or cleaned) are forgotten, so they are found

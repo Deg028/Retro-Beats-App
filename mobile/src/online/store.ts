@@ -57,7 +57,7 @@ export type Entry = {
 }
 
 /** What the player shows in place of the file's own information. */
-export type SongMeta = { artist?: string; title?: string; album?: string; cover?: string; lyrics?: LyricLine[]; romaji?: string[]; plain?: string; offset?: number; estimated?: boolean }
+export type SongMeta = { artist?: string; title?: string; album?: string; cover?: string; lyrics?: LyricLine[]; romaji?: string[]; plain?: string; plainRomaji?: string[]; offset?: number; estimated?: boolean }
 
 export type InfoStore = ReturnType<typeof useInfoStore>
 
@@ -204,6 +204,7 @@ export function useInfoStore() {
     const current = lyricsRef.current[id]
     // A reading made for other lyrics (they were found again meanwhile) would not line up with these
     if (!current || (part.romaji && part.romaji.length !== current.synced?.length)) return
+    if (part.plainRomaji && part.plainRomaji.length !== current.plain?.split(/\r?\n/).length) return
     saveLyrics(id, { ...current, ...part })
   }
 
@@ -239,6 +240,7 @@ export function useInfoStore() {
         lyrics: lyrics[id]?.synced ?? undefined,
         romaji: lyrics[id]?.romaji,
         plain: lyrics[id]?.plain ?? undefined,
+        plainRomaji: lyrics[id]?.plainRomaji,
         offset: e.offset,
         estimated: lyrics[id]?.estimated,
       }

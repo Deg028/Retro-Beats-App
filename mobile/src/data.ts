@@ -17,6 +17,8 @@ export type Song = {
   lyrics?: LyricLine[]
   /** Romanised reading of each timed line, same order as `lyrics` */
   romaji?: string[]
+  /** Romanised reading of each line of `plain`, same order as its lines */
+  plainRomaji?: string[]
   /** Album the song belongs to, when it was found online */
   album?: string
   /** Lyrics with no timing, when that is all there is */

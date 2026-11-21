@@ -243,7 +243,7 @@ export default function Player({
                   <T variant="label" color={theme.c.lyricsText}>
                     Letra
                   </T>
-                  {!!song.lyrics && lyricsHaveJapanese(song.lyrics) && (
+                  {hasJapanese(song) && (
                     <Press
                       onPress={() => info.setRomajiOn(!info.romajiOn)}
                       accessibilityRole="switch"
@@ -303,9 +303,13 @@ export default function Player({
               ) : song.plain ? (
                 <View style={{ gap: 10 }}>
                   <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
-                    <T variant="body" color={theme.c.lyricsText} style={{ lineHeight: 26, textTransform: "none" }}>
-                      {song.plain}
-                    </T>
+                    {info.romajiOn && song.plainRomaji ? (
+                      <PlainWithReading plain={song.plain} reading={song.plainRomaji} />
+                    ) : (
+                      <T variant="body" color={theme.c.lyricsText} style={{ lineHeight: 26, textTransform: "none" }}>
+                        {song.plain}
+                      </T>
+                    )}
                   </ScrollView>
                   {info.enabled && (syncTried !== song.id || info.searching) && (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -334,7 +338,7 @@ export default function Player({
                   <LyricsStatus state={info.lyricsState(song)} error={info.error} onRetry={info.retry} />
                 </InterludeOnly>
               )}
-              {info.romajiOn && !!song.lyrics && lyricsHaveJapanese(song.lyrics) && !song.romaji && (
+              {info.romajiOn && hasJapanese(song) && !(song.lyrics ? song.romaji : song.plainRomaji) && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 }}>
                   {info.romajiBusy === song.id && <ActivityIndicator color={theme.c.accent} />}
                   <T variant="caption" color={theme.c.lyricsDim} style={{ flex: 1, textTransform: "none" }}>
@@ -379,6 +383,30 @@ export default function Player({
       )}
       <QueueSheet player={player} visible={sheet === "queue"} onClose={() => setSheet(null)} />
       <AddToPlaylistSheet visible={sheet === "playlists"} onClose={() => setSheet(null)} song={song} playlists={playlists} />
+    </View>
+  )
+}
+
+/** Whether the song's lyrics (timed or plain) have Japanese in them */
+const hasJapanese = (song: Song) => (song.lyrics ? lyricsHaveJapanese(song.lyrics) : !!song.plain && lyricsHaveJapanese([{ t: 0, text: song.plain }]))
+
+/** Lyrics with no times: each line with its romanised reading small under it */
+function PlainWithReading({ plain, reading }: { plain: string; reading: string[] }) {
+  const theme = useTheme()
+  return (
+    <View>
+      {plain.split(/\r?\n/).map((line, i) => (
+        <View key={i} style={{ marginBottom: line.trim() ? 6 : 12 }}>
+          <T variant="body" color={theme.c.lyricsText} style={{ lineHeight: 26, textTransform: "none" }}>
+            {line}
+          </T>
+          {!!reading[i] && (
+            <T variant="caption" color={theme.c.lyricsDim} style={{ textTransform: "none" }}>
+              {reading[i]}
+            </T>
+          )}
+        </View>
+      ))}
     </View>
   )
 }
