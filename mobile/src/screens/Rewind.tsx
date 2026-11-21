@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react"
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native"
+import { Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Button, Cover, T } from "../components/ui"
+import { useArtistImage } from "../online/artistImage"
 import { formatListening, Ranked, Summary } from "../recap"
 import { useTheme } from "../themes/ThemeContext"
 
 /** Songs in the mosaic, after the number one */
 const MOSAIC = 12
 const COLUMNS = 3
+/** Size of the artist's photo and of the cover beside it */
+const PICTURE = 120
 
 /**
  * The year's recap as an occasion: the year's songs come in as a mosaic of their covers, with the number one hidden;
@@ -28,6 +31,10 @@ function Show({ year, summary, onClose }: { year: string; summary: Summary; onCl
   const [first, ...rest] = summary.songs
   const tiles = rest.slice(0, MOSAIC)
   const topArtist = summary.artists[0]
+  // The artist's song heard most, whose cover goes beside the artist's photo
+  const artistSong = topArtist ? summary.songs.find((s) => s.detail?.toLowerCase().trim() === topArtist.name.toLowerCase().trim()) : undefined
+  const photo = useArtistImage(topArtist?.name)
+  const [photoFailed, setPhotoFailed] = useState(false)
   const gap = 8
   const tile = Math.floor((width - 32 - gap * (COLUMNS - 1)) / COLUMNS)
 
@@ -135,6 +142,21 @@ function Show({ year, summary, onClose }: { year: string; summary: Summary; onCl
                   <T variant="label" color={dim}>
                     Tu artista del año
                   </T>
+                  <View style={styles.pictures}>
+                    {photo && !photoFailed && (
+                      <Image source={{ uri: photo }} accessibilityLabel={`Foto de ${topArtist.name}`} onError={() => setPhotoFailed(true)} style={[styles.photo, { borderColor: theme.c.accent }]} />
+                    )}
+                    {artistSong && (
+                      <View style={{ alignItems: "center", gap: 4 }}>
+                        <View style={{ borderRadius: 14, overflow: "hidden", borderWidth: 2, borderColor: theme.c.accent }}>
+                          <Cover seed={artistSong.id ?? -1} size={PICTURE} />
+                        </View>
+                        <T variant="caption" color={dim} numberOfLines={1} style={{ maxWidth: PICTURE + 20, fontSize: 11 }}>
+                          {artistSong.name}
+                        </T>
+                      </View>
+                    )}
+                  </View>
                   <T variant="title" color={ink} style={{ textAlign: "center" }}>
                     {topArtist.name}
                   </T>
@@ -196,5 +218,7 @@ const styles = StyleSheet.create({
   mystery: { borderWidth: 3, borderStyle: "dashed", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)" },
   hint: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 18, paddingHorizontal: 24, backgroundColor: "rgba(11,11,20,0.92)" },
   shade: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 6, paddingVertical: 4, backgroundColor: "rgba(0,0,0,0.6)" },
+  pictures: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: 16, marginVertical: 6 },
+  photo: { width: PICTURE, height: PICTURE, borderRadius: PICTURE / 2, borderWidth: 2, backgroundColor: "rgba(255,255,255,0.08)" },
   artist: { alignSelf: "stretch", alignItems: "center", gap: 2, padding: 14, borderWidth: 1.5, borderRadius: 16 },
 })

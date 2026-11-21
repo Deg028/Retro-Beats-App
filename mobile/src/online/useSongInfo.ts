@@ -8,7 +8,7 @@ import { readLyricsFile } from "./local"
 import { lyricsHaveJapanese, romanise } from "./romaji"
 import { sleep } from "./http"
 import { lookup, saveCover } from "./lookup"
-import { japaneseSegments, looksLikeRomaji, mergeJapanese } from "./japanese"
+import { alignJapanese, japaneseSegments, looksLikeRomaji, mergeJapanese } from "./japanese"
 import { estimateTimes, findJapanesePlain, splitLyrics, tidyLyrics } from "./lrclib"
 import { findJapaneseText } from "./netease"
 import { readThumbnails, saveThumbnail, SNAPTUBE_HINT } from "./snaptube"
@@ -318,7 +318,12 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
       if (ja === "offline") return "No pude conectar con el servicio de letras. Prueba de nuevo en unos minutos."
       if (!ja) return "No encontré la letra en japonés de esta canción."
       store.patch(song.id, { jaTriedAt: Date.now() })
-      const merged = mergeJapanese(lines, ja.lines, song.duration, ja.duration)
+      // Same lines, or the same times; failing that, the Japanese is read out and each line goes where it sounds alike
+      let merged = mergeJapanese(lines, ja.lines, song.duration, ja.duration)
+      if (!merged) {
+        const readings = await romanise(ja.lines).catch(() => null)
+        if (readings) merged = alignJapanese(lines, ja.lines.map((l) => l.text), readings)
+      }
       if (merged) {
         // The person's times and reading stay; the Japanese goes on top. Their previous lyrics are kept for «Restaurar»
         const synced = merged.synced

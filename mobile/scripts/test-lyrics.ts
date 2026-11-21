@@ -3,7 +3,8 @@
  * (`eas-build-post-install`), so a change that lets worse lyrics replace better ones stops the build.
  * Each case is a mistake that really happened, or one that must never happen.
  */
-import { japaneseSegments, looksLikeRomaji, mergeJapanese } from "../src/online/japanese"
+import { groupByLetter, isJapanese, letterOf } from "../src/alphabet"
+import { alignJapanese, japaneseSegments, looksLikeRomaji, mergeJapanese } from "../src/online/japanese"
 import { isSectionLabel, parseLrc, splitLyrics, tidyLyrics, toLrc } from "../src/online/lrclib"
 import { canReplace, inferSource, isSnaptubeFile, LyricsSource, Quality, rank, reviewLyrics, wanted, worthBackingUp } from "../src/online/lyricsPolicy"
 
@@ -260,6 +261,38 @@ test("Japanese and romaji written as separate lines become Japanese lines with t
   const english = ["The day has come", "Such a narrow world", "Poison ivy twists", "Staring through the fog", "Nothing left to lose"]
   const translated = tidyLyrics({ synced: pairs.flatMap(([ja], i) => [{ t: i * 6, text: ja }, { t: i * 6 + 2, text: english[i] }]), plain: null })
   assert.equal(translated.romaji, undefined)
+})
+
+test("el índice A-Z: letras, japonés bajo 日 y números bajo #", () => {
+  assert.equal(letterOf("Irregular Man"), "I")
+  assert.equal(letterOf("  \"My War\" Full English Cover"), "M")
+  assert.equal(letterOf("Última Batalla"), "U")
+  assert.equal(letterOf("ヤラララ Yararara"), "日")
+  assert.equal(letterOf("やる気が出ない歌"), "日")
+  assert.equal(letterOf("1-2 Subsuelo"), "#")
+  const groups = groupByLetter([{ title: "Zeta" }, { title: "ヤラララ" }, { title: "alfa" }, { title: "7 Rings" }, { title: "Alba" }])
+  assert.equal(groups.map((g) => g.letter).join(""), "AZ日#")
+  assert.equal(groups[0].songs.map((x) => x.title).join(","), "alfa,Alba".split(",").sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).join(","))
+  assert.ok(isJapanese({ title: "Irregular Man", artist: "重音テト" }))
+  assert.ok(!isJapanese({ title: "Irregular Man", artist: "Kasane Teto" }))
+})
+
+test("el japonés se pone en las líneas de romaji aunque no tengan el mismo número de líneas", () => {
+  const ja = ["真っ直ぐ転がって", "夢を見ていた", "空を飛びたい", "君に会いたい", "何度でも", "さよならの声", "光の中へ", "もう一度"]
+  const reading = ["massugu korogatte", "yume o miteita", "sora o tobitai", "kimi ni aitai", "nando demo", "sayonara no koe", "hikari no naka e", "mō ichido"]
+  // la letra de la persona: otra grafía, una línea repetida
+  const mine = ["Massugu korogatte", "Yume wo miteita", "Sora wo tobitai", "Sora wo tobitai", "Kimi ni aitai", "Nando demo", "Sayonara no koe", "Hikari no naka e", "Mou ichido"]
+  const lines = mine.map((text, i) => ({ t: i * 5, text }))
+  const out = alignJapanese(lines, ja, reading)
+  assert.ok(out !== null)
+  assert.equal(out!.synced[0].text, "真っ直ぐ転がって")
+  assert.equal(out!.synced[1].text, "夢を見ていた")
+  assert.equal(out!.synced[4].text, "君に会いたい")
+  assert.equal(out!.synced[8].text, "もう一度")
+  assert.equal(out!.synced[8].t, 40)
+  assert.equal(out!.romaji[4], "Kimi ni aitai")
+  // la letra de otra canción no encaja
+  assert.equal(alignJapanese(lines, ["全然違う", "ほかの歌", "知らない", "わからない"], ["zenzen chigau", "hoka no uta", "shiranai", "wakaranai"]), null)
 })
 
 console.log(`${passed} pruebas de letras correctas`)

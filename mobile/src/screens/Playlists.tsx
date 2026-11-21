@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { Alert, BackHandler, FlatList, Keyboard, StyleSheet, TextInput, View } from "react-native"
 import { fmt, lengthSuffix, Song } from "../data"
+import { isJapanese } from "../alphabet"
+import AlphabetList from "../components/AlphabetList"
 import { Button, Cover, Icon, IconButton, Press, Surface, T, textStyle } from "../components/ui"
 import { normalize } from "../library/names"
 import { MAX_NAME, Playlist, PlaylistsApi } from "../playlists"
@@ -45,6 +47,7 @@ export default function Playlists({ playlists, player, onOpenPlayer }: { playlis
   const [creating, setCreating] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [find, setFind] = useState("")
   const open = playlists.lists.find((l) => l.id === openId) ?? null
 
   // Back closes the picker, then the list, before leaving the screen
@@ -64,12 +67,14 @@ export default function Playlists({ playlists, player, onOpenPlayer }: { playlis
 
   if (open && picking) return <Picker list={open} songs={player.songs} playlists={playlists} onDone={() => setPicking(false)} />
   if (open) {
-    const songs = open.songIds.map((id) => byId.get(id)).filter((s): s is Song => !!s)
-    const total = songs.reduce((sum, s) => sum + s.duration, 0)
+    const all = open.songIds.map((id) => byId.get(id)).filter((s): s is Song => !!s)
+    const total = all.reduce((sum, s) => sum + s.duration, 0)
+    const words = normalize(find).split(" ").filter(Boolean)
+    const songs = words.length ? all.filter((s) => words.every((w) => normalize(`${s.title} ${s.artist}`).includes(w))) : all
     return (
       <View style={{ flex: 1 }}>
         <View style={styles.head}>
-          <Button label="Listas" variant="secondary" onPress={() => setOpenId(null)} />
+          <Button label="Listas" variant="secondary" onPress={() => { setOpenId(null); setFind("") }} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <T variant="label" color={theme.c.textMuted}>
               Lista
@@ -105,7 +110,7 @@ export default function Playlists({ playlists, player, onOpenPlayer }: { playlis
           ListHeaderComponent={
             <View style={{ gap: 12, marginBottom: 14 }}>
               <T variant="caption" color={theme.c.textMuted}>
-                {songCount(songs.length)}
+                {words.length ? `${songs.length} de ${songCount(all.length)}` : songCount(songs.length)}
                 {total > 0 ? ` · ${fmt(total)}` : ""}
               </T>
               {renaming ? (
@@ -141,6 +146,21 @@ export default function Playlists({ playlists, player, onOpenPlayer }: { playlis
                       onOpenPlayer()
                     }}
                   />
+                </View>
+              )}
+              {all.length > 4 && !renaming && (
+                <View style={[styles.input, { borderRadius: theme.radius.md, borderWidth: theme.border, borderColor: theme.c.border, backgroundColor: theme.c.surface }]}>
+                  <Icon name="search" size={20} color={theme.c.textMuted} />
+                  <TextInput
+                    value={find}
+                    onChangeText={setFind}
+                    placeholder="Buscar en esta lista"
+                    placeholderTextColor={theme.c.textMuted}
+                    autoCorrect={false}
+                    accessibilityLabel="Buscar en esta lista"
+                    style={[textStyle(theme, "body"), { flex: 1, paddingVertical: 10, color: theme.c.text, textTransform: "none" }]}
+                  />
+                  {!!find && <IconButton icon="close" onPress={() => setFind("")} label="Borrar lo escrito" color={theme.c.textMuted} size={20} boxed={false} />}
                 </View>
               )}
               {!renaming && (
@@ -289,18 +309,15 @@ function Picker({ list, songs, playlists, onDone }: { list: Playlist; songs: Son
           style={[textStyle(theme, "body"), { flex: 1, paddingVertical: 10, color: theme.c.text, textTransform: "none" }]}
         />
       </View>
-      <FlatList
-        data={shown}
-        keyExtractor={(s) => String(s.id)}
-        contentContainerStyle={styles.content}
+      <AlphabetList
+        songs={shown}
         keyboardShouldPersistTaps="handled"
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        ListEmptyComponent={
+        empty={
           <T variant="caption" color={theme.c.textMuted} style={{ textAlign: "center", marginTop: 24 }}>
             Nada coincide con la búsqueda
           </T>
         }
-        renderItem={({ item }) => {
+        renderSong={(item) => {
           const on = inList.has(item.id)
           return (
             <Press
@@ -316,6 +333,7 @@ function Picker({ list, songs, playlists, onDone }: { list: Playlist; songs: Son
                   <Cover seed={item.id} size={44} behind={on ? theme.c.surface2 : theme.c.surface} />
                   <View style={{ flex: 1 }}>
                     <T variant="title" numberOfLines={1} style={{ fontSize: Math.min(theme.type.title.size, 16) }}>
+                      {isJapanese(item) ? <T variant="label" color={theme.c.accent}>日 </T> : null}
                       {item.title}
                     </T>
                     <T variant="caption" numberOfLines={1} color={theme.c.warm}>

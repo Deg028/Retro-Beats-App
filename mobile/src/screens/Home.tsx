@@ -1,6 +1,8 @@
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { FlatList, Keyboard, StyleSheet, TextInput, View } from "react-native"
 import { lengthSuffix, Song } from "../data"
+import { isJapanese } from "../alphabet"
+import AlphabetList from "../components/AlphabetList"
 import { Equalizer } from "../components/Pixel"
 import { Button, Cover, Icon, IconButton, IconName, Press, Surface, T, textStyle } from "../components/ui"
 import { normalize } from "../library/names"
@@ -13,15 +15,17 @@ export const SECTIONS: { key: Section; label: string; icon: IconName }[] = [
   { key: "fav", label: "Favoritas", icon: "heart" },
   { key: "top", label: "Top", icon: "top" },
   { key: "recent", label: "Recientes", icon: "recent" },
+  { key: "abc", label: "A–Z", icon: "library" },
 ]
 
-export type Section = "added" | "fav" | "top" | "recent"
+export type Section = "added" | "fav" | "top" | "recent" | "abc"
 
 const EMPTY: Record<Section, string> = {
   added: "Sin canciones",
   fav: "Toca el corazón para guardar favoritas",
   top: "Aún no hay datos",
   recent: "Nada escuchado todavía",
+  abc: "Sin canciones",
 }
 
 /** Songs in each Home section; also gives the counts shown in the side menu. */
@@ -31,6 +35,8 @@ export function sectionLists(library: Song[]): Record<Section, Song[]> {
     fav: library.filter((s) => s.fav),
     top: [...library].sort((a, b) => b.plays - a.plays).slice(0, 6),
     recent: library.filter((s) => s.lastPlayed > 0).sort((a, b) => b.lastPlayed - a.lastPlayed),
+    // The A-Z list sorts and splits by letter itself
+    abc: library,
   }
 }
 
@@ -39,6 +45,7 @@ type RowProps = { item: Song; index: number; ranked: boolean; active: boolean; p
 /** One song of the list. Only the rows whose song or state changed are drawn again, so a long library stays smooth. */
 const SongRow = memo(function SongRow({ item, index, ranked, active, playing, onPlay, onFav }: RowProps) {
   const theme = useTheme()
+  const japanese = isJapanese(item)
   return (
     <Surface tone={active ? "surface2" : "surface"} style={styles.item}>
       <Press style={styles.itemMain} radius={theme.radius.sm} scaleTo={0.97} accessibilityLabel={`Reproducir ${item.title}`} onPress={() => onPlay(item.id)}>
@@ -50,6 +57,7 @@ const SongRow = memo(function SongRow({ item, index, ranked, active, playing, on
         <Cover seed={item.id} size={44} behind={active ? theme.c.surface2 : theme.c.surface} />
         <View style={{ flex: 1 }}>
           <T variant="title" numberOfLines={1} style={{ fontSize: Math.min(theme.type.title.size, 16) }}>
+            {japanese ? <T variant="label" color={theme.c.accent} accessibilityLabel="Canción en japonés">日 </T> : null}
             {item.title}
           </T>
           <T variant="caption" numberOfLines={1} color={theme.c.warm}>
@@ -103,6 +111,7 @@ export default function Home({
     })
   }, [asked, lists.added])
   const list = found ?? lists[section]
+  const alpha = section === "abc"
   const closeSearch = () => {
     setSearching(false)
     setQuery("")
@@ -173,6 +182,18 @@ export default function Home({
         </View>
       )}
 
+      {alpha ? (
+        <AlphabetList
+          songs={list}
+          keyboardShouldPersistTaps="handled"
+          renderSong={(item) => <SongRow item={item} index={0} ranked={false} active={item.id === currentId} playing={item.id === currentId && playing} onPlay={onPlay} onFav={onFav} />}
+          empty={
+            <T variant="caption" color={theme.c.textMuted} style={{ textAlign: "center", marginTop: 24 }}>
+              {found ? `Nada coincide con «${asked.trim()}»` : EMPTY[section]}
+            </T>
+          }
+        />
+      ) : (
       <FlatList
         data={list}
         keyExtractor={(s) => String(s.id)}
@@ -236,7 +257,7 @@ export default function Home({
         maxToRenderPerBatch={10}
         removeClippedSubviews
       />
-
+      )}
     </View>
   )
 }
