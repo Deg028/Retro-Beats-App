@@ -1,4 +1,4 @@
-# Builds the Android APK on GitHub's machines, for free, while the EAS Free plan has no builds left.
+# The runner already has the Android SDK (ANDROID_HOME). Builds the Android APK on GitHub's machines, for free, while the EAS Free plan has no builds left.
 # It runs `eas build --local`: the build happens here (no EAS build credit is used) and only the signing key is fetched
 # from EAS with EXPO_TOKEN, so the APK installs over the one on the phone and keeps the person's data.
 # Start it from the Actions tab («Run workflow»), or push a commit whose message has [apk] in it.
@@ -18,7 +18,7 @@ jobs:
       run:
         working-directory: mobile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           lfs: false
 
@@ -28,18 +28,16 @@ jobs:
         working-directory: .
         run: git lfs pull --include="mobile/**" --exclude="mobile/assets/audio/**"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
-
-      - uses: android-actions/setup-android@v3
 
       - name: Dependencias (aplica el parche de expo-audio)
         run: npm ci
