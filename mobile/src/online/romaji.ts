@@ -94,7 +94,12 @@ async function readOnline(text: string): Promise<string> {
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=rm&q=${encodeURIComponent(text)}`
   const found = await getJson<[[string | null, string | null, string | null, string | null][]]>(url)
   const reading = (found?.[0] ?? []).map((part) => part[3]).filter((x): x is string => !!x).join(" ")
-  return reading.replace(/\s+/g, " ").trim()
+  // Google marks some stylised kanji with "~" and capitalises names in the middle of a word («tsuMasa»): both are noise here
+  return reading
+    .replace(/~/g, "")
+    .replace(/([a-zāīūēō])([A-Z])/g, (_, a: string, b: string) => a + b.toLowerCase())
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 // Lines go to Google joined by " | ", which comes back as "|" between the readings. One request per line (40 for a
@@ -133,4 +138,19 @@ export async function romanise(lines: LyricLine[]): Promise<string[]> {
     else for (const k of group) out[todo[k]] = await readOnline(texts[k])
   }
   return out
+}
+
+/**
+ * A Japanese title in English («イレギュラーマン» gives «irregular man»), to find the song's lyrics under the name other
+ * sites know it by. Only the title is sent. Empty when there is no answer or it is not Latin letters.
+ */
+export async function translateTitle(text: string): Promise<string> {
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(text)}`
+    const found = await getJson<[[string | null][]]>(url)
+    const english = (found?.[0] ?? []).map((part) => part[0]).filter((x): x is string => !!x).join("").trim()
+    return /^[\x20-\x7e]+$/.test(english) && english.toLowerCase() !== text.toLowerCase() ? english : ""
+  } catch {
+    return ""
+  }
 }

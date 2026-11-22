@@ -5,7 +5,7 @@ import { Song } from "../data"
 import { pickFolder } from "../library/scan"
 import { readEmbeddedLyrics, readPicture } from "../library/tags"
 import { readLyricsFile } from "./local"
-import { lyricsHaveJapanese, romanise } from "./romaji"
+import { lyricsHaveJapanese, romanise, translateTitle } from "./romaji"
 import { sleep } from "./http"
 import { lookup, saveCover } from "./lookup"
 import { alignJapanese, japaneseSegments, looksLikeRomaji, mergeJapanese } from "./japanese"
@@ -308,7 +308,7 @@ export function useSongInfo(store: InfoStore, current: Song | null) {
     try {
       // LRCLIB first (it answers from any network); NetEase lists Japanese songs by their Japanese title but did not answer
       // sensibly from the phone's mobile data, so it is only the second try
-      let ja: Awaited<ReturnType<typeof findJapaneseText>> = await findJapanesePlain([...segments, song.title], song.duration).catch(() => "offline" as const)
+      let ja: Awaited<ReturnType<typeof findJapaneseText>> = await findJapanesePlain([...segments, song.title, ...(await Promise.all(segments.slice(0, 2).map(translateTitle))).filter(Boolean)], song.duration).catch(() => "offline" as const)
       if (!ja || ja === "offline") {
         const other = segments.length ? await findJapaneseText(segments, song.duration) : null
         if (other && other !== "offline") ja = other
