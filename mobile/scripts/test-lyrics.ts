@@ -263,6 +263,34 @@ test("Japanese and romaji written as separate lines become Japanese lines with t
   assert.equal(translated.romaji, undefined)
 })
 
+test("a one-word reading is folded too, and a Latin line repeated as its own «romaji» shows once (Unmotivated Song)", () => {
+  const rows = [
+    "はーいはい もう今からやるって", "haai hai mou ima kara yarutte",
+    "はーいはい やればできる子だって", "haai hai yareba dekiru ko datte",
+    "今やろうと思ってたのに", "ima yarou to omotteta no ni",
+    "NaNaNaNaNa", "NaNaNaNaNa",
+    "いつも難儀な状況 ホールドオン", "itsumo nangi na joukyou hoorudo on",
+    "しょうもない", "shoumonai",
+    "見ないふりだけ優等生", "minai furi dake yuutousei",
+  ]
+  const ja = ["はーいはい もう今からやるって", "はーいはい やればできる子だって", "今やろうと思ってたのに", "NaNaNaNaNa", "いつも難儀な状況 ホールドオン", "しょうもない", "見ないふりだけ優等生"]
+  const reading = ["haai hai mou ima kara yarutte", "haai hai yareba dekiru ko datte", "ima yarou to omotteta no ni", "", "itsumo nangi na joukyou hoorudo on", "shoumonai", "minai furi dake yuutousei"]
+  const tidy = tidyLyrics({ synced: rows.map((text, i) => ({ t: i * 3, text })), plain: null })
+  assert.equal(JSON.stringify(tidy.synced?.map((l) => l.text)), JSON.stringify(ja))
+  assert.equal(JSON.stringify(tidy.romaji), JSON.stringify(reading))
+  assert.equal(JSON.stringify(tidyLyrics(tidy)), JSON.stringify(tidy))
+  // lyrics an older version folded (the one-word reading and the copy left as lines) are mended when they are loaded
+  const old = ja.flatMap((text, i) => (i === 3 ? [text, text] : i === 5 ? [text, "shoumonai"] : [text]))
+  const oldReading = reading.flatMap((r, i) => (i === 3 ? ["", ""] : i === 5 ? ["", ""] : [r]))
+  const mended = tidyLyrics({ synced: old.map((text, i) => ({ t: i * 3, text })), plain: null, romaji: oldReading })
+  assert.equal(JSON.stringify(mended.synced?.map((l) => l.text)), JSON.stringify(ja))
+  assert.equal(JSON.stringify(mended.romaji), JSON.stringify(reading))
+  // lyrics read by the app itself (every Japanese line has its reading) keep a chant sung twice
+  const chant = ["今日も", "Hey Hey", "Hey Hey", "明日も", "昨日も", "いつも"]
+  const own = tidyLyrics({ synced: chant.map((text, i) => ({ t: i * 3, text })), plain: null, romaji: ["kyou mo", "", "", "ashita mo", "kinou mo", "itsumo"] })
+  assert.equal(own.synced?.length, 6)
+})
+
 test("el índice A-Z: letras, japonés bajo 日 y números bajo #", () => {
   assert.equal(letterOf("Irregular Man"), "I")
   assert.equal(letterOf("  \"My War\" Full English Cover"), "M")

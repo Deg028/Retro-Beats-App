@@ -230,10 +230,10 @@ export function isCaptionJunk(l: Lyrics): boolean {
  */
 function foldRomajiLines(l: Lyrics): Lyrics {
   let out = l
-  const synced = l.synced && foldRomaji(l.synced.map((x) => x.text))
+  const synced = l.synced && foldRomaji(l.synced.map((x) => x.text), l.romaji)
   if (l.synced && synced) out = { ...out, synced: synced.keep.map((i) => l.synced![i]), romaji: synced.reading }
   const rows = l.plain ? l.plain.split(/\r?\n/) : null
-  const plain = rows && foldRomaji(rows)
+  const plain = rows && foldRomaji(rows, l.plainRomaji)
   if (rows && plain) out = { ...out, plain: plain.keep.map((i) => rows[i]).join("\n"), plainRomaji: plain.reading }
   return out
 }

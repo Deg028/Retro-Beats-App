@@ -75,7 +75,10 @@ export function mergeJapanese(romaji: LyricLine[], japanese: LyricLine[], songSe
   return { synced: pairs.map(([i, k]) => ({ t: r[i].t, text: j[k].text })), romaji: pairs.map(([i]) => r[i].text) }
 }
 
-/** One line written in Latin letters that reads as romaji: at least two words, nearly all built from Japanese syllables */
+/**
+ * One line written in Latin letters that reads as romaji: nearly all its words built from Japanese syllables, and at
+ * least two words or one of 4 letters or more («shoumonai» under «しょうもない»)
+ */
 function isRomajiLine(text: string): boolean {
   if (HAS_JAPANESE.test(text)) return false
   const words = text
@@ -83,8 +86,13 @@ function isRomajiLine(text: string): boolean {
     .split(/[^a-zāīūēō']+/)
     .map((w) => w.replace(/'/g, ""))
     .filter(Boolean)
+  if (words.length === 1) return words[0].length >= 4 && ROMAJI_WORD.test(words[0])
   return words.length >= 2 && words.filter((w) => ROMAJI_WORD.test(w)).length / words.length >= 0.9
 }
+
+/** The same Latin line twice («NaNaNaNaNa», then its «romaji» «NaNaNaNaNa») */
+const sameLatin = (a: string | undefined, b: string | undefined) =>
+  a !== undefined && b !== undefined && !!a.trim() && !HAS_JAPANESE.test(a) && a.trim().toLowerCase() === b.trim().toLowerCase()
 
 /**
  * Lyrics that come with the Japanese and its romaji as separate lines, one after the other (a Japanese line, then its
@@ -92,15 +100,20 @@ function isRomajiLine(text: string): boolean {
  * is shown once with its reading under it, the way the app shows readings it makes itself. `keep` says which lines
  * stay (the others were readings) and `reading` is the reading of each kept line, "" where it has none. Returns null
  * unless at least half of the Japanese lines have such a partner (a source may skip a reading here and there), so lyrics with an English translation or none are left alone.
+ * In such lyrics a Latin line followed by the same line is the line and its «romaji»: the copy goes.
+ * `readings` are the readings the lines already have (lyrics folded by an older version, which missed one-word readings):
+ * lines that have one are not paired again, but count towards the half, so what was missed is folded now.
  */
-export function foldRomaji(texts: string[]): { keep: number[]; reading: string[] } | null {
+export function foldRomaji(texts: string[], readings?: string[]): { keep: number[]; reading: string[] } | null {
   const japanese = texts.filter((t) => HAS_JAPANESE.test(t)).length
   if (japanese < 4) return null
+  const had = readings?.length === texts.length ? readings : undefined
+  const read = texts.filter((t, i) => HAS_JAPANESE.test(t) && had?.[i]).length
   const pair = (romajiFirst: boolean) => {
     const consumed = new Set<number>()
     const readingOf = new Map<number, string>()
     texts.forEach((text, i) => {
-      if (!HAS_JAPANESE.test(text)) return
+      if (!HAS_JAPANESE.test(text) || had?.[i]) return
       const partner = romajiFirst ? i - 1 : i + 1
       const other = texts[partner]
       if (other !== undefined && isRomajiLine(other) && !consumed.has(partner)) {
@@ -114,9 +127,12 @@ export function foldRomaji(texts: string[]): { keep: number[]; reading: string[]
   const after = pair(false)
   const before = pair(true)
   const { consumed, readingOf } = before.readingOf.size > after.readingOf.size ? before : after
-  if (readingOf.size < 4 || readingOf.size < Math.ceil(japanese * 0.5)) return null
+  if (!readingOf.size || readingOf.size + read < 4 || readingOf.size + read < Math.ceil(japanese * 0.5)) return null
+  texts.forEach((text, i) => {
+    if (!consumed.has(i) && !consumed.has(i + 1) && sameLatin(text, texts[i + 1])) consumed.add(i + 1)
+  })
   const keep = texts.map((_, i) => i).filter((i) => !consumed.has(i))
-  return { keep, reading: keep.map((i) => readingOf.get(i) ?? "") }
+  return { keep, reading: keep.map((i) => readingOf.get(i) ?? had?.[i] ?? "") }
 }
 
 /** A reading spelt loosely, to compare two spellings of the same sound: no accents, no spaces, long vowels short, «wo» as «o» */
