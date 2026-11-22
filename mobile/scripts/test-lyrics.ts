@@ -5,7 +5,8 @@
  */
 import { groupByLetter, isJapanese, letterOf } from "../src/alphabet"
 import { alignJapanese, japaneseSegments, looksLikeRomaji, mergeJapanese } from "../src/online/japanese"
-import { isSectionLabel, parseLrc, splitLyrics, tidyLyrics, toLrc } from "../src/online/lrclib"
+import { isSectionLabel, lyricsToText, parseLrc, splitLyrics, tidyLyrics, toLrc } from "../src/online/lrclib"
+import { artistKey, songsOf, summarize } from "../src/recap"
 import { canReplace, inferSource, isSnaptubeFile, LyricsSource, Quality, rank, reviewLyrics, wanted, worthBackingUp } from "../src/online/lyricsPolicy"
 
 // No Node typings in this project: a minimal assert and the exit code
@@ -261,6 +262,53 @@ test("Japanese and romaji written as separate lines become Japanese lines with t
   const english = ["The day has come", "Such a narrow world", "Poison ivy twists", "Staring through the fog", "Nothing left to lose"]
   const translated = tidyLyrics({ synced: pairs.flatMap(([ja], i) => [{ t: i * 6, text: ja }, { t: i * 6 + 2, text: english[i] }]), plain: null })
   assert.equal(translated.romaji, undefined)
+})
+
+test("lyrics copied to correct by hand keep times and romaji, and come back the same when pasted", () => {
+  const song = {
+    lyrics: [
+      { t: 10, text: "はーいはい もう今からやるって" },
+      { t: 14, text: "はーいはい やればできる子だって" },
+      { t: 18, text: "今やろうと思ってたのに" },
+      { t: 22, text: "NaNaNaNaNa" },
+      { t: 26, text: "しょうもない" },
+    ],
+    romaji: ["haai hai mou ima kara yarutte", "haai hai yareba dekiru ko datte", "ima yarou to omotteta no ni", "", "shoumonai"],
+    lyricsOffset: -1,
+  }
+  const text = lyricsToText(song)
+  assert.equal(text.split("\n")[0], "[00:11.00] はーいはい もう今からやるって")
+  assert.equal(text.split("\n")[1], "[00:11.00] haai hai mou ima kara yarutte")
+  const { synced, plain } = splitLyrics(text)
+  const back = tidyLyrics({ synced, plain: plain || null })
+  assert.equal(JSON.stringify(back.synced?.map((l) => l.text)), JSON.stringify(song.lyrics.map((l) => l.text)))
+  assert.equal(JSON.stringify(back.synced?.map((l) => l.t)), JSON.stringify([11, 15, 19, 23, 27]))
+  assert.equal(JSON.stringify(back.romaji), JSON.stringify(song.romaji))
+  // a reading Google gave with a stray accent is still a reading
+  const accented = tidyLyrics(splitLyrics(lyricsToText({ ...song, romaji: song.romaji.map((r, i) => (i === 2 ? "tà Mare Ta Hana No Namae Mo Shirazu Ni" : r)) })))
+  assert.equal(accented.synced?.length, 5)
+  assert.equal(accented.romaji?.[2], "tà Mare Ta Hana No Namae Mo Shirazu Ni")
+  // plain lyrics with their readings too
+  assert.equal(lyricsToText({ plain: "今日\nhello", plainRomaji: ["kyou", ""] }), "今日\nkyou\nhello")
+})
+
+test("the artist of the year counts only songs by exactly that artist or group", () => {
+  assert.equal(artistKey("Kasane Teto/ Hatsune Miku"), artistKey("Hatsune Miku & Kasane Teto"))
+  assert.ok(artistKey("Kasane Teto") !== artistKey("Kasane Teto/ Hatsune Miku"))
+  const log = {
+    "2026-11": {
+      "1": { s: 300, t: "Irregular Man", a: "Kasane Teto" },
+      "2": { s: 200, t: "Tetoris", a: "Kasane Teto" },
+      "3": { s: 900, t: "Unmotivated Song", a: "Kasane Teto/ Hatsune Miku" },
+      "4": { s: 100, t: "PPPP", a: "Hatsune Miku, Kasane Teto" },
+      "5": { s: 50, t: "Otro", a: "Creepy Nuts" },
+    },
+  }
+  const sum = summarize(log, { kind: "year", key: "2026" })
+  assert.equal(sum.artists[0].name, "Kasane Teto/ Hatsune Miku")
+  assert.equal(sum.artists[0].seconds, 1000)
+  assert.equal(JSON.stringify(songsOf(sum.songs, sum.artists[0].name).map((s) => s.name)), JSON.stringify(["Unmotivated Song", "PPPP"]))
+  assert.equal(JSON.stringify(songsOf(sum.songs, "Kasane Teto").map((s) => s.name)), JSON.stringify(["Irregular Man", "Tetoris"]))
 })
 
 test("a one-word reading is folded too, and a Latin line repeated as its own «romaji» shows once (Unmotivated Song)", () => {

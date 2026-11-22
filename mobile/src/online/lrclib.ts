@@ -330,6 +330,24 @@ const stamp = (s: number) => {
 /** Lines and the second each one starts at (timed by hand) as an LRC text, which `splitLyrics` reads back */
 export const toLrc = (lines: string[], marks: number[]) => lines.map((line, i) => `${stamp(Math.max(0, marks[i]))} ${line}`).join("\n")
 
+/**
+ * The lyrics the app shows, as text to correct by hand and paste back: each line with its time (the person's − / +
+ * adjustment already counted, since a paste starts with none) and, under each Japanese line, its romaji as a line of its
+ * own with the same time. Pasted back, `tidyLyrics` folds the romaji lines into readings again.
+ */
+export function lyricsToText(l: { lyrics?: LyricLine[]; romaji?: string[]; plain?: string; plainRomaji?: string[]; lyricsOffset?: number }): string {
+  const withReading = (text: string, reading: string | undefined, prefix: string) =>
+    reading?.trim() && text.trim() ? [`${prefix}${text}`, `${prefix}${reading.trim()}`] : [`${prefix}${text}`]
+  if (l.lyrics?.length) {
+    const offset = l.lyricsOffset ?? 0
+    const readings = l.romaji?.length === l.lyrics.length ? l.romaji : undefined
+    return l.lyrics.flatMap((line, i) => withReading(line.text, readings?.[i], `${stamp(Math.max(0, line.t - offset))} `)).join("\n")
+  }
+  const rows = (l.plain ?? "").split(/\r?\n/)
+  const readings = l.plainRomaji?.length === rows.length ? l.plainRomaji : undefined
+  return rows.flatMap((row, i) => withReading(row, readings?.[i], "")).join("\n").trim()
+}
+
 export function splitLyrics(text: string) {
   const timed = parseLrc(text)
   const plain = text

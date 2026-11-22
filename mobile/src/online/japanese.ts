@@ -83,6 +83,10 @@ function isRomajiLine(text: string): boolean {
   if (HAS_JAPANESE.test(text)) return false
   const words = text
     .toLowerCase()
+    // Google writes some readings with stray accents («tà mare ta hana»): only the macron of long vowels counts
+    .normalize("NFD")
+    .replace(/[̀-̃̅-ͯ]/g, "")
+    .normalize("NFC")
     .split(/[^a-zāīūēō']+/)
     .map((w) => w.replace(/'/g, ""))
     .filter(Boolean)

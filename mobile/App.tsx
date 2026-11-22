@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Animated, BackHandler, Easing, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { StatusBar } from "expo-status-bar"
@@ -84,10 +84,66 @@ function useSwipe(on: { left?: () => void; right?: () => void; up?: () => void }
   /* eslint-enable react-hooks/refs */
 }
 
+/** Where a sideways swipe leads: another tab (the screen follows the finger), the player or the menu (it only gives a little), or nowhere */
+type SwipeTarget = "tab" | "other" | null
+
+// The swipe starts after this many pixels of clearly sideways movement
+const PAGER_SLOP = 14
+// The gentle pull of an edge: the further the finger goes, the less the screen follows, never more than `limit`
+const rubber = (dx: number, limit: number) => Math.sign(dx) * limit * (1 - 1 / ((Math.abs(dx) * 0.55) / limit + 1))
+
+/**
+ * The tab screens follow the finger like a native pager. While dragging, the screen moves with the finger (where there is
+ * no tab to go to it gives a little and pulls back). On letting go past a quarter of the width, or with a flick, it carries
+ * on out at the speed of the finger and the next screen comes in from the other side (`enterFrom` in Shell); otherwise
+ * it springs back. Everything after the finger runs on the native side.
+ */
+function usePager(slide: Animated.Value, width: number, on: { target: (step: 1 | -1) => SwipeTarget; commit: (step: 1 | -1, target: SwipeTarget) => void }) {
+  const latest = useRef(on)
+  useEffect(() => {
+    latest.current = on
+  })
+  // `latest` is only read inside the gesture callbacks, never while drawing
+  /* eslint-disable react-hooks/refs */
+  return useMemo(() => {
+    const settle = (velocity = 0) => Animated.spring(slide, { toValue: 0, velocity, stiffness: 320, damping: 30, mass: 1, useNativeDriver: true }).start()
+    const follow = (dx: number) => {
+      const target = latest.current.target(dx < 0 ? 1 : -1)
+      const moved = dx - Math.sign(dx) * PAGER_SLOP
+      return target === "tab" ? moved : rubber(moved, width * 0.18)
+    }
+    return PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > PAGER_SLOP && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
+      // Once the screen follows the finger, a list underneath does not get to take the gesture back
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => slide.stopAnimation(),
+      onPanResponderMove: (_, g) => slide.setValue(follow(g.dx)),
+      onPanResponderTerminate: () => settle(),
+      onPanResponderRelease: (_, g) => {
+        const step: 1 | -1 = g.dx < 0 ? 1 : -1
+        const target = latest.current.target(step)
+        const flick = Math.abs(g.vx) > 0.35 && Math.sign(g.vx) === Math.sign(g.dx) && Math.abs(g.dx) > 30
+        const goes = target !== null && (Math.abs(g.dx) > width * 0.25 || flick)
+        if (!goes) return settle(g.vx * 1000)
+        if (target !== "tab") {
+          settle()
+          return latest.current.commit(step, target)
+        }
+        // Out the way the finger went, as fast as it was going (but never sluggish nor a jump)
+        const exit = -step * width * 0.45
+        const from = follow(g.dx)
+        const duration = Math.min(170, Math.max(80, Math.abs(exit - from) / Math.max(Math.abs(g.vx), 1.4)))
+        Animated.timing(slide, { toValue: exit, duration, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(({ finished }) => finished && latest.current.commit(step, target))
+      },
+    }).panHandlers
+  }, [slide, width])
+  /* eslint-enable react-hooks/refs */
+}
+
 function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi; lib: DeviceLibrary; info: SongInfo; playlists: PlaylistsApi; listening: Listening }) {
   const { theme, themeId, ready } = useThemeControl()
   const insets = useSafeAreaInsets()
-  const { height } = useWindowDimensions()
+  const { height, width } = useWindowDimensions()
   const [intro, setIntro] = useState(true)
   const shared = useSharedText()
   const [tab, setTab] = useState<Tab>("home")
@@ -111,25 +167,48 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   }, [])
   // Tab screens fade and slide in; the player is a layer that slides up over them
   const [enter] = useState(() => new Animated.Value(1))
+  // How far the tab screen is pushed sideways by the finger (usePager); a screen reached by swiping comes in from the side
+  const [slide] = useState(() => new Animated.Value(0))
+  const enterFrom = useRef<1 | -1 | null>(null)
+  const screenMotion = useMemo(
+    () => ({
+      opacity: Animated.multiply(enter, slide.interpolate({ inputRange: [-width * 0.6, 0, width * 0.6], outputRange: [0, 1, 0], extrapolate: "clamp" })),
+      transform: [{ translateX: Animated.add(enter.interpolate({ inputRange: [0, 1], outputRange: [24 * dir, 0] }), slide) }],
+    }),
+    [enter, slide, width, dir],
+  )
   const [layerY] = useState(() => new Animated.Value(height))
   // How far the finger has pulled the player down: fed by the gesture on the native side, so it follows the finger at once
   const [dragY] = useState(() => new Animated.Value(0))
   const [layerPos] = useState(() => Animated.add(layerY, dragY.interpolate({ inputRange: [0, 10000], outputRange: [0, 10000], extrapolateLeft: "clamp" })))
 
   useNowPlaying(player, theme)
-  useThemeIcon(themeId)
+  useThemeIcon(themeId, player.playing)
   const counts = useMemo(
     () => Object.fromEntries(Object.entries(sectionLists(player.library)).map(([k, v]) => [k, v.length])) as Record<Section, number>,
     [player.library],
   )
 
-  const showTab = (next: Tab, direction = 1) => {
+  const showTab = (next: Tab, direction: 1 | -1 = 1, swiped = false) => {
     setDir(direction)
     setTab(next)
+    // After a swipe the old screen already went out with the finger: the new one comes in from the other side (below)
+    if (swiped) {
+      enterFrom.current = direction
+      return
+    }
     // Starts half visible and moves only a little, so the new screen is readable from the first frame
     enter.setValue(0.5)
     motion(theme, enter, 1, 170).start()
   }
+  // Before the new screen is first drawn, so the old one never flashes at the entry point
+  useLayoutEffect(() => {
+    const from = enterFrom.current
+    if (from === null) return
+    enterFrom.current = null
+    slide.setValue(from * width * 0.3)
+    Animated.spring(slide, { toValue: 0, stiffness: 300, damping: 32, mass: 1, useNativeDriver: true }).start()
+  }, [tab, slide, width])
 
   const go = (next: Screen) => {
     if (next === "player") return setPlayerOpen(true)
@@ -138,16 +217,27 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   }
 
   // Swiping the screen walks through the tabs, and from Home to the left edge opens the menu; swiping up on the bar opens the player
-  const swipeTab = (step: 1 | -1) => {
+  const swipeTab = (step: 1 | -1, swiped = false) => {
     if (menuOpen) return
     // «Canción» sits between Inicio and Listas in the swipe order
     if (playerOpen) return go(step === 1 ? "playlists" : "home")
     if ((tab === "home" && step === 1) || (tab === "playlists" && step === -1)) return go("player")
     const i = SWIPE_TABS.indexOf(tab)
-    if (i === -1) return step === -1 ? showTab("home", -1) : undefined
-    if (SWIPE_TABS[i + step]) showTab(SWIPE_TABS[i + step], step)
+    if (i === -1) return step === -1 ? showTab("home", -1, swiped) : undefined
+    if (SWIPE_TABS[i + step]) showTab(SWIPE_TABS[i + step], step, swiped)
     else if (tab === "home" && step === -1) setMenuOpen(true)
   }
+  /** What a swipe on the tab screens leads to, the same walk as `swipeTab` */
+  const swipeTarget = (step: 1 | -1): SwipeTarget => {
+    if (menuOpen || playerOpen) return null
+    if ((tab === "home" && step === 1) || (tab === "playlists" && step === -1)) return "other"
+    const i = SWIPE_TABS.indexOf(tab)
+    if (i === -1) return step === -1 ? "tab" : null
+    if (SWIPE_TABS[i + step]) return "tab"
+    return tab === "home" && step === -1 ? "other" : null
+  }
+  const pager = usePager(slide, width, { target: swipeTarget, commit: (step, target) => swipeTab(step, target === "tab") })
+  // Inside the player a swipe only changes tab (the player layer does not slide sideways)
   const screenSwipe = useSwipe({ left: () => swipeTab(1), right: () => swipeTab(-1) })
   const barSwipe = useSwipe({ left: () => swipeTab(1), right: () => swipeTab(-1), up: () => !playerOpen && !menuOpen && go("player") })
 
@@ -213,7 +303,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
     <View style={[styles.root, { backgroundColor: theme.c.bg }]}>
       <StatusBar style={theme.dark ? "light" : "dark"} />
       <View style={{ flex: 1, paddingTop: insets.top }}>
-        <Animated.View {...screenSwipe} style={{ flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [24 * dir, 0] }) }] }}>
+        <Animated.View {...pager} style={[{ flex: 1 }, screenMotion]}>
           {tab === "home" && <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />}
           {tab === "themes" && <Themes />}
           {tab === "recap" && <Recap key={recapKey} listening={listening} player={player} initial={recapStart} celebrate={recapStart?.kind === "year"} />}
@@ -271,7 +361,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
         )}
         <View>
           {/* The mini player slides with the screen, so the song playing is not left out of the swipe */}
-          <Animated.View {...barSwipe} style={{ opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [24 * dir, 0] }) }] }}>
+          <Animated.View {...barSwipe} style={screenMotion}>
             <MiniPlayer player={player} onOpen={() => go("player")} />
           </Animated.View>
           <View onLayout={(e) => setBarHeight(e.nativeEvent.layout.height)}>

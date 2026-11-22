@@ -35,7 +35,24 @@ export function addListening(log: ListeningLog, song: { id: number; title: strin
   return log
 }
 
-const inPeriod = (monthKeyOf: string, period: Period) => (period.kind === "month" ? monthKeyOf === period.key : monthKeyOf.startsWith(`${period.key}-`))
+/**
+ * Who sings a song, written the same way however the file names them: «Kasane Teto/ Hatsune Miku» and «Hatsune Miku &
+ * Kasane Teto» are the same pair, and a different artist from «Kasane Teto» alone.
+ */
+export function artistKey(name: string): string {
+  return name
+    .toLowerCase()
+    .split(/\s*[/,&、・×+]\s*|\s+(?:x|feat\.?|ft\.?|featuring|and|y|with|con)\s+/)
+    .map((p) => p.replace(/[()[\]]/g, "").trim())
+    .filter(Boolean)
+    .sort()
+    .join("|")
+}
+
+/** The songs of a ranking sung by exactly the given artist (or the same group of artists), in the order of the ranking */
+export const songsOf = (songs: Ranked[], artist: string) => songs.filter((s) => !!s.detail && artistKey(s.detail) === artistKey(artist))
+
+const inPeriod =(monthKeyOf: string, period: Period) => (period.kind === "month" ? monthKeyOf === period.key : monthKeyOf.startsWith(`${period.key}-`))
 
 /** The totals and rankings of a month or a year. Songs are ranked by time heard. */
 export function summarize(log: ListeningLog, period: Period): Summary {
@@ -53,7 +70,7 @@ export function summarize(log: ListeningLog, period: Period): Summary {
     for (const [id, stat] of Object.entries(stats)) {
       seconds += stat.s
       bump(songs, id, stat.t, stat.a, stat.s, Number(id))
-      if (stat.a && stat.a !== UNKNOWN_ARTIST) bump(artists, stat.a.toLowerCase().trim(), stat.a, undefined, stat.s)
+      if (stat.a && stat.a !== UNKNOWN_ARTIST) bump(artists, artistKey(stat.a), stat.a, undefined, stat.s)
       if (stat.al) bump(albums, `${stat.al.toLowerCase().trim()}|${stat.a.toLowerCase().trim()}`, stat.al, stat.a, stat.s)
     }
   }

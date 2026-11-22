@@ -3,14 +3,17 @@ import { Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, useW
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Button, Cover, T } from "../components/ui"
 import { useArtistImage } from "../online/artistImage"
-import { formatListening, Ranked, Summary } from "../recap"
+import { formatListening, Ranked, songsOf, Summary } from "../recap"
 import { useTheme } from "../themes/ThemeContext"
 
 /** Songs in the mosaic, after the number one */
 const MOSAIC = 12
 const COLUMNS = 3
-/** Size of the artist's photo and of the cover beside it */
-const PICTURE = 120
+/** Size of the artist's photo */
+const PICTURE = 110
+/** Covers of the artist's songs shown under their name */
+const ARTIST_SONGS = 6
+const ARTIST_COVER = 96
 
 /**
  * The year's recap as an occasion: the year's songs come in as a mosaic of their covers, with the number one hidden;
@@ -31,10 +34,15 @@ function Show({ year, summary, onClose }: { year: string; summary: Summary; onCl
   const [first, ...rest] = summary.songs
   const tiles = rest.slice(0, MOSAIC)
   const topArtist = summary.artists[0]
-  // The artist's song heard most, whose cover goes beside the artist's photo
-  const artistSong = topArtist ? summary.songs.find((s) => s.detail?.toLowerCase().trim() === topArtist.name.toLowerCase().trim()) : undefined
-  const photo = useArtistImage(topArtist?.name)
-  const [photoFailed, setPhotoFailed] = useState(false)
+  // Only the songs sung by exactly that artist: «Kasane Teto» shows her own songs, «Kasane Teto/ Hatsune Miku» the duets
+  const allArtistSongs = topArtist ? songsOf(summary.songs, topArtist.name) : []
+  const artistSongs = allArtistSongs.slice(0, ARTIST_SONGS)
+  // A duet gets the photo of each singer
+  const singers = topArtist ? topArtist.name.split(/\s*[/,&、・×]\s*|\s+(?:x|feat\.?|ft\.?)\s+/i).filter(Boolean) : []
+  const photo = useArtistImage(singers[0])
+  const photo2 = useArtistImage(singers[1])
+  const [failed, setFailed] = useState<string[]>([])
+  const photos = [photo, photo2].filter((p): p is string => !!p && !failed.includes(p))
   const gap = 8
   const tile = Math.floor((width - 32 - gap * (COLUMNS - 1)) / COLUMNS)
 
@@ -82,8 +90,16 @@ function Show({ year, summary, onClose }: { year: string; summary: Summary; onCl
   const dim = "rgba(255,255,255,0.65)"
 
   return (
-    <Pressable onPress={doReveal} style={{ flex: 1, backgroundColor: stage }} accessibilityRole="button" accessibilityLabel={revealed ? "Tu canción del año" : "Toca para revelar tu canción del año"}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, paddingHorizontal: 16, gap: 16 }}>
+    <View style={{ flex: 1, backgroundColor: stage }}>
+      {/* The tap that reveals is inside the scroll, so once revealed the page scrolls down to the artist like any other */}
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <Pressable
+          onPress={doReveal}
+          disabled={revealed}
+          accessibilityRole={revealed ? undefined : "button"}
+          accessibilityLabel={revealed ? undefined : "Toca para revelar tu canción del año"}
+          style={{ flexGrow: 1, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, paddingHorizontal: 16, gap: 16 }}
+        >
         <Animated.View style={{ opacity: title, transform: [{ translateY: title.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }], gap: 4 }}>
           <T variant="label" color={theme.c.accent}>
             Rewind {year}
@@ -142,27 +158,48 @@ function Show({ year, summary, onClose }: { year: string; summary: Summary; onCl
                   <T variant="label" color={dim}>
                     Tu artista del año
                   </T>
-                  <View style={styles.pictures}>
-                    {photo && !photoFailed && (
-                      <Image source={{ uri: photo }} accessibilityLabel={`Foto de ${topArtist.name}`} onError={() => setPhotoFailed(true)} style={[styles.photo, { borderColor: theme.c.accent }]} />
-                    )}
-                    {artistSong && (
-                      <View style={{ alignItems: "center", gap: 4 }}>
-                        <View style={{ borderRadius: 14, overflow: "hidden", borderWidth: 2, borderColor: theme.c.accent }}>
-                          <Cover seed={artistSong.id ?? -1} size={PICTURE} />
-                        </View>
-                        <T variant="caption" color={dim} numberOfLines={1} style={{ maxWidth: PICTURE + 20, fontSize: 11 }}>
-                          {artistSong.name}
-                        </T>
-                      </View>
-                    )}
-                  </View>
+                  {photos.length > 0 && (
+                    <View style={styles.pictures}>
+                      {photos.map((uri, i) => (
+                        <Image
+                          key={uri}
+                          source={{ uri }}
+                          accessibilityLabel={`Foto de ${singers[i] ?? topArtist.name}`}
+                          onError={() => setFailed((f) => [...f, uri])}
+                          // Two singers overlap a little, like a duet's cover
+                          style={[styles.photo, { borderColor: theme.c.accent, marginLeft: i ? -PICTURE / 4 : 0 }]}
+                        />
+                      ))}
+                    </View>
+                  )}
                   <T variant="title" color={ink} style={{ textAlign: "center" }}>
                     {topArtist.name}
                   </T>
-                  <T variant="caption" color={dim}>
-                    {formatListening(topArtist.seconds)}
+                  <T variant="caption" color={theme.c.accent}>
+                    {formatListening(topArtist.seconds)} · {allArtistSongs.length === 1 ? "1 canción" : `${allArtistSongs.length} canciones`}
                   </T>
+                  {artistSongs.length > 0 && (
+                    <>
+                      <T variant="label" color={dim} style={{ marginTop: 12, alignSelf: "flex-start" }}>
+                        Sus canciones más escuchadas
+                      </T>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ alignSelf: "stretch" }} contentContainerStyle={{ gap: 10, paddingTop: 6 }}>
+                        {artistSongs.map((s, i) => (
+                          <View key={`${s.id ?? s.name}-${i}`} style={{ width: ARTIST_COVER, gap: 4 }}>
+                            <View style={{ borderRadius: 12, overflow: "hidden", borderWidth: i === 0 ? 2 : 0, borderColor: theme.c.accent }}>
+                              <Cover seed={s.id ?? -(i + 1)} size={ARTIST_COVER} />
+                            </View>
+                            <T variant="caption" color={ink} numberOfLines={2} style={{ fontSize: 11, lineHeight: 14 }}>
+                              {s.name}
+                            </T>
+                            <T variant="caption" color={dim} numberOfLines={1} style={{ fontSize: 10 }}>
+                              {formatListening(s.seconds)}
+                            </T>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </>
+                  )}
                 </View>
               )}
               {summary.artists.length > 1 && (
@@ -181,6 +218,7 @@ function Show({ year, summary, onClose }: { year: string; summary: Summary; onCl
             </Animated.View>
           )
         )}
+        </Pressable>
       </ScrollView>
       {!revealed && (
         <View pointerEvents="none" style={[styles.hint, { paddingBottom: insets.bottom + 18 }]}>
@@ -191,7 +229,7 @@ function Show({ year, summary, onClose }: { year: string; summary: Summary; onCl
           </Animated.View>
         </View>
       )}
-    </Pressable>
+    </View>
   )
 }
 
@@ -218,7 +256,7 @@ const styles = StyleSheet.create({
   mystery: { borderWidth: 3, borderStyle: "dashed", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)" },
   hint: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 18, paddingHorizontal: 24, backgroundColor: "rgba(11,11,20,0.92)" },
   shade: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 6, paddingVertical: 4, backgroundColor: "rgba(0,0,0,0.6)" },
-  pictures: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: 16, marginVertical: 6 },
-  photo: { width: PICTURE, height: PICTURE, borderRadius: PICTURE / 2, borderWidth: 2, backgroundColor: "rgba(255,255,255,0.08)" },
+  pictures: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginVertical: 8 },
+  photo: { width: PICTURE, height: PICTURE, borderRadius: PICTURE / 2, borderWidth: 3, backgroundColor: "#1b1b28" },
   artist: { alignSelf: "stretch", alignItems: "center", gap: 2, padding: 14, borderWidth: 1.5, borderRadius: 16 },
 })

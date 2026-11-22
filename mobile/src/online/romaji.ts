@@ -96,6 +96,10 @@ async function readOnline(text: string): Promise<string> {
   const reading = (found?.[0] ?? []).map((part) => part[3]).filter((x): x is string => !!x).join(" ")
   // Google marks some stylised kanji with "~" and capitalises names in the middle of a word («tsuMasa»): both are noise here
   return reading
+    // and some come with accents that Hepburn does not use («tà mare»): only the macron of long vowels stays
+    .normalize("NFD")
+    .replace(/[̀-̃̅-ͯ]/g, "")
+    .normalize("NFC")
     .replace(/~/g, "")
     .replace(/([a-zāīūēō])([A-Z])/g, (_, a: string, b: string) => a + b.toLowerCase())
     .replace(/\s+/g, " ")

@@ -7,6 +7,7 @@ import { Button, T, textStyle } from "../../components/ui"
 import { useTheme } from "../../themes/ThemeContext"
 import { SongInfo } from "../../online/useSongInfo"
 import { looksLikeRomaji } from "../../online/japanese"
+import { lyricsToText } from "../../online/lrclib"
 import { LyricsWebSheet } from "./LyricsWebSheet"
 import { SharedLyricsSheet } from "./SharedLyricsSheet"
 import { Sheet, useKeyboardHeight } from "./shared"
@@ -39,13 +40,15 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
         multiline={multiline}
         // The field being typed in goes to the top of the visible list: the lyrics box is at the end, the others near the start
         onFocus={() => setTimeout(() => (multiline ? scroll.current?.scrollToEnd({ animated: true }) : scroll.current?.scrollTo({ y: 0, animated: true })), 250)}
-        style={[textStyle(theme, "body"), { color: theme.c.text, textTransform: "none", paddingVertical: 10, ...(multiline ? { minHeight: 110, maxHeight: 180, textAlignVertical: "top" as const } : null) }]}
+        style={[textStyle(theme, "body"), { color: theme.c.text, textTransform: "none", paddingVertical: 10, ...(multiline ? { minHeight: 110, maxHeight: 260, textAlignVertical: "top" as const } : null) }]}
       />
     </View>
   )
   // The search happens inside the app; what the person picks goes through the same check as lyrics shared from another app
   const [searching, setSearching] = useState(false)
   const [found, setFound] = useState<string | null>(null)
+  const hasLyrics = !!song.lyrics?.length || !!song.plain?.trim()
+  const hasReading = !!(song.lyrics?.length ? song.romaji : song.plainRomaji)?.some((r) => r.trim())
   const confirmDelete = (fromPhone: boolean) =>
     Alert.alert(
       fromPhone ? "¿Borrar del teléfono?" : "¿Quitar de la app?",
@@ -90,6 +93,34 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
         <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
           Si la app no la encuentra, búscala en internet, cópiala y pégala aquí. Si trae tiempos como [01:23.45], se sincroniza con la canción.
         </T>
+        {hasLyrics && (
+          <>
+            <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
+              ¿Algún error en la letra que muestra la app? Cópiala{hasReading ? " (con el romaji debajo de cada línea)" : ""}, corrígela y guárdala. Los tiempos se conservan.
+            </T>
+            <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+              <Button
+                label="Copiar la letra"
+                variant="secondary"
+                icon="lyrics"
+                onPress={async () => {
+                  await Clipboard.setStringAsync(lyricsToText(song)).catch(() => {})
+                  setMessage(hasReading ? "Letra copiada: japonés y romaji, línea por línea. Corrígela y pégala con «Pegar del portapapeles»." : "Letra copiada. Corrígela y pégala con «Pegar del portapapeles».")
+                }}
+              />
+              <Button
+                label="Corregir aquí"
+                variant="secondary"
+                icon="check"
+                onPress={() => {
+                  setLyrics(lyricsToText(song))
+                  setMessage("La letra está en el cuadro de abajo: corrígela y pulsa «Guardar letra».")
+                  setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 250)
+                }}
+              />
+            </View>
+          </>
+        )}
         <Button label="Buscar la letra en internet" variant="secondary" icon="search" onPress={() => setSearching(true)} />
         <Button
           label="Pegar del portapapeles"
