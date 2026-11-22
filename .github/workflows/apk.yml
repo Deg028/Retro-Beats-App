@@ -47,6 +47,19 @@ jobs:
           npx tsc --noEmit
           npm run test:lyrics
 
+      # Says plainly, as an annotation of the run, whether the token is missing or Expo does not take it
+      - name: Cuenta de Expo
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::El secreto EXPO_TOKEN no llega: no existe o está vacío en Settings > Secrets and variables > Actions > Repository secrets"
+            exit 1
+          fi
+          echo "::notice::EXPO_TOKEN llega con ${#EXPO_TOKEN} caracteres"
+          who=$(npx eas-cli whoami 2>&1) || { echo "::error::Expo no aceptó el token: $(echo "$who" | tail -1)"; exit 1; }
+          echo "::notice::Cuenta de Expo: $(echo "$who" | head -1)"
+
       - name: Compilar la APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
