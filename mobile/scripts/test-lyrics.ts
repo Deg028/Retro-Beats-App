@@ -333,6 +333,11 @@ test("a one-word reading is folded too, and a Latin line repeated as its own «r
   const mended = tidyLyrics({ synced: old.map((text, i) => ({ t: i * 3, text })), plain: null, romaji: oldReading })
   assert.equal(JSON.stringify(mended.synced?.map((l) => l.text)), JSON.stringify(ja))
   assert.equal(JSON.stringify(mended.romaji), JSON.stringify(reading))
+  // saved interleaved, with a reading the app made under each Japanese line (seen on the phone): the source's romaji folds in and wins
+  const appRead = rows.map((r) => (/[぀-ヿ㐀-鿿]/.test(r) ? "wa¯ i hai (app)" : ""))
+  const raw = tidyLyrics({ synced: rows.map((text, i) => ({ t: i * 3, text })), plain: null, romaji: appRead })
+  assert.equal(JSON.stringify(raw.synced?.map((l) => l.text)), JSON.stringify(ja))
+  assert.equal(JSON.stringify(raw.romaji), JSON.stringify(reading.map((r, i) => r || (i === 3 ? "" : r))))
   // lyrics read by the app itself (every Japanese line has its reading) keep a chant sung twice
   const chant = ["今日も", "Hey Hey", "Hey Hey", "明日も", "昨日も", "いつも"]
   const own = tidyLyrics({ synced: chant.map((text, i) => ({ t: i * 3, text })), plain: null, romaji: ["kyou mo", "", "", "ashita mo", "kinou mo", "itsumo"] })
