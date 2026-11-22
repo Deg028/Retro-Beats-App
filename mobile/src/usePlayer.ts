@@ -7,6 +7,7 @@ import type { AudioPlayer } from "expo-audio"
 import { File } from "expo-file-system"
 import { Asset } from "expo-media-library"
 import { Song } from "./data"
+import { tap, tick } from "./haptics"
 import { DeviceTrack } from "./library/files"
 import type { SongMeta } from "./online/store"
 
@@ -571,13 +572,20 @@ export function usePlayer(device: DeviceTrack[], meta: Record<number, SongMeta>)
     playMix,
     step,
     seek,
-    togglePlaying,
+    // From the screens a press also vibrates; the notification goes through the inner functions
+    togglePlaying: () => {
+      tap()
+      togglePlaying()
+    },
     toggleShuffle,
     cycleRepeat,
     setSleepTimer,
     removeFromQueue,
     deleteSong,
-    toggleFav,
+    toggleFav: (id: number) => {
+      tick()
+      toggleFav(id)
+    },
     toggleLibrary,
     setNowPlaying,
   }

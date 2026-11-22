@@ -1,6 +1,7 @@
 import { useState } from "react"
-import { FlatList, StyleSheet, Text, View } from "react-native"
+import { FlatList, StyleSheet, Text, View, ScrollView } from "react-native"
 import { PixelCover } from "../components/Pixel"
+import { tick } from "../haptics"
 import { Chip, Icon, Press, Surface, T, textStyle } from "../components/ui"
 import { useThemeControl } from "../themes/ThemeContext"
 import { CATEGORY_LABEL, Theme, ThemeCategory, THEMES } from "../themes/themes"
@@ -31,7 +32,7 @@ export default function Themes() {
         <View style={{ gap: 14, marginBottom: 16 }}>
           <T variant="display">Temas</T>
           <T variant="caption" color={theme.c.textMuted}>
-            Cada tema cambia toda la app: colores, letras, formas, animaciones, su detalle retro y el icono de la app, que cambia al salir de ella.
+            Cambia colores, letras, formas y el icono de la app.
           </T>
           <Surface style={{ padding: 14, gap: 4 }}>
             <T variant="label" color={theme.c.highlight}>
@@ -42,14 +43,18 @@ export default function Themes() {
               {current.tagline}
             </T>
           </Surface>
-          <View style={styles.filters}>
+          {/* One row that slides, so the filters never take two lines */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
             {FILTERS.map((f) => (
               <Chip key={f.key} label={f.label} active={filter === f.key} onPress={() => setFilter(f.key)} />
             ))}
-          </View>
+          </ScrollView>
         </View>
       }
-      renderItem={({ item }) => <ThemeCard t={item} selected={item.id === themeId} onPress={() => setThemeId(item.id)} />}
+      renderItem={({ item }) => <ThemeCard t={item} selected={item.id === themeId} onPress={() => {
+            tick()
+            setThemeId(item.id)
+          }} />}
     />
   )
 }
@@ -132,7 +137,7 @@ function SoftCover({ size, palette }: { size: number; palette: [string, string, 
 
 const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 24 },
-  filters: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  filters: { flexDirection: "row", gap: 8, paddingRight: 8 },
   card: { flex: 1, borderRadius: 18, overflow: "hidden" },
   preview: { padding: 12, gap: 10 },
   previewTop: { alignItems: "center", paddingVertical: 10, borderRadius: 12 },

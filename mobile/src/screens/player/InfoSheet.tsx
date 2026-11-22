@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Alert, ScrollView, ScrollViewInstance, TextInput, useWindowDimensions, View } from "react-native"
+import { Alert, ScrollView, ScrollViewInstance, StyleSheet, TextInput, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Clipboard from "expo-clipboard"
 import { Song } from "../../data"
@@ -61,90 +61,106 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Datos y letra">
-      <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" style={{ maxHeight: listHeight }} contentContainerStyle={{ gap: 10 }}>
+      {/* What the last action did stays in sight, whatever part of the sheet is scrolled to */}
+      {!!message && (
+        <T variant="caption" color={theme.c.accent} style={{ textTransform: "none", marginBottom: 8 }} accessibilityLiveRegion="polite">
+          {message}
+        </T>
+      )}
+      <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" style={{ maxHeight: listHeight }} contentContainerStyle={{ gap: 10, paddingBottom: 8 }}>
         <T variant="label" color={theme.c.textMuted}>
           Canción
         </T>
         {field(title, setTitle, "Título")}
         {field(artist, setArtist, "Artista")}
-        <Button
-          label="Intercambiar título y artista"
-          variant="secondary"
-          icon="repeat"
-          disabled={!artist.trim() || artist === "Artista desconocido"}
-          onPress={() => {
-            setTitle(artist)
-            setArtist(title)
-          }}
-        />
-        <Button
-          label="Guardar y buscar de nuevo"
-          icon="check"
-          disabled={!title.trim()}
-          onPress={() => {
-            info.editSong(song, { title, artist })
-            setMessage("Guardado. Buscando la letra y la carátula con estos datos…")
-          }}
-        />
+        <View style={styles.row}>
+          <Button
+            label="Intercambiar"
+            variant="secondary"
+            icon="repeat"
+            style={styles.half}
+            disabled={!artist.trim() || artist === "Artista desconocido"}
+            onPress={() => {
+              setTitle(artist)
+              setArtist(title)
+            }}
+          />
+          <Button
+            label="Guardar"
+            icon="check"
+            style={styles.half}
+            disabled={!title.trim() || (title === song.title && artist === song.artist)}
+            onPress={() => {
+              info.editSong(song, { title, artist })
+              setMessage("Guardado. Buscando la letra y la carátula con estos datos…")
+            }}
+          />
+        </View>
 
-        <T variant="label" color={theme.c.textMuted} style={{ marginTop: 8 }}>
+        <T variant="label" color={theme.c.textMuted} style={styles.heading}>
           Letra
-        </T>
-        <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
-          Si la app no la encuentra, búscala en internet, cópiala y pégala aquí. Si trae tiempos como [01:23.45], se sincroniza con la canción.
         </T>
         {hasLyrics && (
           <>
             <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
-              ¿Algún error en la letra que muestra la app? Cópiala{hasReading ? " (con el romaji debajo de cada línea)" : ""}, corrígela y guárdala. Los tiempos se conservan.
+              ¿Un error en la letra? Corrígela{hasReading ? " con su romaji" : ""}: los tiempos se conservan.
             </T>
-            <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-              <Button
-                label="Copiar la letra"
-                variant="secondary"
-                icon="lyrics"
-                onPress={async () => {
-                  await Clipboard.setStringAsync(lyricsToText(song)).catch(() => {})
-                  setMessage(hasReading ? "Letra copiada: japonés y romaji, línea por línea. Corrígela y pégala con «Pegar del portapapeles»." : "Letra copiada. Corrígela y pégala con «Pegar del portapapeles».")
-                }}
-              />
+            <View style={styles.row}>
               <Button
                 label="Corregir aquí"
                 variant="secondary"
                 icon="check"
+                style={styles.half}
                 onPress={() => {
                   setLyrics(lyricsToText(song))
-                  setMessage("La letra está en el cuadro de abajo: corrígela y pulsa «Guardar letra».")
+                  setMessage("La letra está en el cuadro: corrígela y pulsa «Guardar letra».")
                   setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 250)
+                }}
+              />
+              <Button
+                label="Copiar"
+                variant="secondary"
+                icon="lyrics"
+                style={styles.half}
+                onPress={async () => {
+                  await Clipboard.setStringAsync(lyricsToText(song)).catch(() => {})
+                  setMessage(hasReading ? "Letra copiada: japonés y romaji, línea por línea. Corrígela y pégala con «Pegar»." : "Letra copiada. Corrígela y pégala con «Pegar».")
                 }}
               />
             </View>
           </>
         )}
-        <Button label="Buscar la letra en internet" variant="secondary" icon="search" onPress={() => setSearching(true)} />
-        <Button
-          label="Pegar del portapapeles"
-          variant="secondary"
-          icon="lyrics"
-          onPress={async () => {
-            const text = (await Clipboard.getStringAsync().catch(() => "")).trim()
-            if (!text) return setMessage("El portapapeles está vacío: copia la letra primero.")
-            // One tap: what was copied is saved as this song's lyrics
-            const ok = info.importLyrics(song, text)
-            setMessage(ok ? "Letra pegada y guardada." : "Lo copiado no parece una letra.")
-          }}
-        />
-        {field(lyrics, setLyrics, "Pega aquí la letra", true)}
-        <Button
-          label="Guardar letra"
-          icon="lyrics"
-          disabled={!lyrics.trim()}
-          onPress={() => {
-            const ok = info.importLyrics(song, lyrics)
-            setMessage(ok ? "Letra guardada." : "No se pudo leer esa letra.")
-            if (ok) setLyrics("")
-          }}
-        />
+        <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
+          {hasLyrics ? "¿Otra letra?" : "La app no la encontró."} Búscala en internet o pégala; con tiempos como [01:23.45] se sincroniza.
+        </T>
+        <View style={styles.row}>
+          <Button label="Buscar" variant="secondary" icon="search" style={styles.half} onPress={() => setSearching(true)} />
+          <Button
+            label="Pegar"
+            variant="secondary"
+            icon="lyrics"
+            style={styles.half}
+            onPress={async () => {
+              const text = (await Clipboard.getStringAsync().catch(() => "")).trim()
+              if (!text) return setMessage("El portapapeles está vacío: copia la letra primero.")
+              // One tap: what was copied is saved as this song's lyrics
+              const ok = info.importLyrics(song, text)
+              setMessage(ok ? "Letra pegada y guardada." : "Lo copiado no parece una letra.")
+            }}
+          />
+        </View>
+        {field(lyrics, setLyrics, "Escribe o pega aquí la letra", true)}
+        {!!lyrics.trim() && (
+          <Button
+            label="Guardar letra"
+            icon="check"
+            onPress={() => {
+              const ok = info.importLyrics(song, lyrics)
+              setMessage(ok ? "Letra guardada." : "No se pudo leer esa letra.")
+              if (ok) setLyrics("")
+            }}
+          />
+        )}
         {!!song.lyrics && looksLikeRomaji(song.lyrics.map((l) => l.text)) && (
           <>
             <T variant="caption" color={theme.c.textMuted} style={{ textTransform: "none" }}>
@@ -167,18 +183,11 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
           />
         )}
 
-        <T variant="label" color={theme.c.textMuted} style={{ marginTop: 8 }}>
+        <T variant="label" color={theme.c.danger} style={styles.heading}>
           Eliminar
         </T>
-        <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-          <Button label="Quitar de la app" variant="secondary" icon="close" onPress={() => confirmDelete(false)} />
-          <Button label="Borrar del teléfono" variant="secondary" icon="close" onPress={() => confirmDelete(true)} />
-        </View>
-        {!!message && (
-          <T variant="caption" color={theme.c.accent} style={{ textTransform: "none" }}>
-            {message}
-          </T>
-        )}
+        <Button label="Quitar de la app" variant="danger" icon="close" onPress={() => confirmDelete(false)} />
+        <Button label="Borrar del teléfono" variant="danger" icon="close" onPress={() => confirmDelete(true)} />
       </ScrollView>
       <LyricsWebSheet
         song={song}
@@ -193,3 +202,9 @@ export function InfoSheet({ song, info, visible, onClose, onDelete }: { song: So
     </Sheet>
   )
 }
+
+const styles = StyleSheet.create({
+  row: { flexDirection: "row", gap: 10 },
+  half: { flex: 1 },
+  heading: { marginTop: 14 },
+})

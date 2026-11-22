@@ -5,6 +5,7 @@ import {
   Easing,
   Pressable,
   PressableProps,
+  ScrollView,
   StyleProp,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import { Art } from "./Art"
 import { Icon as PixelIcon, ICONS } from "./Pixel"
 import { useTheme } from "../themes/ThemeContext"
 import { TextRole, Theme } from "../themes/themes"
+import { tick } from "../haptics"
 
 // ---------- Text
 
@@ -506,7 +508,7 @@ export function PlayButton({
   )
 }
 
-/** Primary/secondary text button; shape follows the theme (blocks, pills or rounded). */
+/** Primary/secondary text button, or «danger» for what cannot be undone; shape follows the theme (blocks, pills or rounded). */
 export function Button({
   label,
   onPress,
@@ -517,14 +519,15 @@ export function Button({
 }: {
   label: string
   onPress: () => void
-  variant?: "primary" | "secondary"
+  variant?: "primary" | "secondary" | "danger"
   icon?: IconName
   disabled?: boolean
   style?: StyleProp<ViewStyle>
 }) {
   const theme = useTheme()
   const primary = variant === "primary"
-  const fg = primary ? theme.c.onAccent : theme.c.text
+  const danger = variant === "danger"
+  const fg = primary ? theme.c.onAccent : danger ? theme.c.danger : theme.c.text
   const radius = theme.actions === "pills" ? 999 : theme.radius.sm
   return (
     <Press
@@ -535,23 +538,24 @@ export function Button({
       radius={radius}
       style={[
         {
-          minHeight: 40,
-          paddingHorizontal: 14,
+          // 48 dp: the size a thumb hits without aiming
+          minHeight: 48,
+          paddingHorizontal: 16,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
           gap: 6,
           borderRadius: radius,
           backgroundColor: primary ? theme.c.accent : theme.c.surface2,
-          borderWidth: theme.border,
-          borderColor: primary && theme.actions === "blocks" ? theme.c.bg : theme.c.border,
+          borderColor: primary && theme.actions === "blocks" ? theme.c.bg : danger ? theme.c.danger : theme.c.border,
+          borderWidth: danger ? Math.max(1, theme.border) : theme.border,
           opacity: disabled ? 0.45 : 1,
         },
         style,
       ]}
     >
       {icon && <Icon name={icon} size={18} color={fg} />}
-      <T variant="label" color={fg}>
+      <T variant="label" color={fg} numberOfLines={1} style={{ flexShrink: 1 }}>
         {label}
       </T>
     </Press>
@@ -565,13 +569,17 @@ export function Chip({ label, active, onPress }: { label: string; active: boolea
   const radius = pill ? 999 : theme.radius.sm
   return (
     <Press
-      onPress={onPress}
+      onPress={() => {
+        tick()
+        onPress()
+      }}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       radius={radius}
+      hitSlop={{ top: 4, bottom: 4 }}
       style={{
-        height: 36,
-        paddingHorizontal: 12,
+        height: 40,
+        paddingHorizontal: 14,
         justifyContent: "center",
         borderRadius: radius,
         borderWidth: theme.border,
@@ -579,7 +587,7 @@ export function Chip({ label, active, onPress }: { label: string; active: boolea
         backgroundColor: active ? theme.c.accent : theme.c.surface2,
       }}
     >
-      <T variant="label" color={active ? theme.c.onAccent : theme.c.text}>
+      <T variant="label" color={active ? theme.c.onAccent : theme.c.text} numberOfLines={1}>
         {label}
       </T>
     </Press>
@@ -596,12 +604,23 @@ export function ActionBar({ children }: { children: ReactNode }) {
       </View>
     )
   }
-  if (theme.actions === "pills") return <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>{children}</View>
+  // One row that slides when it does not fit, so the actions never push the lyrics down a second line
+  if (theme.actions === "pills")
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, justifyContent: "center", gap: 6, paddingHorizontal: 2 }}>
+        {children}
+      </ScrollView>
+    )
   return <View style={{ flexDirection: "row", gap: 6 }}>{children}</View>
 }
 
-export function Action({ icon, label, active = false, onPress }: { icon: IconName; label: string; active?: boolean; onPress: () => void }) {
+/** `compact`: only the icon in the pill layout (for the less used actions), so the whole row fits on a small screen */
+export function Action({ icon, label, active = false, compact = false, onPress: press }: { icon: IconName; label: string; active?: boolean; compact?: boolean; onPress: () => void }) {
   const theme = useTheme()
+  const onPress = () => {
+    tick()
+    press()
+  }
   if (theme.actions === "toolbar") {
     return (
       <Press
@@ -627,14 +646,17 @@ export function Action({ icon, label, active = false, onPress }: { icon: IconNam
       <Press
         onPress={onPress}
         accessibilityRole="button"
+        accessibilityLabel={label}
         accessibilityState={{ selected: active }}
         radius={999}
-        style={{ height: 40, paddingHorizontal: 14, borderRadius: 999, flexDirection: "row", gap: 6, alignItems: "center", borderWidth: theme.border, borderColor: active ? theme.c.accent : theme.c.border, backgroundColor: active ? theme.c.accent : theme.c.surface }}
+        style={{ height: 44, minWidth: 44, justifyContent: "center", paddingHorizontal: compact ? 0 : 12, borderRadius: 999, flexDirection: "row", gap: 6, alignItems: "center", borderWidth: theme.border, borderColor: active ? theme.c.accent : theme.c.border, backgroundColor: active ? theme.c.accent : theme.c.surface }}
       >
-        <Icon name={icon} size={16} color={active ? theme.c.onAccent : theme.c.text} />
-        <T variant="caption" color={active ? theme.c.onAccent : theme.c.text}>
-          {label}
-        </T>
+        <Icon name={icon} size={compact ? 20 : 16} color={active ? theme.c.onAccent : theme.c.text} />
+        {!compact && (
+          <T variant="caption" color={active ? theme.c.onAccent : theme.c.text} numberOfLines={1}>
+            {label}
+          </T>
+        )}
       </Press>
     )
   }

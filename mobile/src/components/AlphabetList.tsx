@@ -1,6 +1,7 @@
 import { ReactElement, useEffect, useMemo, useRef, useState } from "react"
 import { FlatList, LayoutChangeEvent, PanResponder, StyleSheet, View } from "react-native"
 import { groupByLetter } from "../alphabet"
+import { tick } from "../haptics"
 import { useTheme } from "../themes/ThemeContext"
 import { T } from "./ui"
 
@@ -60,6 +61,8 @@ export default function AlphabetList<S extends { id: number; title: string }>({
       const i = Math.max(0, Math.min(count - 1, Math.floor((y / rail.current.height) * count)))
       if (i === rail.current.last) return
       rail.current.last = i
+      // A tick per letter, like the index of the phone's contacts
+      tick()
       setTouched(groups[i].letter)
       list.current?.scrollToOffset({ offset: offsets[starts[i]] ?? 0, animated: false })
     }

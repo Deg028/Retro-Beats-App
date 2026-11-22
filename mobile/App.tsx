@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { ReactNode, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Animated, BackHandler, Easing, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { StatusBar } from "expo-status-bar"
@@ -24,6 +24,7 @@ import { useFonts } from "expo-font"
 import { MiniPlayer, Screen, TabBar } from "./src/components/Chrome"
 import { Drawer } from "./src/components/Drawer"
 import { useThemeIcon } from "./src/themeIcon"
+import { tick } from "./src/haptics"
 import Intro from "./src/components/Intro"
 import { motion, T } from "./src/components/ui"
 import Home, { Section, sectionLists } from "./src/screens/Home"
@@ -147,6 +148,8 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   const [intro, setIntro] = useState(true)
   const shared = useSharedText()
   const [tab, setTab] = useState<Tab>("home")
+  // Tabs already opened stay mounted (hidden): coming back is instant and keeps the scroll, the search and the open list
+  const [visited, setVisited] = useState<Tab[]>(["home"])
   const [dir, setDir] = useState(1)
   const [playerOpen, setPlayerOpen] = useState(false)
   const [section, setSection] = useState<Section>("added")
@@ -190,8 +193,10 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   )
 
   const showTab = (next: Tab, direction: 1 | -1 = 1, swiped = false) => {
+    if (next !== tab) tick()
     setDir(direction)
     setTab(next)
+    setVisited((v) => (v.includes(next) ? v : [...v, next]))
     // After a swipe the old screen already went out with the finger: the new one comes in from the other side (below)
     if (swiped) {
       enterFrom.current = direction
@@ -211,7 +216,10 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   }, [tab, slide, width])
 
   const go = (next: Screen) => {
-    if (next === "player") return setPlayerOpen(true)
+    if (next === "player") {
+      if (!playerOpen) tick()
+      return setPlayerOpen(true)
+    }
     if (playerOpen) closePlayer()
     if (next !== tab) showTab(next, TAB_INDEX[next] > TAB_INDEX[tab] ? 1 : -1)
   }
@@ -283,6 +291,14 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
     return () => sub.remove()
   }, [])
 
+  /** A tab screen, mounted once it has been opened and only hidden while another tab shows */
+  const keep = (t: Tab, screen: ReactNode) =>
+    visited.includes(t) || tab === t ? (
+      <View key={t} style={{ flex: 1, display: tab === t ? "flex" : "none" }}>
+        {screen}
+      </View>
+    ) : null
+
   if (!ready) return <View style={{ flex: 1, backgroundColor: colors.ink }} />
 
   if (intro) {
@@ -304,11 +320,11 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
       <StatusBar style={theme.dark ? "light" : "dark"} />
       <View style={{ flex: 1, paddingTop: insets.top }}>
         <Animated.View {...pager} style={[{ flex: 1 }, screenMotion]}>
-          {tab === "home" && <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />}
-          {tab === "themes" && <Themes />}
-          {tab === "recap" && <Recap key={recapKey} listening={listening} player={player} initial={recapStart} celebrate={recapStart?.kind === "year"} />}
-          {tab === "playlists" && <Playlists playlists={playlists} player={player} onOpenPlayer={() => go("player")} />}
-          {tab === "scan" && <Scan lib={lib} player={player} info={info} onOpenHome={() => go("home")} />}
+          {keep("home", <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />)}
+          {keep("themes", <Themes />)}
+          {keep("recap", <Recap key={recapKey} listening={listening} player={player} initial={recapStart} celebrate={recapStart?.kind === "year"} />)}
+          {keep("playlists", <Playlists playlists={playlists} player={player} onOpenPlayer={() => go("player")} />)}
+          {keep("scan", <Scan lib={lib} player={player} info={info} onOpenHome={() => go("home")} />)}
         </Animated.View>
         {tab === "home" && listening.ready && (
           <Pressable

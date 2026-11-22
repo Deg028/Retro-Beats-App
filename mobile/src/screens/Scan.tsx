@@ -91,7 +91,8 @@ export default function Scan({ lib, player, info, onOpenHome }: { lib: DeviceLib
         <T variant="caption" color={theme.c.textMuted}>
           {status.text}
         </T>
-        <View style={styles.row}>
+        {/* The main action first and full width, the others under it at the same width */}
+        <View style={styles.actions}>
           {byFolder ? (
             <>
               <Button label={lib.folders.length ? "Añadir otra carpeta" : "Elegir carpeta de música"} icon="player" disabled={scanning} onPress={lib.addFolder} />
@@ -388,6 +389,7 @@ const styles = StyleSheet.create({
   status: { padding: 14, gap: 10 },
   statusHead: { flexDirection: "row", alignItems: "center", gap: 10 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  actions: { gap: 8, alignSelf: "stretch" },
   note: { padding: 12, gap: 4 },
   bar: { height: 6, overflow: "hidden" },
 })

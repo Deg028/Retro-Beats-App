@@ -218,17 +218,22 @@ export default function Home({
             )}
           {!found && (
           <Surface style={styles.stats}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <T variant="label" color={theme.c.textMuted}>
-                Biblioteca
+            {/* The figure is what matters, the word under it only says what it counts; neither ever breaks a word in two */}
+            <View style={{ flex: 1, gap: 2 }}>
+              <T variant="title" numberOfLines={1}>
+                {library.length}
               </T>
-              <T variant="title">{library.length} temas</T>
+              <T variant="caption" color={theme.c.textMuted} numberOfLines={1}>
+                canciones
+              </T>
             </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <T variant="label" color={theme.c.textMuted}>
-                Favoritas
+            <View style={{ flex: 1, gap: 2 }}>
+              <T variant="title" numberOfLines={1}>
+                {lists.fav.length}
               </T>
-              <T variant="title">{lists.fav.length}</T>
+              <T variant="caption" color={theme.c.textMuted} numberOfLines={1}>
+                favoritas
+              </T>
             </View>
             <Button
               label="Mix"

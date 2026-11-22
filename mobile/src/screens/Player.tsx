@@ -222,9 +222,9 @@ export default function Player({
           <ActionBar>
             <Action icon="lyrics" label="Letra" active={lyricsOpen} onPress={() => setLyricsOpen((o) => !o)} />
             <Action icon="queue" label="Cola" onPress={() => setSheet("queue")} />
-            <Action icon="playlist" label="Listas" onPress={() => setSheet("playlists")} />
-            <Action icon="share" label="Compartir" onPress={() => shareSong(song)} />
-            <Action icon="more" label="Datos" onPress={() => setSheet("info")} />
+            <Action icon="playlist" label="Añadir a una lista" compact onPress={() => setSheet("playlists")} />
+            <Action icon="share" label="Compartir" compact onPress={() => shareSong(song)} />
+            <Action icon="more" label="Datos y letra" compact onPress={() => setSheet("info")} />
           </ActionBar>
 
           {lyricsOpen && (

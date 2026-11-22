@@ -347,11 +347,13 @@ export function HoldSeek({ dir, time, duration, onSeek }: { dir: 1 | -1; time: n
       onPressOut={stop}
       accessibilityRole="button"
       accessibilityLabel={dir > 0 ? "Adelantar 10 segundos; mantén pulsado para avanzar más rápido" : "Retroceder 10 segundos; mantén pulsado para retroceder más rápido"}
-      radius={theme.radius.sm}
+      radius={999}
       scaleTo={0.9}
-      style={{ height: 36, minWidth: 64, paddingHorizontal: 12, borderRadius: theme.radius.sm, borderWidth: theme.border, borderColor: theme.c.border, backgroundColor: theme.c.surface, alignItems: "center", justifyContent: "center" }}
+      // Quiet next to the play controls: no box, just the figure, with a thumb-sized area around it
+      hitSlop={{ top: 6, bottom: 6 }}
+      style={{ height: 36, minWidth: 64, paddingHorizontal: 12, borderRadius: 999, alignItems: "center", justifyContent: "center" }}
     >
-      <T variant="label" color={theme.c.text} style={{ textTransform: "none" }}>
+      <T variant="label" color={theme.c.textMuted} style={{ textTransform: "none" }}>
         {dir > 0 ? "+10 s" : "−10 s"}
       </T>
     </Press>
