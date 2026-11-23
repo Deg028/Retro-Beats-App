@@ -96,37 +96,41 @@ export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen
         {TABS.map((t, i) => (
           <TabItem key={t.key} tab={t} on={active === i} onPress={() => onChange(t.key)} />
         ))}
+        {/* The dip lives inside the dock, so the dock's own corners clip it at the first and last tab */}
+        {dockWidth > 0 && (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.notchLayer, { left: DOCK_PAD + slot / 2 - span / 2, top: -NOTCH / 2, width: span, transform: [{ translateX: Animated.multiply(pos, slot) }] }]}
+          >
+            <View style={{ position: "absolute", left: FILLET, top: 0, width: NOTCH, height: NOTCH, borderRadius: notched ? 0 : NOTCH / 2, backgroundColor: bg }} />
+            {!notched && (
+              <>
+                {/* Rounded shoulders where the dip meets the top edge of the dock */}
+                <View style={[styles.fillet, { left: 0, backgroundColor: bg }]}>
+                  <View style={{ position: "absolute", left: -FILLET, top: 0, width: FILLET * 2, height: FILLET * 2, borderRadius: FILLET, backgroundColor: dock }} />
+                </View>
+                <View style={[styles.fillet, { right: 0, backgroundColor: bg }]}>
+                  <View style={{ position: "absolute", left: 0, top: 0, width: FILLET * 2, height: FILLET * 2, borderRadius: FILLET, backgroundColor: dock }} />
+                </View>
+              </>
+            )}
+          </Animated.View>
+        )}
         {notched && <PixelCorners step={5} color={bg} />}
       </View>
       {dockWidth > 0 && (
         <Animated.View
           pointerEvents="none"
-          style={[styles.notchLayer, { left: firstCentre - span / 2, top: TOP - NOTCH / 2, width: span, transform: [{ translateX: Animated.multiply(pos, slot) }] }]}
+          style={[
+            styles.dot,
+            { left: firstCentre - DOT / 2, top: TOP - LIFT - DOT / 2, borderRadius: dotRadius, backgroundColor: theme.c.accent, transform: [{ translateX: Animated.multiply(pos, slot) }] },
+            // Sticker themes press the marker onto a flat shadow; glowing themes light it up
+            sticker && { borderBottomWidth: 4, borderRightWidth: 4, borderColor: theme.shadowColor },
+            theme.shadow === "glow" && { shadowColor: theme.c.accent, shadowOpacity: 0.8, shadowRadius: 12, elevation: 8 },
+          ]}
         >
-          <View style={{ position: "absolute", left: FILLET, top: 0, width: NOTCH, height: NOTCH, borderRadius: notched ? 0 : NOTCH / 2, backgroundColor: bg }} />
-          {!notched && (
-            <>
-              {/* Rounded shoulders where the dip meets the top edge of the dock */}
-              <View style={[styles.fillet, { left: 0, backgroundColor: bg }]}>
-                <View style={{ position: "absolute", left: -FILLET, top: 0, width: FILLET * 2, height: FILLET * 2, borderRadius: FILLET, backgroundColor: dock }} />
-              </View>
-              <View style={[styles.fillet, { right: 0, backgroundColor: bg }]}>
-                <View style={{ position: "absolute", left: 0, top: 0, width: FILLET * 2, height: FILLET * 2, borderRadius: FILLET, backgroundColor: dock }} />
-              </View>
-            </>
-          )}
-          <View
-            style={[
-              styles.dot,
-              { left: (span - DOT) / 2, top: NOTCH / 2 - LIFT - DOT / 2, borderRadius: dotRadius, backgroundColor: theme.c.accent },
-              // Sticker themes press the marker onto a flat shadow; glowing themes light it up
-              sticker && { borderBottomWidth: 4, borderRightWidth: 4, borderColor: theme.shadowColor },
-              theme.shadow === "glow" && { shadowColor: theme.c.accent, shadowOpacity: 0.8, shadowRadius: 12, elevation: 8 },
-            ]}
-          >
-            <Icon name={TABS[active].icon} size={24} color={theme.c.onAccent} />
-            {notched && <PixelCorners step={4} color={bg} />}
-          </View>
+          <Icon name={TABS[active].icon} size={24} color={theme.c.onAccent} />
+          {notched && <PixelCorners step={4} color={bg} />}
         </Animated.View>
       )}
     </View>
