@@ -1,7 +1,7 @@
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { FlatList, Keyboard, StyleSheet, TextInput, View } from "react-native"
 import { lengthSuffix, Song } from "../data"
-import { isJapanese } from "../alphabet"
+import { isJapanese, JAPANESE } from "../alphabet"
 import AlphabetList from "../components/AlphabetList"
 import { Equalizer } from "../components/Pixel"
 import { Button, Cover, Icon, IconButton, IconName, Press, Surface, T, textStyle } from "../components/ui"
@@ -57,7 +57,7 @@ const SongRow = memo(function SongRow({ item, index, ranked, active, playing, on
         <Cover seed={item.id} size={44} behind={active ? theme.c.surface2 : theme.c.surface} />
         <View style={{ flex: 1 }}>
           <T variant="title" numberOfLines={1} style={{ fontSize: Math.min(theme.type.title.size, 16) }}>
-            {japanese ? <T variant="label" color={theme.c.accent} accessibilityLabel="Canción en japonés">日 </T> : null}
+            {japanese ? <T variant="label" color={theme.c.accent} accessibilityLabel="Canción en japonés">{JAPANESE} </T> : null}
             {item.title}
           </T>
           <T variant="caption" numberOfLines={1} color={theme.c.warm}>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Alert, BackHandler, FlatList, Keyboard, StyleSheet, TextInput, View } from "react-native"
 import { fmt, lengthSuffix, Song } from "../data"
-import { isJapanese } from "../alphabet"
+import { isJapanese, JAPANESE } from "../alphabet"
 import AlphabetList from "../components/AlphabetList"
 import { Button, Cover, Icon, IconButton, Press, Surface, T, textStyle } from "../components/ui"
 import { normalize } from "../library/names"
@@ -333,7 +333,7 @@ function Picker({ list, songs, playlists, onDone }: { list: Playlist; songs: Son
                   <Cover seed={item.id} size={44} behind={on ? theme.c.surface2 : theme.c.surface} />
                   <View style={{ flex: 1 }}>
                     <T variant="title" numberOfLines={1} style={{ fontSize: Math.min(theme.type.title.size, 16) }}>
-                      {isJapanese(item) ? <T variant="label" color={theme.c.accent}>日 </T> : null}
+                      {isJapanese(item) ? <T variant="label" color={theme.c.accent}>{JAPANESE} </T> : null}
                       {item.title}
                     </T>
                     <T variant="caption" numberOfLines={1} color={theme.c.warm}>

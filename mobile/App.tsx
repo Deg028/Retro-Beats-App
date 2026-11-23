@@ -21,6 +21,7 @@ import { DMSerifDisplay_400Regular } from "@expo-google-fonts/dm-serif-display"
 import { Fraunces_400Regular, Fraunces_600SemiBold } from "@expo-google-fonts/fraunces"
 import { ShareTechMono_400Regular } from "@expo-google-fonts/share-tech-mono"
 import { useFonts } from "expo-font"
+import { Aurora } from "./src/components/Aurora"
 import { MiniPlayer, Screen, TabBar } from "./src/components/Chrome"
 import { Drawer } from "./src/components/Drawer"
 import { useThemeIcon } from "./src/themeIcon"
@@ -318,6 +319,7 @@ function Shell({ player, lib, info, playlists, listening }: { player: PlayerApi;
   return (
     <View style={[styles.root, { backgroundColor: theme.c.bg }]}>
       <StatusBar style={theme.dark ? "light" : "dark"} />
+      <Aurora />
       <View style={{ flex: 1, paddingTop: insets.top }}>
         <Animated.View {...pager} style={[{ flex: 1 }, screenMotion]}>
           {keep("home", <Home player={player} lib={lib} section={section} onOpenPlayer={() => go("player")} onOpenMenu={() => setMenuOpen(true)} onOpenScan={() => go("scan")} />)}

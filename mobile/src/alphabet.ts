@@ -2,8 +2,8 @@
 
 import { normalize } from "./library/names"
 
-/** Songs whose title starts in Japanese go under this kanji («nichi», sun / Japan) */
-export const JAPANESE = "日"
+/** Songs whose title starts in Japanese go under this kanji («wa», Japanese, as in 和楽 Japanese music) */
+export const JAPANESE = "和"
 export const OTHER = "#"
 
 const HAS_JAPANESE = /[぀-ヿ㐀-鿿]/
@@ -11,7 +11,7 @@ const HAS_JAPANESE = /[぀-ヿ㐀-鿿]/
 /** Whether the title or the artist is written in Japanese (the row gets the kanji too) */
 export const isJapanese = (s: { title: string; artist: string }) => HAS_JAPANESE.test(s.title) || HAS_JAPANESE.test(s.artist)
 
-/** The letter of the index a title goes under: A-Z, «日» for Japanese, «#» for digits and anything else */
+/** The letter of the index a title goes under: A-Z, «和» for Japanese, «#» for digits and anything else */
 export function letterOf(title: string): string {
   const first = title.trim().replace(/^[^\p{L}\p{N}]+/u, "")[0] ?? ""
   if (HAS_JAPANESE.test(first)) return JAPANESE
@@ -23,7 +23,7 @@ export function letterOf(title: string): string {
 
 export type Group<T> = { letter: string; songs: T[] }
 
-/** Songs sorted by title, split by letter: A to Z, then «日», then «#» */
+/** Songs sorted by title, split by letter: A to Z, then «和», then «#» */
 export function groupByLetter<T extends { title: string }>(songs: T[]): Group<T>[] {
   const by = new Map<string, T[]>()
   for (const s of songs) {

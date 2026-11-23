@@ -162,6 +162,15 @@ const THEMES = {
       { a: circle(0.5, 0.5, 0.02), c: hex("#f2e8d5") },
     ],
   },
+  // A setting sun cut by stripes, over a magenta glow
+  ocaso: {
+    bg: flat("#0e0c12"),
+    layers: [
+      { a: glow(0.5, 0.5, 0.0, 0.42), c: hex("#c2408f") },
+      { a: (x, y) => circle(0.5, 0.52, 0.22)(x, y) * (y < 0.56 || Math.floor((y - 0.56) * 40) % 2 === 0 ? 1 : 0), c: hex("#ffb238") },
+      { a: (x, y) => circle(0.5, 0.52, 0.22)(x, y) * (y > 0.44 && y < 0.56 ? 0.55 : 0), c: hex("#ff6a4d") },
+    ],
+  },
   // A green prompt with a block cursor
   terminal: {
     bg: scan("#0b0f0c", "#0e1610"),
@@ -247,12 +256,16 @@ const write = (name, size, rgba) => {
 }
 mkdirSync(new URL("../assets/icons/", import.meta.url), { recursive: true })
 
+// ONLY=<id> draws just that theme's icons (the app's own files are left as they are)
+const only = process.env.ONLY
 for (const [id, t] of Object.entries(THEMES)) {
+  if (only && id !== only) continue
   write(`icons/${id}-fg.png`, SIZE, render(SIZE, null, t.layers))
   write(`icons/${id}-bg.png`, SIZE, render(SIZE, t.bg, null))
   write(`icons/${id}-full.png`, 192, render(192, t.bg, t.layers))
 }
 
+if (only) process.exit(0)
 // The app's own icon files are those of the default theme
 const d = THEMES[DEFAULT]
 write("icon.png", SIZE, render(SIZE, d.bg, d.layers))

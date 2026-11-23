@@ -344,15 +344,15 @@ test("a one-word reading is folded too, and a Latin line repeated as its own «r
   assert.equal(own.synced?.length, 6)
 })
 
-test("el índice A-Z: letras, japonés bajo 日 y números bajo #", () => {
+test("el índice A-Z: letras, japonés bajo 和 y números bajo #", () => {
   assert.equal(letterOf("Irregular Man"), "I")
   assert.equal(letterOf("  \"My War\" Full English Cover"), "M")
   assert.equal(letterOf("Última Batalla"), "U")
-  assert.equal(letterOf("ヤラララ Yararara"), "日")
-  assert.equal(letterOf("やる気が出ない歌"), "日")
+  assert.equal(letterOf("ヤラララ Yararara"), "和")
+  assert.equal(letterOf("やる気が出ない歌"), "和")
   assert.equal(letterOf("1-2 Subsuelo"), "#")
   const groups = groupByLetter([{ title: "Zeta" }, { title: "ヤラララ" }, { title: "alfa" }, { title: "7 Rings" }, { title: "Alba" }])
-  assert.equal(groups.map((g) => g.letter).join(""), "AZ日#")
+  assert.equal(groups.map((g) => g.letter).join(""), "AZ和#")
   assert.equal(groups[0].songs.map((x) => x.title).join(","), "alfa,Alba".split(",").sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).join(","))
   assert.ok(isJapanese({ title: "Irregular Man", artist: "重音テト" }))
   assert.ok(!isJapanese({ title: "Irregular Man", artist: "Kasane Teto" }))

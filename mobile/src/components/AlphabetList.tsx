@@ -13,7 +13,7 @@ type Item<S> = { kind: "head"; letter: string } | { kind: "song"; song: S }
 
 /**
  * Songs in A-Z order, with a heading for each letter and the letters down the right edge: touching or sliding a
- * finger along them jumps to that part of the list (Japanese titles go under «日»).
+ * finger along them jumps to that part of the list (Japanese titles go under «和»).
  */
 export default function AlphabetList<S extends { id: number; title: string }>({
   songs,
