@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Animated, PanResponder, StyleSheet, useWindowDimensions, View } from "react-native"
+import { Animated, Easing, PanResponder, StyleSheet, useWindowDimensions, View } from "react-native"
 import { Marquee } from "./Marquee"
 import { Equalizer } from "./Pixel"
-import { Cover, Icon, IconName, motion, PixelCorners, PlayButton, Press, T } from "./ui"
+import { Cover, Icon, IconName, PixelCorners, PlayButton, Press, T } from "./ui"
 import { useTheme } from "../themes/ThemeContext"
 import { PlayerApi, usePlaybackTime } from "../usePlayer"
 
@@ -28,9 +28,9 @@ const TOP = 32
  * The bar of tabs: a floating dock with each tab's icon and name. Under the open tab the dock's top edge dips into a
  * round notch and the tab's icon rises out of it in a marker of the accent colour; on a tab change the notch and the
  * marker slide together to the new tab. The notch is a circle painted in the screen's background over the dock, with
- * two small rounded shoulders, so it all moves on the native driver. Each theme draws it its own way: pixel themes
- * use a square notch and marker and move them in steps, sticker themes give the marker a flat shadow, glowing themes
- * make it glow. Besides tapping a button, the person can slide a finger along the dock: the marker follows the
+ * two small rounded shoulders, so it all moves on the native driver. The marker is round in every theme; pixel themes
+ * keep the dock's stepped corners and glowing themes make the marker glow. The
+ * slide eases out, the marker dips a little halfway, and the icons and names cross-fade with its position. Besides tapping a button, the person can slide a finger along the dock: the marker follows the
  * finger and the tab under it opens on release. A drag upwards opens the player.
  */
 export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen; onChange: (s: Screen) => void; bottom: number; onSwipeUp?: () => void }) {
@@ -44,10 +44,12 @@ export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen
   const [dockWidth, setDockWidth] = useState(0)
   const [pos] = useState(() => new Animated.Value(active))
   useEffect(() => {
-    motion(theme, pos, active, 240).start()
-  }, [active, pos, theme])
+    // The same eased glide in every theme (pixel themes too): stepping it looked like the marker was jumping
+    Animated.timing(pos, { toValue: active, duration: 340, easing: Easing.bezier(0.22, 1, 0.36, 1), useNativeDriver: true }).start()
+  }, [active, pos])
   const slot = (dockWidth - DOCK_PAD * 2) / TABS.length
-  const dotRadius = notched ? 0 : DOT / 2
+  // Halfway between two tabs the marker sinks a little into the dip and comes back up at the new tab
+  const travel = Animated.modulo(pos, 1).interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.86, 1] })
   const latest = useRef({ screen, onChange, onSwipeUp, width })
   useEffect(() => {
     latest.current = { screen, onChange, onSwipeUp, width }
@@ -77,7 +79,6 @@ export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen
     [],
   )
   /* eslint-enable react-hooks/refs */
-  const sticker = theme.shadow === "solid"
   const bg = theme.c.bg
   // Everything that slides is laid out around the first tab and moved by whole slots
   const firstCentre = 16 + DOCK_PAD + slot / 2
@@ -94,7 +95,7 @@ export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen
         ]}
       >
         {TABS.map((t, i) => (
-          <TabItem key={t.key} tab={t} on={active === i} onPress={() => onChange(t.key)} />
+          <TabItem key={t.key} tab={t} index={i} pos={pos} on={active === i} onPress={() => onChange(t.key)} />
         ))}
         {/* The dip lives inside the dock, so the dock's own corners clip it at the first and last tab */}
         {dockWidth > 0 && (
@@ -102,18 +103,14 @@ export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen
             pointerEvents="none"
             style={[styles.notchLayer, { left: DOCK_PAD + slot / 2 - span / 2, top: -NOTCH / 2, width: span, transform: [{ translateX: Animated.multiply(pos, slot) }] }]}
           >
-            <View style={{ position: "absolute", left: FILLET, top: 0, width: NOTCH, height: NOTCH, borderRadius: notched ? 0 : NOTCH / 2, backgroundColor: bg }} />
-            {!notched && (
-              <>
-                {/* Rounded shoulders where the dip meets the top edge of the dock */}
-                <View style={[styles.fillet, { left: 0, backgroundColor: bg }]}>
-                  <View style={{ position: "absolute", left: -FILLET, top: 0, width: FILLET * 2, height: FILLET * 2, borderRadius: FILLET, backgroundColor: dock }} />
-                </View>
-                <View style={[styles.fillet, { right: 0, backgroundColor: bg }]}>
-                  <View style={{ position: "absolute", left: 0, top: 0, width: FILLET * 2, height: FILLET * 2, borderRadius: FILLET, backgroundColor: dock }} />
-                </View>
-              </>
-            )}
+            <View style={{ position: "absolute", left: FILLET, top: 0, width: NOTCH, height: NOTCH, borderRadius: NOTCH / 2, backgroundColor: bg }} />
+            {/* Rounded shoulders where the dip meets the top edge of the dock */}
+            <View style={[styles.fillet, { left: 0, backgroundColor: bg }]}>
+              <View style={{ position: "absolute", left: -FILLET, top: 0, width: FILLET * 2, height: FILLET * 2, borderRadius: FILLET, backgroundColor: dock }} />
+            </View>
+            <View style={[styles.fillet, { right: 0, backgroundColor: bg }]}>
+              <View style={{ position: "absolute", left: 0, top: 0, width: FILLET * 2, height: FILLET * 2, borderRadius: FILLET, backgroundColor: dock }} />
+            </View>
           </Animated.View>
         )}
         {notched && <PixelCorners step={5} color={bg} />}
@@ -123,23 +120,39 @@ export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen
           pointerEvents="none"
           style={[
             styles.dot,
-            { left: firstCentre - DOT / 2, top: TOP - LIFT - DOT / 2, borderRadius: dotRadius, backgroundColor: theme.c.accent, transform: [{ translateX: Animated.multiply(pos, slot) }] },
-            // Sticker themes press the marker onto a flat shadow; glowing themes light it up
-            sticker && { borderBottomWidth: 4, borderRightWidth: 4, borderColor: theme.shadowColor },
+            {
+              left: firstCentre - DOT / 2,
+              top: TOP - LIFT - DOT / 2,
+              backgroundColor: theme.c.accent,
+              transform: [{ translateX: Animated.multiply(pos, slot) }, { scale: travel }],
+            },
+            // Glowing themes light the marker up; the others keep it a clean disc
             theme.shadow === "glow" && { shadowColor: theme.c.accent, shadowOpacity: 0.8, shadowRadius: 12, elevation: 8 },
           ]}
         >
-          <Icon name={TABS[active].icon} size={24} color={theme.c.onAccent} />
-          {notched && <PixelCorners step={4} color={bg} />}
+          {/* Every tab's icon is in the marker and each one fades in as the marker reaches its tab */}
+          {TABS.map((t, i) => (
+            <Animated.View key={t.key} style={[StyleSheet.absoluteFill, styles.centre, { opacity: near(pos, i) }]}>
+              <Icon name={t.icon} size={24} color={theme.c.onAccent} />
+            </Animated.View>
+          ))}
         </Animated.View>
       )}
     </View>
   )
 }
 
-/** One tab: its icon over its name. The open tab's icon is lifted into the marker, so here only its name stays, in the accent. */
-function TabItem({ tab, on, onPress }: { tab: (typeof TABS)[number]; on: boolean; onPress: () => void }) {
+/** 1 while the marker is on tab `i`, fading to 0 as it moves half a tab away */
+const near = (pos: Animated.Value, i: number) => pos.interpolate({ inputRange: [i - 0.6, i, i + 0.6], outputRange: [0, 1, 0], extrapolate: "clamp" })
+
+/**
+ * One tab: its icon over its name. As the marker arrives, the icon here fades out (it is lifted into the marker) and
+ * the name fades to the accent colour; both follow the marker's position, so they cross-fade with the slide.
+ */
+function TabItem({ tab, index, pos, on, onPress }: { tab: (typeof TABS)[number]; index: number; pos: Animated.Value; on: boolean; onPress: () => void }) {
   const theme = useTheme()
+  const here = near(pos, index)
+  const label = { fontSize: Math.min(theme.type.label.size, 11) }
   return (
     <Press
       onPress={onPress}
@@ -150,12 +163,19 @@ function TabItem({ tab, on, onPress }: { tab: (typeof TABS)[number]; on: boolean
       accessibilityState={{ selected: on }}
       style={styles.tab}
     >
-      <View style={{ opacity: on ? 0 : 1 }}>
+      <Animated.View style={{ opacity: Animated.subtract(1, here) }}>
         <Icon name={tab.icon} size={24} color={theme.c.textMuted} />
+      </Animated.View>
+      <View>
+        <T variant="label" numberOfLines={1} color={theme.c.textMuted} style={label}>
+          {tab.label}
+        </T>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: here }]}>
+          <T variant="label" numberOfLines={1} color={theme.c.accent} style={label}>
+            {tab.label}
+          </T>
+        </Animated.View>
       </View>
-      <T variant="label" numberOfLines={1} color={on ? theme.c.accent : theme.c.textMuted} style={{ fontSize: Math.min(theme.type.label.size, 11) }}>
-        {tab.label}
-      </T>
     </Press>
   )
 }
@@ -253,7 +273,8 @@ const styles = StyleSheet.create({
   dock: { flexDirection: "row", paddingHorizontal: DOCK_PAD, overflow: "hidden" },
   notchLayer: { position: "absolute", height: NOTCH },
   fillet: { position: "absolute", top: NOTCH / 2, width: FILLET, height: FILLET, overflow: "hidden" },
-  dot: { position: "absolute", width: DOT, height: DOT, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  dot: { position: "absolute", width: DOT, height: DOT, borderRadius: DOT / 2, overflow: "hidden" },
+  centre: { alignItems: "center", justifyContent: "center" },
   tab: { flex: 1, alignItems: "center", paddingTop: 12, paddingBottom: 9, gap: 4 },
   mini: { marginHorizontal: 8, marginBottom: 8, overflow: "hidden" },
   miniBody: { flexDirection: "row", alignItems: "center", gap: 10, padding: 8 },
