@@ -3,15 +3,17 @@ import Svg, { Defs, Pattern, Rect } from "react-native-svg"
 import { Art } from "./Art"
 import { T } from "./ui"
 
-// The handheld's own colours: they stay the same whatever the theme's palette is
-const BODY = "#cdcabb"
-const BODY_EDGE = "#8f8d7e"
-const BEZEL = "#5b5c70"
+// The handheld's own colours: a flat black body with lime keys, after the theme's lime-and-black look; the green
+// screen keeps the four greens of the original
+const BODY = "#1c2214"
+const BODY_EDGE = "#3a4429"
+const BEZEL = "#2a3320"
+const INK = "#8fa063"
 const LCD = "#9bbc0f"
 const LCD_DARK = "#0f380f"
-const BUTTON = "#9b2257"
-const PAD = "#2c2c36"
-const BRAND = "#2e3192"
+const BUTTON = "#c2dc66"
+const PAD = "#3a4429"
+const BRAND = "#cbe36e"
 
 /**
  * The cover of the "Bolsillo LCD" theme: the song's picture on the green screen of a pocket console. The pad moves
@@ -49,20 +51,20 @@ export function GameBoy({
   return (
     <View
       accessibilityLabel={`Consola de bolsillo. ${playing ? "Sonando" : "En pausa"}`}
-      style={{ width: w, height: h, backgroundColor: BODY, borderRadius: 12, borderBottomRightRadius: w * 0.26, borderWidth: 2, borderColor: BODY_EDGE }}
+      style={{ width: w, height: h, backgroundColor: BODY, borderRadius: 22, borderBottomRightRadius: w * 0.26 }}
     >
       {/* Grooves along the top edge */}
       <View style={{ position: "absolute", top: 8, left: 14, right: 14, height: 2, backgroundColor: BODY_EDGE, opacity: 0.55 }} />
       <View style={{ position: "absolute", top: 13, left: 14, right: 14, height: 2, backgroundColor: BODY_EDGE, opacity: 0.35 }} />
 
       {/* Screen bezel */}
-      <View style={{ position: "absolute", left: (w - bezelW) / 2 - 2, top: h * 0.07, width: bezelW, height: bezelH, backgroundColor: BEZEL, borderRadius: 8, borderBottomRightRadius: bezelW * 0.16 }}>
-        <T variant="caption" color="#c7c8e0" style={{ position: "absolute", top: 5, left: 0, right: 0, textAlign: "center", fontSize: 6, lineHeight: 8, letterSpacing: 0.6 }}>
+      <View style={{ position: "absolute", left: (w - bezelW) / 2 - 2, top: h * 0.07, width: bezelW, height: bezelH, backgroundColor: BEZEL, borderRadius: 14, borderBottomRightRadius: bezelW * 0.16 }}>
+        <T variant="caption" color={INK} style={{ position: "absolute", top: 5, left: 0, right: 0, textAlign: "center", fontSize: 6, lineHeight: 8, letterSpacing: 0.6 }}>
           PIXEL MATRIX WITH STEREO SOUND
         </T>
         <View style={{ position: "absolute", left: bezelW * 0.07, top: bezelH * 0.33, alignItems: "center", gap: 3 }}>
           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: playing ? "#e8453c" : "#6b2b2b" }} />
-          <T variant="caption" color="#c7c8e0" style={{ fontSize: 5, lineHeight: 6 }}>
+          <T variant="caption" color={INK} style={{ fontSize: 5, lineHeight: 6 }}>
             BATTERY
           </T>
         </View>
@@ -70,7 +72,7 @@ export function GameBoy({
           onPress={onToggle}
           accessibilityRole="button"
           accessibilityLabel={playing ? "Pausar" : "Reproducir"}
-          style={{ position: "absolute", left: bezelW * 0.2, top: bezelH * 0.17, width: lcdW, height: lcdH, backgroundColor: LCD, overflow: "hidden", borderWidth: 2, borderColor: "#3c3d4c" }}
+          style={{ position: "absolute", left: bezelW * 0.2, top: bezelH * 0.17, width: lcdW, height: lcdH, backgroundColor: LCD, overflow: "hidden", borderRadius: 6 }}
         >
           <Art seed={seed} size={lcdW} palette={[LCD_DARK, "#306230", "#8bac0f"]} bg={LCD} />
           {/* The picture is tinted into the four greens of the original screen */}
@@ -103,7 +105,7 @@ export function GameBoy({
       <View style={{ position: "absolute", left: w * 0.1, top: h * 0.66, width: padSize, height: padSize }}>
         <View style={{ position: "absolute", left: arm, top: 0, width: arm, height: padSize, backgroundColor: PAD, borderRadius: 3 }} />
         <View style={{ position: "absolute", top: arm, left: 0, height: arm, width: padSize, backgroundColor: PAD, borderRadius: 3 }} />
-        <View style={{ position: "absolute", left: arm + 3, top: arm + 3, width: arm - 6, height: arm - 6, borderRadius: arm, backgroundColor: "#1d1d25" }} />
+        <View style={{ position: "absolute", left: arm + 3, top: arm + 3, width: arm - 6, height: arm - 6, borderRadius: arm, backgroundColor: BODY }} />
         <Pressable onPress={onPrev} accessibilityRole="button" accessibilityLabel="Canción anterior" hitSlop={4} style={{ position: "absolute", left: 0, top: arm, width: arm + 4, height: arm }} />
         <Pressable onPress={onNext} accessibilityRole="button" accessibilityLabel="Canción siguiente" hitSlop={4} style={{ position: "absolute", right: 0, top: arm, width: arm + 4, height: arm }} />
       </View>
@@ -114,7 +116,7 @@ export function GameBoy({
           onPress={onFav}
           accessibilityRole="button"
           accessibilityLabel={fav ? "Quitar de favoritas" : "Agregar a favoritas"}
-          style={[styles.round, { left: 0, bottom: 0, width: btn, height: btn, borderRadius: btn / 2, borderWidth: fav ? 2 : 0, borderColor: "#f2c14e" }]}
+          style={[styles.round, { left: 0, bottom: 0, width: btn, height: btn, borderRadius: btn / 2, borderWidth: fav ? 2 : 0, borderColor: "#eef6d8" }]}
         />
         <Pressable
           onPress={onToggle}
@@ -134,7 +136,7 @@ export function GameBoy({
       <View style={{ position: "absolute", left: w * 0.12, right: w * 0.52, top: h * 0.87, flexDirection: "row", justifyContent: "center", gap: w * 0.07, transform: [{ rotate: "-24deg" }] }}>
         {["SELECT", "START"].map((label) => (
           <View key={label} style={{ alignItems: "center", gap: 3 }}>
-            <View style={{ width: w * 0.12, height: w * 0.034, borderRadius: w * 0.02, backgroundColor: "#7c7b70" }} />
+            <View style={{ width: w * 0.12, height: w * 0.034, borderRadius: w * 0.02, backgroundColor: PAD }} />
             <T variant="caption" color={BRAND} style={{ fontSize: 5, lineHeight: 6 }}>
               {label}
             </T>
