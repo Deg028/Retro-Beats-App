@@ -40,45 +40,88 @@ export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen
   const dock = theme.shadow === "soft" ? theme.c.surface : theme.c.surface2
   // The tab under the finger while it slides along the bar
   const [hover, setHover] = useState<number | null>(null)
-  const active = hover ?? Math.max(0, TABS.findIndex((t) => t.key === screen))
+  // The tab just chosen, held until `screen` changes: leaving the player keeps `screen` on «Canción» while the player
+  // slides down, and without this the marker went back there for a moment before moving on
+  const [chosen, setChosen] = useState<{ i: number; from: Screen } | null>(null)
+  // Once `screen` has moved on, the held choice is done with (so coming back to that screen later is not misread)
+  const [seen, setSeen] = useState(screen)
+  if (seen !== screen) {
+    setSeen(screen)
+    setChosen(null)
+  }
+  const current = Math.max(0, TABS.findIndex((t) => t.key === screen))
+  const active = hover ?? (chosen && chosen.from === screen ? chosen.i : current)
   const [dockWidth, setDockWidth] = useState(0)
   const [pos] = useState(() => new Animated.Value(active))
-  useEffect(() => {
+  // While the finger drags, the marker is moved by the finger itself, not by this glide
+  const dragging = useRef(false)
+  const glide = (to: number, duration = 340) =>
     // The same eased glide in every theme (pixel themes too): stepping it looked like the marker was jumping
-    Animated.timing(pos, { toValue: active, duration: 340, easing: Easing.bezier(0.22, 1, 0.36, 1), useNativeDriver: true }).start()
+    Animated.timing(pos, { toValue: to, duration, easing: Easing.bezier(0.22, 1, 0.36, 1), useNativeDriver: true }).start()
+  useEffect(() => {
+    if (!dragging.current) glide(active)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, pos])
   const slot = (dockWidth - DOCK_PAD * 2) / TABS.length
   // Halfway between two tabs the marker sinks a little into the dip and comes back up at the new tab
   const travel = Animated.modulo(pos, 1).interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.86, 1] })
-  const latest = useRef({ screen, onChange, onSwipeUp, width })
+  const latest = useRef({ screen, onChange, onSwipeUp, width, glide })
   useEffect(() => {
-    latest.current = { screen, onChange, onSwipeUp, width }
+    latest.current = { screen, onChange, onSwipeUp, width, glide }
   })
-  // The dock sits 16 dp in from each edge of the screen, with its own padding inside
-  const under = (x: number) => Math.max(0, Math.min(TABS.length - 1, Math.floor(((x - 16 - DOCK_PAD) / (latest.current.width - 32 - DOCK_PAD * 2)) * TABS.length)))
-  // `latest` is only read inside the gesture callbacks, never while drawing
+  // Where the finger is, in tabs (0 is the middle of the first one); the dock sits 16 dp in from each edge of the
+  // screen, with its own padding inside
+  const along = (x: number) => {
+    const slotPx = (latest.current.width - 32 - DOCK_PAD * 2) / TABS.length
+    return Math.max(0, Math.min(TABS.length - 1, (x - 16 - DOCK_PAD) / slotPx - 0.5))
+  }
+  const sideways = (g: { dx: number; dy: number }) => Math.abs(g.dx) > Math.abs(g.dy)
+  // `latest` and `dragging` are only used inside the gesture callbacks, never while drawing
   /* eslint-disable react-hooks/refs */
+  const follow = (x: number) => {
+    dragging.current = true
+    const f = along(x)
+    pos.setValue(f)
+    setHover(Math.round(f))
+  }
   const slide = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponderCapture: (_, g) => (Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4) || (g.dy < -24 && -g.dy > Math.abs(g.dx) * 1.6),
-        onPanResponderGrant: (e) => setHover(under(e.nativeEvent.pageX)),
+        onPanResponderGrant: (_, g) => {
+          if (sideways(g)) follow(g.moveX)
+        },
         onPanResponderMove: (_, g) => {
-          if (Math.abs(g.dx) > Math.abs(g.dy)) setHover(under(g.moveX))
+          if (sideways(g)) follow(g.moveX)
         },
         onPanResponderRelease: (_, g) => {
+          const { screen: now, onChange: change, onSwipeUp: up, glide: to } = latest.current
+          const wasDragging = dragging.current
+          dragging.current = false
           setHover(null)
-          const { screen: now, onChange: change, onSwipeUp: up } = latest.current
-          if (Math.abs(g.dx) > Math.abs(g.dy)) {
-            const next = TABS[under(g.moveX)].key
-            if (next !== now) change(next)
+          if (wasDragging) {
+            const i = Math.round(along(g.moveX))
+            // The marker is already near the tab: a short glide settles it there
+            to(i, 220)
+            setChosen({ i, from: now })
+            if (TABS[i].key !== now) change(TABS[i].key)
           } else if (g.dy < -50 || g.vy < -0.6) up?.()
         },
-        onPanResponderTerminate: () => setHover(null),
+        onPanResponderTerminate: () => {
+          const { screen: now, glide: to } = latest.current
+          dragging.current = false
+          setHover(null)
+          to(Math.max(0, TABS.findIndex((t) => t.key === now)), 220)
+        },
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
   /* eslint-enable react-hooks/refs */
+  const choose = (i: number) => {
+    setChosen({ i, from: screen })
+    onChange(TABS[i].key)
+  }
   const bg = theme.c.bg
   // Everything that slides is laid out around the first tab and moved by whole slots
   const firstCentre = 16 + DOCK_PAD + slot / 2
@@ -95,7 +138,7 @@ export function TabBar({ screen, onChange, bottom, onSwipeUp }: { screen: Screen
         ]}
       >
         {TABS.map((t, i) => (
-          <TabItem key={t.key} tab={t} index={i} pos={pos} on={active === i} onPress={() => onChange(t.key)} />
+          <TabItem key={t.key} tab={t} index={i} pos={pos} on={active === i} onPress={() => choose(i)} />
         ))}
         {/* The dip lives inside the dock, so the dock's own corners clip it at the first and last tab */}
         {dockWidth > 0 && (

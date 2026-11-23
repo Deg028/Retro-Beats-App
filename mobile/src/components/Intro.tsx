@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react"
 import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native"
+import { GameBoy, LCD_COLORS } from "./GameBoy"
 import { Equalizer } from "./Pixel"
 import { Icon, PixelCorners, steps } from "./ui"
 import { useTheme } from "../themes/ThemeContext"
@@ -9,7 +10,7 @@ import { VERSION_LABEL } from "../version"
 // Each opening is driven by one 0..1 value; retro intros advance in visible frames
 const SPEC: Record<Theme["intro"], { duration: number; frames?: number }> = {
   coin: { duration: 2400, frames: 40 },
-  boot: { duration: 2300, frames: 46 },
+  boot: { duration: 2800, frames: 56 },
   tape: { duration: 2300 },
   morph: { duration: 2100 },
   flicker: { duration: 2200 },
@@ -87,22 +88,29 @@ function Coin({ t, theme }: BodyProps) {
   )
 }
 
-/** Bolsillo LCD: the logo scrolls down a handheld screen, flashes, then the four tones light up. */
+/**
+ * Bolsillo LCD: the pocket console switches on. The power light comes on, the dark screen warms up to green, the
+ * «RetroBeats» logo scrolls down from the top and stops in the middle, the screen flashes, and the console settles.
+ */
 function Boot({ t, theme }: BodyProps) {
-  const tones = [theme.c.text, theme.c.border, theme.c.tonal, theme.c.surface2]
+  const { width } = useWindowDimensions()
+  const noop = () => {}
+  const screen = (w: number, h: number) => (
+    <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", backgroundColor: LCD_COLORS.light }]}>
+      <Animated.Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: theme.type.display.family, fontSize: w * 0.12, color: LCD_COLORS.dark, transform: [{ translateY: seg(t, 0.22, 0.66, -h * 0.75, 0) }] }}>
+        RetroBeats
+      </Animated.Text>
+      <Animated.Text style={{ fontFamily: theme.type.label.family, fontSize: 7, letterSpacing: 1, color: LCD_COLORS.dark, opacity: seg(t, 0.8, 0.81) }}>MODO BOLSILLO</Animated.Text>
+      {/* Off: a dark grey glass that clears as the screen warms up */}
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: "#4c5a2c", opacity: seg(t, 0.1, 0.24, 1, 0) }]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: "#d7e88a", opacity: blink(t, 0.68, 0.76, 3) }]} />
+    </View>
+  )
   return (
     <View style={styles.center}>
-      <View style={[styles.lcd, { borderColor: theme.c.text, backgroundColor: theme.c.surface }]}>
-        <Animated.Text style={{ fontFamily: theme.type.display.family, fontSize: 30, color: theme.c.text, transform: [{ translateY: seg(t, 0, 0.6, -150, 0) }] }}>Retro Beats</Animated.Text>
-        <Animated.Text style={{ fontFamily: theme.type.label.family, fontSize: 10, letterSpacing: 2, color: theme.c.textMuted, opacity: seg(t, 0.72, 0.73) }}>MODO BOLSILLO</Animated.Text>
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.c.text, opacity: blink(t, 0.62, 0.7, 3) }]} />
-        <PixelCorners step={4} color={theme.c.bg} />
-      </View>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        {tones.map((c, i) => (
-          <Animated.View key={i} style={{ width: 22, height: 22, backgroundColor: c, borderWidth: 2, borderColor: theme.c.text, opacity: seg(t, 0.75 + i * 0.05, 0.751 + i * 0.05) }} />
-        ))}
-      </View>
+      <Animated.View style={{ opacity: seg(t, 0, 0.06), transform: [{ translateY: seg(t, 0, 0.1, 24, 0) }] }}>
+        <GameBoy seed={0} width={Math.min(width * 0.6, 240)} playing={false} fav={false} onToggle={noop} onPrev={noop} onNext={noop} onFav={noop} screen={screen} led={seg(t, 0.07, 0.08)} />
+      </Animated.View>
     </View>
   )
 }
@@ -278,7 +286,6 @@ const styles = StyleSheet.create({
   version: { position: "absolute", bottom: 28, left: 0, right: 0, textAlign: "center", fontSize: 12, letterSpacing: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 22, overflow: "hidden" },
   loadBox: { width: 224, height: 22, borderWidth: 4, flexDirection: "row", gap: 2, padding: 2 },
-  lcd: { width: 260, height: 170, borderWidth: 4, alignItems: "center", justifyContent: "center", gap: 10, overflow: "hidden" },
   cassette: { width: 270, borderWidth: 2, borderRadius: 16, padding: 12, gap: 12 },
   tapeLabel: { borderRadius: 8, paddingVertical: 10, alignItems: "center", gap: 2 },
   window: { height: 64, borderRadius: 32, borderWidth: 2, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8 },
